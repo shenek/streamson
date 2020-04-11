@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+	"streamson-bin",
+	"streamson-lib",
+]
