@@ -3,6 +3,13 @@ name = "streamson-bin"
 version = "0.1.0"
 authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
+description = "A program which processess large JSON input and splits them into a small ones."
+license = "MIT"
+readme = "../README.md"
+keywords = ["json"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
 
 [dependencies]
+clap = "2.33"
 streamson-lib = { path = "../streamson-lib/" }

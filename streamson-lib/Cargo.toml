@@ -3,5 +3,12 @@ name = "streamson-lib"
 version = "0.1.0"
 authors = ["Stepan Henek"]
 edition = "2018"
+description = "Library for splitting large JSONs"
+license = "MIT"
+readme = "../README.md"
+keywords = ["json"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
 
 [dependencies]
+bytes = "0.5"

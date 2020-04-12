@@ -25,8 +25,8 @@ Path
 
 Output:
 ```
-{"books"}[0] {"title": "title 1", "authors": ['author1@exmaple.com']}
-{"books"}[1] {"title": "title 2", "authors": ['author2@example.com', 'author3@example.com']}
+{"books"}[0]: {"title": "title 1", "authors": ['author1@exmaple.com']}
+{"books"}[1]: {"title": "title 2", "authors": ['author2@example.com', 'author3@example.com']}
 ```
 
 Path
@@ -36,8 +36,8 @@ Path
 
 Output:
 ```
-{"books"}[0]{"authors"} ['author1@exmaple.com']
-{"books"}[1]{"authors"} ['author2@example.com', 'author3@example.com']
+{"books"}[0]{"authors"}: ['author1@exmaple.com']
+{"books"}[1]{"authors"}: ['author2@example.com', 'author3@example.com']
 ```
 
 Path
@@ -47,6 +47,6 @@ Path
 
 Output:
 ```
-{"books"}[0]{"title"} "title 1"
-{"books"}[0]{"authors"} ["author1@exmaple.com"]
+{"books"}[0]{"title"}: "title 1"
+{"books"}[0]{"authors"}: ["author1@exmaple.com"]
 ```
