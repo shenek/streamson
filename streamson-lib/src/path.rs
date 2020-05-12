@@ -34,13 +34,19 @@ pub enum Output {
 #[derive(Debug)]
 enum ObjectKeyState {
     Init,
-    Parse,
+    Parse(StringState),
+}
+
+#[derive(Debug, PartialEq)]
+enum StringState {
+    Normal,
+    Escaped,
 }
 
 #[derive(Debug)]
 enum States {
     Value(Element),
-    Str,
+    Str(StringState),
     Number,
     Bool,
     Null,
@@ -151,7 +157,7 @@ impl Emitter {
                     if let Some(chr) = self.peek() {
                         match chr {
                             '"' => {
-                                self.states.push(States::Str);
+                                self.states.push(States::Str(StringState::Normal));
                                 self.advance();
                                 self.forward();
                                 self.path.push(element);
@@ -205,20 +211,36 @@ impl Emitter {
                         return Ok(Output::Pending);
                     }
                 }
-                States::Str => {
+                States::Str(state) => {
                     if let Some(chr) = self.peek() {
-                        if chr != '"' {
-                            self.forward();
-                            self.states.push(States::Str);
-                        } else {
-                            self.forward();
-                            self.advance();
-                            let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| GenericError)?;
-                            return Ok(Output::End(self.total_idx, prev_path));
+                        match chr {
+                            '"' => {
+                                if state == StringState::Normal {
+                                    self.forward();
+                                    self.advance();
+                                    let prev_path = self.display_path();
+                                    self.path.pop().ok_or_else(|| GenericError)?;
+                                    return Ok(Output::End(self.total_idx, prev_path));
+                                } else {
+                                    self.forward();
+                                    self.states.push(States::Str(StringState::Normal));
+                                }
+                            }
+                            '\\' => {
+                                self.forward();
+                                let new_state = match state {
+                                    StringState::Escaped => StringState::Normal,
+                                    StringState::Normal => StringState::Escaped,
+                                };
+                                self.states.push(States::Str(new_state));
+                            }
+                            _ => {
+                                self.forward();
+                                self.states.push(States::Str(StringState::Normal));
+                            }
                         }
                     } else {
-                        self.states.push(States::Str);
+                        self.states.push(States::Str(state));
                         return Ok(Output::Pending);
                     }
                 }
@@ -326,7 +348,9 @@ impl Emitter {
                                     '"' => {
                                         self.advance(); // move cursor to the start
                                         self.forward();
-                                        self.states.push(States::ObjectKey(ObjectKeyState::Parse));
+                                        self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                            StringState::Normal,
+                                        )));
                                     }
                                     '}' => {} // end has been reached to Object
                                     _ => return Err(GenericError), // keys are strings in JSON
@@ -336,22 +360,41 @@ impl Emitter {
                                 return Ok(Output::Pending);
                             }
                         }
-                        ObjectKeyState::Parse => {
+                        ObjectKeyState::Parse(string_state) => {
                             if let Some(chr) = self.peek() {
                                 self.forward();
-                                if chr == '"' {
-                                    let key = from_utf8(&self.pending[1..self.pending_idx - 1])
-                                        .map_err(|_| GenericError)?
-                                        .to_string();
-                                    self.states.push(States::Value(Element::Key(key)));
-                                    self.states.push(States::RemoveWhitespaces);
-                                    self.states.push(States::Colon);
-                                    self.states.push(States::RemoveWhitespaces);
-                                } else {
-                                    self.states.push(States::ObjectKey(ObjectKeyState::Parse));
+                                match string_state {
+                                    StringState::Normal => match chr {
+                                        '\"' => {
+                                            let key =
+                                                from_utf8(&self.pending[1..self.pending_idx - 1])
+                                                    .map_err(|_| GenericError)?
+                                                    .to_string();
+                                            self.states.push(States::Value(Element::Key(key)));
+                                            self.states.push(States::RemoveWhitespaces);
+                                            self.states.push(States::Colon);
+                                            self.states.push(States::RemoveWhitespaces);
+                                        }
+                                        '\\' => {
+                                            self.states.push(States::ObjectKey(
+                                                ObjectKeyState::Parse(StringState::Escaped),
+                                            ));
+                                        }
+                                        _ => {
+                                            self.states.push(States::ObjectKey(
+                                                ObjectKeyState::Parse(StringState::Normal),
+                                            ));
+                                        }
+                                    },
+                                    StringState::Escaped => {
+                                        self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                            StringState::Normal,
+                                        )));
+                                    }
                                 }
                             } else {
-                                self.states.push(States::ObjectKey(state));
+                                self.states
+                                    .push(States::ObjectKey(ObjectKeyState::Parse(string_state)));
                                 return Ok(Output::Pending);
                             }
                         }
@@ -389,9 +432,9 @@ mod tests {
     #[test]
     fn test_string() {
         let mut emitter = Emitter::new();
-        emitter.feed(br#"  "test string [ ] {} , :""#);
+        emitter.feed(br#"  "test string \" \\\" [ ] {} , :\\""#);
         assert_eq!(emitter.read().unwrap(), Output::Start(2, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(26, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::End(36, "".into()));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
 
         let mut emitter = Emitter::new();
@@ -501,7 +544,7 @@ mod tests {
     #[test]
     fn test_object() {
         let mut emitter = Emitter::new();
-        emitter.feed(br#"{"a":"a", "b" :  true , "c": null}"#);
+        emitter.feed(br#"{"a":"a", "b" :  true , "c": null, " \" \\\" \\": 33}"#);
         assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
         assert_eq!(emitter.read().unwrap(), Output::Start(5, "{\"a\"}".into()));
         assert_eq!(emitter.read().unwrap(), Output::End(8, "{\"a\"}".into()));
@@ -509,7 +552,15 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::End(21, "{\"b\"}".into()));
         assert_eq!(emitter.read().unwrap(), Output::Start(29, "{\"c\"}".into()));
         assert_eq!(emitter.read().unwrap(), Output::End(33, "{\"c\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(34, "".into()));
+        assert_eq!(
+            emitter.read().unwrap(),
+            Output::Start(50, r#"{" \" \\\" \\"}"#.into())
+        );
+        assert_eq!(
+            emitter.read().unwrap(),
+            Output::End(52, r#"{" \" \\\" \\"}"#.into())
+        );
+        assert_eq!(emitter.read().unwrap(), Output::End(53, "".into()));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -572,7 +623,6 @@ mod tests {
                         continue;
                     }
                     Ok(e) => {
-                        dbg!(&e);
                         return e;
                     }
                     Err(_) => panic!("Error occured"),
