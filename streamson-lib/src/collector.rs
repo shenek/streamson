@@ -1,5 +1,5 @@
 use crate::{
-    error::GenericError,
+    error,
     handler::Handler,
     matcher::MatchMaker,
     path::{Emitter, Output},
@@ -17,6 +17,8 @@ struct StackItem {
     match_idx: usize,
 }
 
+type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
+
 #[derive(Default)]
 pub struct Collector {
     /// Input idx against total idx
@@ -26,7 +28,7 @@ pub struct Collector {
     /// Buffer which is used to store collected data
     buffer: Option<BytesMut>,
     /// Path matchers and handlers
-    matchers: Vec<(Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>)>,
+    matchers: Vec<MatcherItem>,
     /// Emits path from data
     emitter: Emitter,
     /// Path stack
@@ -47,7 +49,7 @@ impl Collector {
         self
     }
 
-    pub fn process(&mut self, input: &[u8]) -> Result<bool, GenericError> {
+    pub fn process(&mut self, input: &[u8]) -> Result<bool, error::Generic> {
         self.emitter.feed(input);
         let mut inner_idx = 0;
         loop {
@@ -120,7 +122,7 @@ impl Collector {
 #[cfg(test)]
 mod tests {
     use super::Collector;
-    use crate::{error::GenericError, handler::Handler, matcher::Simple};
+    use crate::{error, handler::Handler, matcher::Simple};
     use bytes::Bytes;
     use std::sync::{Arc, Mutex};
 
@@ -131,7 +133,7 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), GenericError> {
+        fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic> {
             self.paths.push(path.to_string());
             self.data.push(Bytes::from(data.to_vec()));
             Ok(())

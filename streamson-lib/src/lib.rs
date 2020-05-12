@@ -5,7 +5,6 @@ pub mod matcher;
 pub mod path;
 
 pub use collector::Collector;
-pub use error::GenericError;
 pub use handler::{Handler, PrintLn};
 pub use matcher::{MatchMaker, Simple};
 pub use path::{Emitter, Output};

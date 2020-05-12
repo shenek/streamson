@@ -3,11 +3,11 @@ use std::{
     io::{stdin, Read},
     sync::{Arc, Mutex},
 };
-use streamson_lib::{Collector, GenericError, PrintLn, Simple};
+use streamson_lib::{error, Collector, PrintLn, Simple};
 
 const BUFFER_SIZE: usize = 2048;
 
-fn main() -> Result<(), GenericError> {
+fn main() -> Result<(), error::Generic> {
     let app = App::new(crate_name!())
         .author(crate_authors!())
         .version(crate_version!())

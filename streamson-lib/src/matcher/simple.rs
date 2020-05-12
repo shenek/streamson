@@ -179,12 +179,11 @@ impl MatchMaker for Simple {
 }
 
 impl FromStr for Simple {
-    type Err = error::GenericError;
+    type Err = error::Generic;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // TODO error handling
         Ok(Self {
             path_expr: s.into(),
-            ..Self::default()
         })
     }
 }

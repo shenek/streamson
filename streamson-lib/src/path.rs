@@ -1,4 +1,4 @@
-use crate::error::GenericError;
+use crate::error;
 use bytes::{Buf, BytesMut};
 use std::{fmt, str::from_utf8};
 
@@ -144,7 +144,7 @@ impl Emitter {
         false
     }
 
-    pub fn read(&mut self) -> Result<Output, GenericError> {
+    pub fn read(&mut self) -> Result<Output, error::Generic> {
         while let Some(state) = self.states.pop() {
             match state {
                 States::RemoveWhitespaces => {
@@ -204,7 +204,7 @@ impl Emitter {
                             ']' | '}' => {
                                 // End of an array or object -> no value matched
                             }
-                            _ => return Err(GenericError),
+                            _ => return Err(error::Generic),
                         }
                     } else {
                         self.states.push(States::Value(element));
@@ -219,7 +219,7 @@ impl Emitter {
                                     self.forward();
                                     self.advance();
                                     let prev_path = self.display_path();
-                                    self.path.pop().ok_or_else(|| GenericError)?;
+                                    self.path.pop().ok_or_else(|| error::Generic)?;
                                     return Ok(Output::End(self.total_idx, prev_path));
                                 } else {
                                     self.forward();
@@ -252,7 +252,7 @@ impl Emitter {
                         } else {
                             self.advance();
                             let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| GenericError)?;
+                            self.path.pop().ok_or_else(|| error::Generic)?;
                             return Ok(Output::End(self.total_idx, prev_path));
                         }
                     } else {
@@ -268,7 +268,7 @@ impl Emitter {
                         } else {
                             self.advance();
                             let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| GenericError)?;
+                            self.path.pop().ok_or_else(|| error::Generic)?;
                             return Ok(Output::End(self.total_idx, prev_path));
                         }
                     } else {
@@ -284,7 +284,7 @@ impl Emitter {
                         } else {
                             self.advance();
                             let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| GenericError)?;
+                            self.path.pop().ok_or_else(|| error::Generic)?;
                             return Ok(Output::End(self.total_idx, prev_path));
                         }
                     } else {
@@ -299,7 +299,7 @@ impl Emitter {
                                 self.forward();
                                 self.advance();
                                 let exported_path = self.display_path();
-                                self.path.pop().ok_or(GenericError)?;
+                                self.path.pop().ok_or(error::Generic)?;
                                 return Ok(Output::End(self.total_idx, exported_path));
                             }
                             ',' => {
@@ -309,7 +309,7 @@ impl Emitter {
                                 self.states.push(States::Value(Element::Index(idx + 1)));
                                 self.states.push(States::RemoveWhitespaces);
                             }
-                            _ => return Err(GenericError),
+                            _ => return Err(error::Generic),
                         }
                     } else {
                         self.states.push(States::Array(idx));
@@ -323,7 +323,7 @@ impl Emitter {
                                 self.forward();
                                 self.advance();
                                 let exported_path = self.display_path();
-                                self.path.pop().ok_or_else(|| GenericError)?;
+                                self.path.pop().ok_or_else(|| error::Generic)?;
                                 return Ok(Output::End(self.total_idx, exported_path));
                             }
                             ',' => {
@@ -333,7 +333,7 @@ impl Emitter {
                                 self.states.push(States::ObjectKey(ObjectKeyState::Init));
                                 self.states.push(States::RemoveWhitespaces);
                             }
-                            _ => return Err(GenericError),
+                            _ => return Err(error::Generic),
                         }
                     } else {
                         self.states.push(States::Object);
@@ -353,7 +353,7 @@ impl Emitter {
                                         )));
                                     }
                                     '}' => {} // end has been reached to Object
-                                    _ => return Err(GenericError), // keys are strings in JSON
+                                    _ => return Err(error::Generic), // keys are strings in JSON
                                 }
                             } else {
                                 self.states.push(States::ObjectKey(state));
@@ -368,7 +368,7 @@ impl Emitter {
                                         '\"' => {
                                             let key =
                                                 from_utf8(&self.pending[1..self.pending_idx - 1])
-                                                    .map_err(|_| GenericError)?
+                                                    .map_err(|_| error::Generic)?
                                                     .to_string();
                                             self.states.push(States::Value(Element::Key(key)));
                                             self.states.push(States::RemoveWhitespaces);
@@ -404,7 +404,7 @@ impl Emitter {
                     // Process colon
                     if let Some(chr) = self.peek() {
                         if chr != ':' {
-                            return Err(GenericError);
+                            return Err(error::Generic);
                         }
                         self.forward();
                     } else {
