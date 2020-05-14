@@ -108,17 +108,43 @@ impl Emitter {
             .join("")
     }
 
-    fn peek(&self) -> Option<char> {
+    fn peek(&self) -> Result<Option<char>, error::Generic> {
+        let get_char = |size: usize| {
+            if self.pending.len() >= self.pending_idx + size {
+                let decoded = from_utf8(&self.pending[self.pending_idx..self.pending_idx + size])
+                    .map_err(|_| error::Generic)?;
+                Ok(decoded.chars().next()) // Should only return only a single character
+            } else {
+                Ok(None)
+            }
+        };
         if self.pending.len() > self.pending_idx {
-            let chr: char = self.pending[self.pending_idx].into();
-            Some(chr)
+            match self.pending[self.pending_idx] {
+                0b0000_0000..=0b0111_1111 => get_char(1),
+                0b1100_0000..=0b1101_1111 => get_char(2),
+                0b1110_0000..=0b1110_1111 => get_char(3),
+                0b1111_0000..=0b1111_0111 => get_char(4),
+                _ => {
+                    // input is not UTF8
+                    Err(error::Generic)
+                }
+            }
         } else {
-            None
+            Ok(None)
         }
     }
 
-    fn forward(&mut self) {
-        self.pending_idx += 1;
+    /// Err -> wrong utf-8
+    /// Ok(None) -> need more data
+    /// Ok(usize) -> read X characters (1-4)
+    fn forward(&mut self) -> Result<Option<usize>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            let len = chr.len_utf8();
+            self.pending_idx += len;
+            Ok(Some(len))
+        } else {
+            Ok(None)
+        }
     }
 
     fn advance(&mut self) {
@@ -133,33 +159,34 @@ impl Emitter {
         self.pending.extend(input);
     }
 
-    fn remove_whitespaces(&mut self) -> bool {
-        while let Some(chr) = self.peek() {
+    fn remove_whitespaces(&mut self) -> Result<Option<usize>, error::Generic> {
+        let mut size = 0;
+        while let Some(chr) = self.peek()? {
             if !chr.is_ascii_whitespace() {
                 self.advance();
-                return true;
+                return Ok(Some(size));
             }
-            self.forward();
+            size += self.forward()?.unwrap();
         }
-        false
+        Ok(None)
     }
 
     pub fn read(&mut self) -> Result<Output, error::Generic> {
         while let Some(state) = self.states.pop() {
             match state {
                 States::RemoveWhitespaces => {
-                    if !self.remove_whitespaces() {
+                    if self.remove_whitespaces()?.is_none() {
                         self.states.push(States::RemoveWhitespaces);
                         return Ok(Output::Pending);
                     }
                 }
                 States::Value(element) => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         match chr {
                             '"' => {
                                 self.states.push(States::Str(StringState::Normal));
                                 self.advance();
-                                self.forward();
+                                self.forward()?;
                                 self.path.push(element);
                                 return Ok(Output::Start(self.total_idx, self.display_path()));
                             }
@@ -187,7 +214,7 @@ impl Emitter {
                                 self.states.push(States::Value(Element::Index(0)));
                                 self.states.push(States::RemoveWhitespaces);
                                 self.advance();
-                                self.forward();
+                                self.forward()?;
                                 self.path.push(element);
                                 return Ok(Output::Start(self.total_idx, self.display_path()));
                             }
@@ -197,7 +224,7 @@ impl Emitter {
                                 self.states.push(States::ObjectKey(ObjectKeyState::Init));
                                 self.states.push(States::RemoveWhitespaces);
                                 self.advance();
-                                self.forward();
+                                self.forward()?;
                                 self.path.push(element);
                                 return Ok(Output::Start(self.total_idx, self.display_path()));
                             }
@@ -212,22 +239,22 @@ impl Emitter {
                     }
                 }
                 States::Str(state) => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         match chr {
                             '"' => {
                                 if state == StringState::Normal {
-                                    self.forward();
+                                    self.forward()?;
                                     self.advance();
                                     let prev_path = self.display_path();
                                     self.path.pop().ok_or_else(|| error::Generic)?;
                                     return Ok(Output::End(self.total_idx, prev_path));
                                 } else {
-                                    self.forward();
+                                    self.forward()?;
                                     self.states.push(States::Str(StringState::Normal));
                                 }
                             }
                             '\\' => {
-                                self.forward();
+                                self.forward()?;
                                 let new_state = match state {
                                     StringState::Escaped => StringState::Normal,
                                     StringState::Normal => StringState::Escaped,
@@ -235,7 +262,7 @@ impl Emitter {
                                 self.states.push(States::Str(new_state));
                             }
                             _ => {
-                                self.forward();
+                                self.forward()?;
                                 self.states.push(States::Str(StringState::Normal));
                             }
                         }
@@ -245,9 +272,9 @@ impl Emitter {
                     }
                 }
                 States::Number => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         if chr.is_digit(10) || chr == '.' {
-                            self.forward();
+                            self.forward()?;
                             self.states.push(States::Number);
                         } else {
                             self.advance();
@@ -261,9 +288,9 @@ impl Emitter {
                     }
                 }
                 States::Bool => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         if chr.is_alphabetic() {
-                            self.forward();
+                            self.forward()?;
                             self.states.push(States::Bool);
                         } else {
                             self.advance();
@@ -277,9 +304,9 @@ impl Emitter {
                     }
                 }
                 States::Null => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         if chr.is_alphabetic() {
-                            self.forward();
+                            self.forward()?;
                             self.states.push(States::Null);
                         } else {
                             self.advance();
@@ -293,17 +320,17 @@ impl Emitter {
                     }
                 }
                 States::Array(idx) => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         match chr {
                             ']' => {
-                                self.forward();
+                                self.forward()?;
                                 self.advance();
                                 let exported_path = self.display_path();
                                 self.path.pop().ok_or(error::Generic)?;
                                 return Ok(Output::End(self.total_idx, exported_path));
                             }
                             ',' => {
-                                self.forward();
+                                self.forward()?;
                                 self.states.push(States::Array(idx + 1));
                                 self.states.push(States::RemoveWhitespaces);
                                 self.states.push(States::Value(Element::Index(idx + 1)));
@@ -317,17 +344,17 @@ impl Emitter {
                     }
                 }
                 States::Object => {
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         match chr {
                             '}' => {
-                                self.forward();
+                                self.forward()?;
                                 self.advance();
                                 let exported_path = self.display_path();
                                 self.path.pop().ok_or_else(|| error::Generic)?;
                                 return Ok(Output::End(self.total_idx, exported_path));
                             }
                             ',' => {
-                                self.forward();
+                                self.forward()?;
                                 self.states.push(States::Object);
                                 self.states.push(States::RemoveWhitespaces);
                                 self.states.push(States::ObjectKey(ObjectKeyState::Init));
@@ -343,11 +370,11 @@ impl Emitter {
                 States::ObjectKey(state) => {
                     match state {
                         ObjectKeyState::Init => {
-                            if let Some(chr) = self.peek() {
+                            if let Some(chr) = self.peek()? {
                                 match chr {
                                     '"' => {
                                         self.advance(); // move cursor to the start
-                                        self.forward();
+                                        self.forward()?;
                                         self.states.push(States::ObjectKey(ObjectKeyState::Parse(
                                             StringState::Normal,
                                         )));
@@ -361,8 +388,8 @@ impl Emitter {
                             }
                         }
                         ObjectKeyState::Parse(string_state) => {
-                            if let Some(chr) = self.peek() {
-                                self.forward();
+                            if let Some(chr) = self.peek()? {
+                                self.forward()?;
                                 match string_state {
                                     StringState::Normal => match chr {
                                         '\"' => {
@@ -402,11 +429,11 @@ impl Emitter {
                 }
                 States::Colon => {
                     // Process colon
-                    if let Some(chr) = self.peek() {
+                    if let Some(chr) = self.peek()? {
                         if chr != ':' {
                             return Err(error::Generic);
                         }
-                        self.forward();
+                        self.forward()?;
                     } else {
                         self.states.push(States::Colon);
                         return Ok(Output::Pending);
@@ -672,6 +699,72 @@ mod tests {
             assert_eq!(get_item(), Output::End(87, "[3]".into()));
             assert_eq!(get_item(), Output::End(89, "".into()));
             assert_eq!(get_item(), Output::Finished);
+        }
+    }
+
+    #[test]
+    fn test_utf8() {
+        // try to cover all utf8 character lengths
+        let utf8_data: Vec<u8> = r#"[{"š𐍈€": "€š𐍈"}, "𐍈€š"]"#.to_string().into_bytes();
+        for i in 0..utf8_data.len() {
+            let start_data = &utf8_data[0..i];
+            let end_data = &utf8_data[i..];
+            let mut emitter = Emitter::new();
+
+            // feed the first part
+            emitter.feed(start_data);
+
+            // Gets next item and feed the rest of the data when pending
+            let mut get_item = || loop {
+                match emitter.read() {
+                    Ok(Output::Pending) => {
+                        emitter.feed(end_data);
+                        continue;
+                    }
+                    Ok(e) => {
+                        return e;
+                    }
+                    Err(_) => panic!("Error occured"),
+                }
+            };
+
+            assert_eq!(get_item(), Output::Start(0, "".into()));
+            assert_eq!(get_item(), Output::Start(1, "[0]".into()));
+            assert_eq!(get_item(), Output::Start(15, "[0]{\"š𐍈€\"}".into()));
+            assert_eq!(get_item(), Output::End(26, "[0]{\"š𐍈€\"}".into()));
+            assert_eq!(get_item(), Output::End(27, "[0]".into()));
+            assert_eq!(get_item(), Output::Start(29, "[1]".into()));
+            assert_eq!(get_item(), Output::End(40, "[1]".into()));
+            assert_eq!(get_item(), Output::End(41, "".into()));
+            assert_eq!(get_item(), Output::Finished);
+        }
+    }
+
+    #[test]
+    fn test_utf8_error() {
+        let error_occured = |mut emitter: Emitter| loop {
+            match emitter.read() {
+                Ok(Output::Pending) | Ok(Output::Finished) => {
+                    return false;
+                }
+                Ok(_) => (),
+                Err(_) => {
+                    return true;
+                }
+            }
+        };
+
+        let error_inputs = vec![
+            vec![b'"', 0b1000_0000, b'"'],
+            vec![b'"', 0b1111_1000, b'"'],
+            vec![b'"', 0b1100_0000, b'1', b'"'],
+            vec![b'"', 0b1110_0000, 0b1000_0000, b'2', b'"'],
+            vec![b'"', 0b1111_0000, 0b1000_0000, 0b1000_0000, b'3', b'"'],
+        ];
+        for input in error_inputs {
+            let mut emitter = Emitter::new();
+            emitter.feed(&input[..]);
+            assert!(error_occured(emitter));
         }
     }
 }
