@@ -12,3 +12,6 @@ categories = ["parsing"]
 
 [dependencies]
 bytes = "0.5"
+
+[dev-dependencies]
+tempfile = "3.1"

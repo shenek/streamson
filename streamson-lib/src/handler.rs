@@ -1,7 +1,9 @@
 use crate::error;
 
+pub mod file;
 pub mod println;
 
+pub use file::File;
 pub use println::PrintLn;
 
 pub trait Handler {

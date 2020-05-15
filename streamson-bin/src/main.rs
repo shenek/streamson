@@ -3,7 +3,7 @@ use std::{
     io::{stdin, Read},
     sync::{Arc, Mutex},
 };
-use streamson_lib::{error, Collector, PrintLn, Simple};
+use streamson_lib::{error, handler, Collector, Simple};
 
 const BUFFER_SIZE: usize = 2048;
 
@@ -25,7 +25,7 @@ fn main() -> Result<(), error::Generic> {
     let matches = app.get_matches();
 
     let mut collector = Collector::new();
-    let handler = Arc::new(Mutex::new(PrintLn));
+    let handler = Arc::new(Mutex::new(handler::PrintLn));
 
     if let Some(simple_matches) = matches.values_of("simple") {
         for simple in simple_matches {

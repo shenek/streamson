@@ -4,6 +4,7 @@ use std::str;
 
 pub struct PrintLn;
 
+/// Prints obtained data to stdout
 impl Handler for PrintLn {
     fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic> {
         println!(
