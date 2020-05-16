@@ -1,3 +1,5 @@
+//! Emits paths with indexes from input data
+
 use crate::error;
 use bytes::{Buf, BytesMut};
 use std::{fmt, str::from_utf8};
@@ -19,6 +21,7 @@ impl fmt::Display for Element {
     }
 }
 
+/// Output of path processing
 #[derive(Debug, PartialEq)]
 pub enum Output {
     /// Path begings here
@@ -59,27 +62,45 @@ enum States {
 
 /// Reads parts of UTF-8 json input and emits paths
 /// e.g. reading of
+/// ```json
 /// {
 ///     "People": [
 ///         {"Height": 180, "Age": 33},
 ///         {"Height": 175, "Age": 24}
 ///     ]
 /// }
-///
+/// ```
 /// should emit (index and path)
-/// X1, {"People"}
-/// X2, {"People"}[0]
-/// X3, {"People"}[0]{"Height"}
-/// X4, {"People"}[0]{"Age"}
-/// X5, {"People"}[1]
-/// X6, {"People"}[1]{"Height"}
-/// X7, {"People"}[1]{"Age"}
+/// ```text
+/// Start( 0, "")
+/// Start( 1, "{\"People\"}")
+/// Start( 3, "{\"People\"}[0]")
+/// Start( 4, "{\"People\"}[0]{\"Height\"}")
+/// End(   5, "{\"People\"}[0]{\"Height\"}")
+/// Start( 6, "{\"People\"}[0]{\"Age\"}")
+/// End(   7, "{\"People\"}[0]{\"Age\"}")
+/// End(   8, "{\"People\"}[0]")
+/// Start( 9, "{\"People\"}[1]")
+/// Start(10, "{\"People\"}[1]{\"Height\"}")
+/// End(  11, "{\"People\"}[1]{\"Height\"}")
+/// Start(12, "{\"People\"}[1]{\"Age\"}")
+/// End(  13, "{\"People\"}[1]{\"Age\"}")
+/// End(  14, "{\"People\"}[1]")
+/// End(  15, "{\"People\"}")
+/// End(  16, "")
+/// Finished
+/// ```
 #[derive(Debug)]
 pub struct Emitter {
+    /// Paths stack
     path: Vec<Element>,
+    /// Paring elements stack
     states: Vec<States>,
+    /// Pending buffer
     pending: BytesMut,
+    /// Total index of pending buffer
     pending_idx: usize,
+    /// Total index agains the first byte passed to input
     total_idx: usize,
 }
 
@@ -96,10 +117,12 @@ impl Default for Emitter {
 }
 
 impl Emitter {
+    /// Creates a new path emitter
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Shows current path
     fn display_path(&self) -> String {
         self.path
             .iter()
@@ -108,6 +131,7 @@ impl Emitter {
             .join("")
     }
 
+    /// Checks which utf8 character is currently process
     fn peek(&self) -> Result<Option<char>, error::Generic> {
         let get_char = |size: usize| {
             if self.pending.len() >= self.pending_idx + size {
@@ -134,9 +158,12 @@ impl Emitter {
         }
     }
 
-    /// Err -> wrong utf-8
-    /// Ok(None) -> need more data
-    /// Ok(usize) -> read X characters (1-4)
+    /// Moves current curser character forward
+    ///
+    /// # Errors
+    /// * `Err(_)` -> wrong utf-8
+    /// * Ok(None) -> need more data
+    /// * Ok(usize) -> read X characters (1-4)
     fn forward(&mut self) -> Result<Option<usize>, error::Generic> {
         if let Some(chr) = self.peek()? {
             let len = chr.len_utf8();
@@ -147,6 +174,7 @@ impl Emitter {
         }
     }
 
+    /// Muves pending buffer forward (reallocates data)
     fn advance(&mut self) {
         if self.pending_idx > 0 {
             self.pending.advance(self.pending_idx);
@@ -155,10 +183,12 @@ impl Emitter {
         }
     }
 
+    /// Feed emitter with data
     pub fn feed(&mut self, input: &[u8]) {
         self.pending.extend(input);
     }
 
+    /// Moves cursor forward while characters are namespace
     fn remove_whitespaces(&mut self) -> Result<Option<usize>, error::Generic> {
         let mut size = 0;
         while let Some(chr) = self.peek()? {
@@ -171,6 +201,12 @@ impl Emitter {
         Ok(None)
     }
 
+    /// Reads data from emitter and emits [Output](enum.Output.html) struct
+    ///
+    /// # Errors
+    ///
+    /// If invalid JSON is passed and error may be emitted.
+    /// Note that validity of input JSON is not checked.
     pub fn read(&mut self) -> Result<Output, error::Generic> {
         while let Some(state) = self.states.pop() {
             match state {

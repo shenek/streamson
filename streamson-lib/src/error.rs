@@ -1,5 +1,10 @@
+//! Module containing errors
+
 use std::{error::Error, fmt};
 
+/// Generic Error
+///
+/// Currently the only error kind is used
 #[derive(Debug, PartialEq, Clone)]
 pub struct Generic;
 

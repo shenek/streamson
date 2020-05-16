@@ -1,3 +1,5 @@
+//! Handler which puts output into a file
+
 use super::Handler;
 use crate::error;
 use std::{
@@ -5,13 +7,33 @@ use std::{
     io::{self, Write},
 };
 
+/// File handler responsible for storing data to a file.
 pub struct File {
+    /// Opened file structure for storing output
     file: fs::File,
+
+    /// Indicator whether the path will be displayed
+    /// e.g. `{"items"}: {"sub": 4}` vs `{"sub": 4}`
     show_path: bool,
+
+    /// String which will be appended to the end of each record
+    /// to separate it with the next record (default '#')
     separator: String,
 }
 
 impl File {
+    /// Creates new File handler
+    ///
+    /// # Arguments
+    /// * `fs_path` - path to a file in the file system (will be truncated)
+    ///
+    /// # Returns
+    /// * `Ok(File)` - Handler was successfully created
+    /// * `Err(_)` - Failed to create handler
+    ///
+    /// # Errors
+    ///
+    /// Error might occur when the file fails to open
     pub fn new(fs_path: &str) -> io::Result<Self> {
         let file = fs::File::create(fs_path)?;
         Ok(Self {
@@ -21,11 +43,37 @@ impl File {
         })
     }
 
+    /// Set whether to show path
+    ///
+    /// # Arguments
+    /// * `show_path` - should path be shown in the output
+    ///
+    /// # Example
+    /// ```
+    /// use streamson_lib::handler;
+    /// let file = handler::File::new("/tmp/output.txt")
+    ///     .unwrap()
+    ///     .set_show_path(true);
+    /// ```
     pub fn set_show_path(mut self, show_path: bool) -> Self {
         self.show_path = show_path;
         self
     }
 
+    /// Set which separator will be used in the output
+    ///
+    /// Note that every separator will be extended to every found item.
+    ///
+    /// # Arguments
+    /// * `separator` - how found record will be separated
+    ///
+    /// # Example
+    /// ```
+    /// use streamson_lib::handler;
+    /// let file = handler::File::new("/tmp/output.txt")
+    ///     .unwrap()
+    ///     .set_separator("######\n");
+    /// ```
     pub fn set_separator<S>(mut self, separator: S) -> Self
     where
         S: ToString,

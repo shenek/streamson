@@ -1,3 +1,7 @@
+//! The main logic of JSON processing
+//!
+//! It puts together matchers, handlers and path extraction.
+
 use crate::{
     error,
     handler::Handler,
@@ -17,8 +21,10 @@ struct StackItem {
     match_idx: usize,
 }
 
+/// Item in matcher list
 type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 
+/// Processes data from input and triggers handlers
 #[derive(Default)]
 pub struct Collector {
     /// Input idx against total idx
@@ -36,10 +42,31 @@ pub struct Collector {
 }
 
 impl Collector {
+    /// Creates new collector
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns a `Collector` with extended matcher and handlers
+    ///
+    /// # Arguments
+    /// * `matcher` - matcher which matches the path
+    /// * `handlers` - list of handlers to be triggers when path matches
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use streamson_lib::{Collector, matcher, handler};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let mut collector = Collector::new();
+    /// let handler = handler::PrintLn::new();
+    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#);
+    /// let collector = Collector::new().add_matcher(
+    ///     Box::new(matcher),
+    ///     &[Arc::new(Mutex::new(handler))]
+    /// );
+    /// ```
     pub fn add_matcher(
         mut self,
         matcher: Box<dyn MatchMaker>,
@@ -49,6 +76,33 @@ impl Collector {
         self
     }
 
+    /// Processes input data
+    ///
+    /// # Arguments
+    /// * `input` - input data
+    ///
+    /// # Returns
+    /// * `Ok(true)` - All data successfully processed
+    /// * `Ok(false)` - Data were processed, but another input is required
+    /// * `Err(_)` - error occured during processing
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use streamson_lib::Collector;
+    ///
+    /// let mut collector = Collector::new();
+    /// collector.process(br#"{}"#);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If parsing logic finds that JSON is not valid,
+    /// it returns `error::Generic`.
+    ///
+    /// Note that streamson assumes that its input is a valid
+    /// JSONs and if not. It still might be splitted without an error.
+    /// This is caused because streamson does not validate JSON.
     pub fn process(&mut self, input: &[u8]) -> Result<bool, error::Generic> {
         self.emitter.feed(input);
         let mut inner_idx = 0;

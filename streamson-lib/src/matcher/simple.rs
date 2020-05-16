@@ -1,3 +1,5 @@
+//! Simple path matcher
+
 use super::MatchMaker;
 use crate::error;
 use std::str::FromStr;
@@ -189,6 +191,10 @@ impl FromStr for Simple {
 }
 
 impl Simple {
+    /// Creates new simple matcher
+    ///
+    /// # Arguments
+    /// * `path_expr` - path expression (e.g. `{"users"}[0]{"addresses"}{}`)
     pub fn new<T>(path_expr: T) -> Self
     where
         T: ToString,
