@@ -23,9 +23,19 @@ fn main() -> Result<(), error::Generic> {
         .about(crate_description!())
         .arg(
             Arg::with_name("print")
-                .help("Prints matches to with header to stdout separating records by newline")
+                .help("Prints matches to stdout separating records by a newline")
                 .short("p")
                 .long("print")
+                .multiple(true)
+                .takes_value(true)
+                .value_name("SIMPLE_MATCH")
+                .required(false),
+        )
+        .arg(
+            Arg::with_name("print_with_header")
+                .help("Prints matches to with header to stdout separating records by a newline")
+                .short("P")
+                .long("print-with-header")
                 .multiple(true)
                 .takes_value(true)
                 .value_name("SIMPLE_MATCH")
@@ -46,13 +56,22 @@ fn main() -> Result<(), error::Generic> {
     let arg_matches = app.get_matches();
 
     let mut collector = Collector::new();
-    let print_handler = Arc::new(Mutex::new(handler::PrintLn));
+    let print_handler = Arc::new(Mutex::new(handler::PrintLn::new(false)));
+    let print_with_header_handler = Arc::new(Mutex::new(handler::PrintLn::new(true)));
     let mut file_handler_map: HashMap<String, Arc<Mutex<handler::File>>> = HashMap::new();
 
     if let Some(simple_matches) = arg_matches.values_of("print") {
         for simple in simple_matches {
             let matcher = Simple::new(simple);
             collector = collector.add_matcher(Box::new(matcher), &[print_handler.clone()]);
+        }
+    }
+
+    if let Some(simple_matches) = arg_matches.values_of("print_with_header") {
+        for simple in simple_matches {
+            let matcher = Simple::new(simple);
+            collector =
+                collector.add_matcher(Box::new(matcher), &[print_with_header_handler.clone()]);
         }
     }
 
