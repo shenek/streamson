@@ -201,6 +201,298 @@ impl Emitter {
         Ok(None)
     }
 
+    fn process_remove_whitespace(&mut self) -> Result<Option<Output>, error::Generic> {
+        if self.remove_whitespaces()?.is_none() {
+            self.states.push(States::RemoveWhitespaces);
+            return Ok(Some(Output::Pending));
+        }
+        Ok(None)
+    }
+
+    fn process_value(&mut self, element: Element) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            match chr {
+                '"' => {
+                    self.states.push(States::Str(StringState::Normal));
+                    self.advance();
+                    self.forward()?;
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                '0'..='9' => {
+                    self.states.push(States::Number);
+                    self.advance();
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                't' | 'f' => {
+                    self.states.push(States::Bool);
+                    self.advance();
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                'n' => {
+                    self.states.push(States::Null);
+                    self.advance();
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                '[' => {
+                    self.states.push(States::Array(0));
+                    self.states.push(States::RemoveWhitespaces);
+                    self.states.push(States::Value(Element::Index(0)));
+                    self.states.push(States::RemoveWhitespaces);
+                    self.advance();
+                    self.forward()?;
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                '{' => {
+                    self.states.push(States::Object);
+                    self.states.push(States::RemoveWhitespaces);
+                    self.states.push(States::ObjectKey(ObjectKeyState::Init));
+                    self.states.push(States::RemoveWhitespaces);
+                    self.advance();
+                    self.forward()?;
+                    self.path.push(element);
+                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                }
+                ']' | '}' => {
+                    // End of an array or object -> no value matched
+                    Ok(None)
+                }
+                _ => Err(error::Generic),
+            }
+        } else {
+            self.states.push(States::Value(element));
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_str(&mut self, state: StringState) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            match chr {
+                '"' => {
+                    if state == StringState::Normal {
+                        self.forward()?;
+                        self.advance();
+                        let prev_path = self.display_path();
+                        self.path.pop().ok_or_else(|| error::Generic)?;
+                        Ok(Some(Output::End(self.total_idx, prev_path)))
+                    } else {
+                        self.forward()?;
+                        self.states.push(States::Str(StringState::Normal));
+                        Ok(None)
+                    }
+                }
+                '\\' => {
+                    self.forward()?;
+                    let new_state = match state {
+                        StringState::Escaped => StringState::Normal,
+                        StringState::Normal => StringState::Escaped,
+                    };
+                    self.states.push(States::Str(new_state));
+                    Ok(None)
+                }
+                _ => {
+                    self.forward()?;
+                    self.states.push(States::Str(StringState::Normal));
+                    Ok(None)
+                }
+            }
+        } else {
+            self.states.push(States::Str(state));
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_number(&mut self) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            if chr.is_digit(10) || chr == '.' {
+                self.forward()?;
+                self.states.push(States::Number);
+                Ok(None)
+            } else {
+                self.advance();
+                let prev_path = self.display_path();
+                self.path.pop().ok_or_else(|| error::Generic)?;
+                Ok(Some(Output::End(self.total_idx, prev_path)))
+            }
+        } else {
+            self.states.push(States::Number);
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_bool(&mut self) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            if chr.is_alphabetic() {
+                self.forward()?;
+                self.states.push(States::Bool);
+                Ok(None)
+            } else {
+                self.advance();
+                let prev_path = self.display_path();
+                self.path.pop().ok_or_else(|| error::Generic)?;
+                Ok(Some(Output::End(self.total_idx, prev_path)))
+            }
+        } else {
+            self.states.push(States::Bool);
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_null(&mut self) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            if chr.is_alphabetic() {
+                self.forward()?;
+                self.states.push(States::Null);
+                Ok(None)
+            } else {
+                self.advance();
+                let prev_path = self.display_path();
+                self.path.pop().ok_or_else(|| error::Generic)?;
+                Ok(Some(Output::End(self.total_idx, prev_path)))
+            }
+        } else {
+            self.states.push(States::Null);
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_array(&mut self, idx: usize) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            match chr {
+                ']' => {
+                    self.forward()?;
+                    self.advance();
+                    let exported_path = self.display_path();
+                    self.path.pop().ok_or(error::Generic)?;
+                    Ok(Some(Output::End(self.total_idx, exported_path)))
+                }
+                ',' => {
+                    self.forward()?;
+                    self.states.push(States::Array(idx + 1));
+                    self.states.push(States::RemoveWhitespaces);
+                    self.states.push(States::Value(Element::Index(idx + 1)));
+                    self.states.push(States::RemoveWhitespaces);
+                    Ok(None)
+                }
+                _ => Err(error::Generic),
+            }
+        } else {
+            self.states.push(States::Array(idx));
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_object(&mut self) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            match chr {
+                '}' => {
+                    self.forward()?;
+                    self.advance();
+                    let exported_path = self.display_path();
+                    self.path.pop().ok_or_else(|| error::Generic)?;
+                    Ok(Some(Output::End(self.total_idx, exported_path)))
+                }
+                ',' => {
+                    self.forward()?;
+                    self.states.push(States::Object);
+                    self.states.push(States::RemoveWhitespaces);
+                    self.states.push(States::ObjectKey(ObjectKeyState::Init));
+                    self.states.push(States::RemoveWhitespaces);
+                    Ok(None)
+                }
+                _ => Err(error::Generic),
+            }
+        } else {
+            self.states.push(States::Object);
+            Ok(Some(Output::Pending))
+        }
+    }
+
+    fn process_object_key(
+        &mut self,
+        state: ObjectKeyState,
+    ) -> Result<Option<Output>, error::Generic> {
+        match state {
+            ObjectKeyState::Init => {
+                if let Some(chr) = self.peek()? {
+                    match chr {
+                        '"' => {
+                            self.advance(); // move cursor to the start
+                            self.forward()?;
+                            self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                StringState::Normal,
+                            )));
+                            Ok(None)
+                        }
+                        '}' => Ok(None),          // end has been reached to Object
+                        _ => Err(error::Generic), // keys are strings in JSON
+                    }
+                } else {
+                    self.states.push(States::ObjectKey(state));
+                    Ok(Some(Output::Pending))
+                }
+            }
+            ObjectKeyState::Parse(string_state) => {
+                if let Some(chr) = self.peek()? {
+                    self.forward()?;
+                    match string_state {
+                        StringState::Normal => match chr {
+                            '\"' => {
+                                let key = from_utf8(&self.pending[1..self.pending_idx - 1])
+                                    .map_err(|_| error::Generic)?
+                                    .to_string();
+                                self.states.push(States::Value(Element::Key(key)));
+                                self.states.push(States::RemoveWhitespaces);
+                                self.states.push(States::Colon);
+                                self.states.push(States::RemoveWhitespaces);
+                                Ok(None)
+                            }
+                            '\\' => {
+                                self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                    StringState::Escaped,
+                                )));
+                                Ok(None)
+                            }
+                            _ => {
+                                self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                    StringState::Normal,
+                                )));
+                                Ok(None)
+                            }
+                        },
+                        StringState::Escaped => {
+                            self.states.push(States::ObjectKey(ObjectKeyState::Parse(
+                                StringState::Normal,
+                            )));
+                            Ok(None)
+                        }
+                    }
+                } else {
+                    self.states
+                        .push(States::ObjectKey(ObjectKeyState::Parse(string_state)));
+                    Ok(Some(Output::Pending))
+                }
+            }
+        }
+    }
+
+    fn process_colon(&mut self) -> Result<Option<Output>, error::Generic> {
+        if let Some(chr) = self.peek()? {
+            if chr != ':' {
+                return Err(error::Generic);
+            }
+            self.forward()?;
+            Ok(None)
+        } else {
+            self.states.push(States::Colon);
+            Ok(Some(Output::Pending))
+        }
+    }
+
     /// Reads data from emitter and emits [Output](enum.Output.html) struct
     ///
     /// # Errors
@@ -211,268 +503,53 @@ impl Emitter {
         while let Some(state) = self.states.pop() {
             match state {
                 States::RemoveWhitespaces => {
-                    if self.remove_whitespaces()?.is_none() {
-                        self.states.push(States::RemoveWhitespaces);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_remove_whitespace()? {
+                        return Ok(output);
                     }
                 }
                 States::Value(element) => {
-                    if let Some(chr) = self.peek()? {
-                        match chr {
-                            '"' => {
-                                self.states.push(States::Str(StringState::Normal));
-                                self.advance();
-                                self.forward()?;
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            '0'..='9' => {
-                                self.states.push(States::Number);
-                                self.advance();
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            't' | 'f' => {
-                                self.states.push(States::Bool);
-                                self.advance();
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            'n' => {
-                                self.states.push(States::Null);
-                                self.advance();
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            '[' => {
-                                self.states.push(States::Array(0));
-                                self.states.push(States::RemoveWhitespaces);
-                                self.states.push(States::Value(Element::Index(0)));
-                                self.states.push(States::RemoveWhitespaces);
-                                self.advance();
-                                self.forward()?;
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            '{' => {
-                                self.states.push(States::Object);
-                                self.states.push(States::RemoveWhitespaces);
-                                self.states.push(States::ObjectKey(ObjectKeyState::Init));
-                                self.states.push(States::RemoveWhitespaces);
-                                self.advance();
-                                self.forward()?;
-                                self.path.push(element);
-                                return Ok(Output::Start(self.total_idx, self.display_path()));
-                            }
-                            ']' | '}' => {
-                                // End of an array or object -> no value matched
-                            }
-                            _ => return Err(error::Generic),
-                        }
-                    } else {
-                        self.states.push(States::Value(element));
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_value(element)? {
+                        return Ok(output);
                     }
                 }
                 States::Str(state) => {
-                    if let Some(chr) = self.peek()? {
-                        match chr {
-                            '"' => {
-                                if state == StringState::Normal {
-                                    self.forward()?;
-                                    self.advance();
-                                    let prev_path = self.display_path();
-                                    self.path.pop().ok_or_else(|| error::Generic)?;
-                                    return Ok(Output::End(self.total_idx, prev_path));
-                                } else {
-                                    self.forward()?;
-                                    self.states.push(States::Str(StringState::Normal));
-                                }
-                            }
-                            '\\' => {
-                                self.forward()?;
-                                let new_state = match state {
-                                    StringState::Escaped => StringState::Normal,
-                                    StringState::Normal => StringState::Escaped,
-                                };
-                                self.states.push(States::Str(new_state));
-                            }
-                            _ => {
-                                self.forward()?;
-                                self.states.push(States::Str(StringState::Normal));
-                            }
-                        }
-                    } else {
-                        self.states.push(States::Str(state));
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_str(state)? {
+                        return Ok(output);
                     }
                 }
                 States::Number => {
-                    if let Some(chr) = self.peek()? {
-                        if chr.is_digit(10) || chr == '.' {
-                            self.forward()?;
-                            self.states.push(States::Number);
-                        } else {
-                            self.advance();
-                            let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| error::Generic)?;
-                            return Ok(Output::End(self.total_idx, prev_path));
-                        }
-                    } else {
-                        self.states.push(States::Number);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_number()? {
+                        return Ok(output);
                     }
                 }
                 States::Bool => {
-                    if let Some(chr) = self.peek()? {
-                        if chr.is_alphabetic() {
-                            self.forward()?;
-                            self.states.push(States::Bool);
-                        } else {
-                            self.advance();
-                            let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| error::Generic)?;
-                            return Ok(Output::End(self.total_idx, prev_path));
-                        }
-                    } else {
-                        self.states.push(States::Bool);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_bool()? {
+                        return Ok(output);
                     }
                 }
                 States::Null => {
-                    if let Some(chr) = self.peek()? {
-                        if chr.is_alphabetic() {
-                            self.forward()?;
-                            self.states.push(States::Null);
-                        } else {
-                            self.advance();
-                            let prev_path = self.display_path();
-                            self.path.pop().ok_or_else(|| error::Generic)?;
-                            return Ok(Output::End(self.total_idx, prev_path));
-                        }
-                    } else {
-                        self.states.push(States::Null);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_null()? {
+                        return Ok(output);
                     }
                 }
                 States::Array(idx) => {
-                    if let Some(chr) = self.peek()? {
-                        match chr {
-                            ']' => {
-                                self.forward()?;
-                                self.advance();
-                                let exported_path = self.display_path();
-                                self.path.pop().ok_or(error::Generic)?;
-                                return Ok(Output::End(self.total_idx, exported_path));
-                            }
-                            ',' => {
-                                self.forward()?;
-                                self.states.push(States::Array(idx + 1));
-                                self.states.push(States::RemoveWhitespaces);
-                                self.states.push(States::Value(Element::Index(idx + 1)));
-                                self.states.push(States::RemoveWhitespaces);
-                            }
-                            _ => return Err(error::Generic),
-                        }
-                    } else {
-                        self.states.push(States::Array(idx));
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_array(idx)? {
+                        return Ok(output);
                     }
                 }
                 States::Object => {
-                    if let Some(chr) = self.peek()? {
-                        match chr {
-                            '}' => {
-                                self.forward()?;
-                                self.advance();
-                                let exported_path = self.display_path();
-                                self.path.pop().ok_or_else(|| error::Generic)?;
-                                return Ok(Output::End(self.total_idx, exported_path));
-                            }
-                            ',' => {
-                                self.forward()?;
-                                self.states.push(States::Object);
-                                self.states.push(States::RemoveWhitespaces);
-                                self.states.push(States::ObjectKey(ObjectKeyState::Init));
-                                self.states.push(States::RemoveWhitespaces);
-                            }
-                            _ => return Err(error::Generic),
-                        }
-                    } else {
-                        self.states.push(States::Object);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_object()? {
+                        return Ok(output);
                     }
                 }
                 States::ObjectKey(state) => {
-                    match state {
-                        ObjectKeyState::Init => {
-                            if let Some(chr) = self.peek()? {
-                                match chr {
-                                    '"' => {
-                                        self.advance(); // move cursor to the start
-                                        self.forward()?;
-                                        self.states.push(States::ObjectKey(ObjectKeyState::Parse(
-                                            StringState::Normal,
-                                        )));
-                                    }
-                                    '}' => {} // end has been reached to Object
-                                    _ => return Err(error::Generic), // keys are strings in JSON
-                                }
-                            } else {
-                                self.states.push(States::ObjectKey(state));
-                                return Ok(Output::Pending);
-                            }
-                        }
-                        ObjectKeyState::Parse(string_state) => {
-                            if let Some(chr) = self.peek()? {
-                                self.forward()?;
-                                match string_state {
-                                    StringState::Normal => match chr {
-                                        '\"' => {
-                                            let key =
-                                                from_utf8(&self.pending[1..self.pending_idx - 1])
-                                                    .map_err(|_| error::Generic)?
-                                                    .to_string();
-                                            self.states.push(States::Value(Element::Key(key)));
-                                            self.states.push(States::RemoveWhitespaces);
-                                            self.states.push(States::Colon);
-                                            self.states.push(States::RemoveWhitespaces);
-                                        }
-                                        '\\' => {
-                                            self.states.push(States::ObjectKey(
-                                                ObjectKeyState::Parse(StringState::Escaped),
-                                            ));
-                                        }
-                                        _ => {
-                                            self.states.push(States::ObjectKey(
-                                                ObjectKeyState::Parse(StringState::Normal),
-                                            ));
-                                        }
-                                    },
-                                    StringState::Escaped => {
-                                        self.states.push(States::ObjectKey(ObjectKeyState::Parse(
-                                            StringState::Normal,
-                                        )));
-                                    }
-                                }
-                            } else {
-                                self.states
-                                    .push(States::ObjectKey(ObjectKeyState::Parse(string_state)));
-                                return Ok(Output::Pending);
-                            }
-                        }
+                    if let Some(output) = self.process_object_key(state)? {
+                        return Ok(output);
                     }
                 }
                 States::Colon => {
-                    // Process colon
-                    if let Some(chr) = self.peek()? {
-                        if chr != ':' {
-                            return Err(error::Generic);
-                        }
-                        self.forward()?;
-                    } else {
-                        self.states.push(States::Colon);
-                        return Ok(Output::Pending);
+                    if let Some(output) = self.process_colon()? {
+                        return Ok(output);
                     }
                 }
             }
