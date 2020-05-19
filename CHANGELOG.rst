@@ -1,6 +1,8 @@
-0.1.0 (????)
-------------
+0.1.0 (2020-05-19)
+------------------
 
-* the main library
-* cmdline utility for processing large jsons
+* added `Simple` matcher
+* added `PrintLn` and `File` handlers
+* added the main library
+* added cmdline utility for processing large jsons
 * initial version

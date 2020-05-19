@@ -12,4 +12,4 @@ categories = ["parsing"]
 
 [dependencies]
 clap = "2.33"
-streamson-lib = { path = "../streamson-lib/" }
+streamson-lib = { version = "0.1.0", path = "../streamson-lib/" }
