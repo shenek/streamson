@@ -1,3 +1,5 @@
+//! Collections of path matchers (matches the path).
+
 pub mod simple;
 
 pub use simple::Simple;
