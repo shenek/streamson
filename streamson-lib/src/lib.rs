@@ -21,21 +21,24 @@
 //!
 //! let mut collector = Collector::new();
 //!
+//! // exports users to stdout and /tmp/out.txt
+//! collector = collector.add_matcher(
+//!     Box::new(first_matcher),
+//!     &[stdout_handler.clone(), file_handler],
+//! );
+//!
+//! // groups are going to be expoted only to stdout
+//! collector = collector.add_matcher(
+//!     Box::new(second_matcher),
+//!     &[stdout_handler],
+//! );
+//!
 //! for input in vec![
 //!     br#"{"users": [1,2]"#.to_vec(),
 //!     br#", "groups": [3, 4]}"#.to_vec(),
 //! ] {
 //!     collector.process(&input).unwrap();
 //! }
-//! collector = collector.add_matcher(
-//!     Box::new(first_matcher),
-//!     &[stdout_handler.clone(), file_handler],
-//! );
-//!
-//! collector = collector.add_matcher(
-//!     Box::new(second_matcher),
-//!     &[stdout_handler],
-//! );
 //! ```
 
 pub mod collector;
