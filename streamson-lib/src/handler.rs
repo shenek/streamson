@@ -2,9 +2,11 @@
 
 use crate::error;
 
+pub mod buffer;
 pub mod file;
 pub mod println;
 
+pub use buffer::Buffer;
 pub use file::File;
 pub use println::PrintLn;
 
