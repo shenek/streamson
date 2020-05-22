@@ -16,7 +16,7 @@ fn write_file_validator(input: String) -> Result<(), String> {
     }
 }
 
-fn main() -> Result<(), error::Generic> {
+fn main() -> Result<(), error::General> {
     let app = App::new(crate_name!())
         .author(crate_authors!())
         .version(crate_version!())

@@ -25,7 +25,7 @@ pub trait Handler {
     /// # Errors
     ///
     /// Handler failed (e.g. failed to write to output file).
-    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic>;
+    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler>;
 
     /// Should path be displayed in the output
     fn show_path(&self) -> bool {

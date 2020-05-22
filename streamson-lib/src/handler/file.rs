@@ -2,10 +2,7 @@
 
 use super::Handler;
 use crate::error;
-use std::{
-    fs,
-    io::{self, Write},
-};
+use std::{fs, io::Write};
 
 /// File handler responsible for storing data to a file.
 pub struct File {
@@ -34,8 +31,8 @@ impl File {
     /// # Errors
     ///
     /// Error might occur when the file fails to open
-    pub fn new(fs_path: &str) -> io::Result<Self> {
-        let file = fs::File::create(fs_path)?;
+    pub fn new(fs_path: &str) -> Result<Self, error::Handler> {
+        let file = fs::File::create(fs_path).map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(Self {
             file,
             show_path: false,
@@ -92,17 +89,19 @@ impl Handler for File {
         &self.separator
     }
 
-    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic> {
+    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
         if self.show_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())
-                .map_err(|_| error::Generic)?;
+                .map_err(|err| error::Handler::new(err.to_string()))?;
         }
-        self.file.write(data).map_err(|_| error::Generic)?;
+        self.file
+            .write(data)
+            .map_err(|err| error::Handler::new(err.to_string()))?;
         let separator = self.separator().to_string();
         self.file
             .write(separator.as_bytes())
-            .map_err(|_| error::Generic)?;
+            .map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(())
     }
 }

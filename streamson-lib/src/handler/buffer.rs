@@ -40,7 +40,7 @@ pub struct Buffer {
 }
 
 impl Handler for Buffer {
-    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic> {
+    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
 

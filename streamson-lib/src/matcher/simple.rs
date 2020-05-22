@@ -14,7 +14,7 @@ pub struct Simple {
     path_expr: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum SimpleMatcherStates {
     Normal,
     Array,
@@ -181,9 +181,9 @@ impl MatchMaker for Simple {
 }
 
 impl FromStr for Simple {
-    type Err = error::Generic;
+    type Err = error::Matcher;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO error handling
+        Simple::is_valid(s)?;
         Ok(Self {
             path_expr: s.into(),
         })
@@ -201,6 +201,59 @@ impl Simple {
     {
         Self {
             path_expr: path_expr.to_string(),
+        }
+    }
+
+    /// Check whether the path is valid
+    fn is_valid(path: &str) -> Result<(), error::Matcher> {
+        let mut state = SimpleMatcherStates::Normal;
+        for chr in path.chars() {
+            state = match state {
+                SimpleMatcherStates::Normal => match chr {
+                    '[' => SimpleMatcherStates::Array,
+                    '{' => SimpleMatcherStates::Object,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::Array => match chr {
+                    ']' => SimpleMatcherStates::Normal,
+                    '0'..='9' => SimpleMatcherStates::ArrayCmp,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::ArrayCmp => match chr {
+                    ']' => SimpleMatcherStates::Normal,
+                    '0'..='9' => SimpleMatcherStates::ArrayCmp,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::Object => match chr {
+                    '}' => SimpleMatcherStates::Normal,
+                    '"' => SimpleMatcherStates::ObjectCmp,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::ObjectCmp => match chr {
+                    '"' => SimpleMatcherStates::ObjectCmpEnd,
+                    _ => SimpleMatcherStates::ObjectCmp,
+                },
+                SimpleMatcherStates::ObjectCmpEnd => match chr {
+                    '}' => SimpleMatcherStates::Normal,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                _ => unreachable!(),
+            }
+        }
+        if state == SimpleMatcherStates::Normal {
+            Ok(())
+        } else {
+            Err(error::Matcher::Parse(path.to_string()))
         }
     }
 }
@@ -254,5 +307,21 @@ mod tests {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
         assert!(simple.match_path(r#"{"People"}[0]{"O\"ll"}"#));
         assert!(simple.match_path(r#"{"People"}[0]{"O\\\"ll"}"#));
+    }
+
+    #[test]
+    fn simple_parse() {
+        assert!(Simple::from_str(r#""#).is_ok());
+        assert!(Simple::from_str(r#"{}"#).is_ok());
+        assert!(Simple::from_str(r#"{}[3]"#).is_ok());
+        assert!(Simple::from_str(r#"{"xx"}[]"#).is_ok());
+        assert!(Simple::from_str(r#"{}[]"#).is_ok());
+    }
+
+    #[test]
+    fn simple_parse_error() {
+        assert!(Simple::from_str(r#"{"People""#).is_err());
+        assert!(Simple::from_str(r#"[}"#).is_err());
+        assert!(Simple::from_str(r#"{"People}"#).is_err());
     }
 }

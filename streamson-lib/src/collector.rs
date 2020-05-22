@@ -98,12 +98,12 @@ impl Collector {
     /// # Errors
     ///
     /// If parsing logic finds that JSON is not valid,
-    /// it returns `error::Generic`.
+    /// it returns `error::General`.
     ///
     /// Note that streamson assumes that its input is a valid
     /// JSONs and if not. It still might be splitted without an error.
     /// This is caused because streamson does not validate JSON.
-    pub fn process(&mut self, input: &[u8]) -> Result<bool, error::Generic> {
+    pub fn process(&mut self, input: &[u8]) -> Result<bool, error::General> {
         self.emitter.feed(input);
         let mut inner_idx = 0;
         loop {
@@ -187,7 +187,7 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Generic> {
+        fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(Bytes::from(data.to_vec()));
             Ok(())
