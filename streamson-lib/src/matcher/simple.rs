@@ -22,10 +22,10 @@ enum SimpleMatcherStates {
     ArrayWild,
     Object,
     ObjectWildStart,
-    ObjectWild,
+    ObjectWild(bool),
     ObjectWildEnd,
     ObjectCmpStart,
-    ObjectCmp,
+    ObjectCmp(bool),
     ObjectCmpEnd,
 }
 
@@ -34,7 +34,6 @@ impl MatchMaker for Simple {
         let mut str_iter = path.chars();
         let mut expr_iter = self.path_expr.chars();
         let mut state = SimpleMatcherStates::Normal;
-        let mut escapes_in_row_count = 0;
         loop {
             match state {
                 SimpleMatcherStates::Normal => {
@@ -116,7 +115,7 @@ impl MatchMaker for Simple {
                 SimpleMatcherStates::ObjectWildStart => {
                     if let Some(opt_chr) = str_iter.next() {
                         if opt_chr == '"' {
-                            state = SimpleMatcherStates::ObjectWild;
+                            state = SimpleMatcherStates::ObjectWild(false);
                             continue;
                         }
                     }
@@ -125,35 +124,44 @@ impl MatchMaker for Simple {
                 SimpleMatcherStates::ObjectCmpStart => {
                     if let Some(chr) = str_iter.next() {
                         if chr == '"' {
-                            state = SimpleMatcherStates::ObjectCmp;
+                            state = SimpleMatcherStates::ObjectCmp(false);
                             continue;
                         }
                     }
                     return false;
                 }
-                SimpleMatcherStates::ObjectCmp => {
+                SimpleMatcherStates::ObjectCmp(escaped) => {
                     let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
                     if expr_opt.is_none() || str_opt.is_none() {
-                        return false;
+                        return expr_opt == str_opt;
                     }
                     if expr_opt == str_opt {
-                        if expr_opt == Some('"') {
+                        if expr_opt == Some('"') && !escaped {
                             state = SimpleMatcherStates::ObjectCmpEnd;
+                            continue;
                         }
+                        state = if expr_opt == Some('\\')
+                            && state == SimpleMatcherStates::ObjectCmp(false)
+                        {
+                            SimpleMatcherStates::ObjectCmp(true)
+                        } else {
+                            SimpleMatcherStates::ObjectCmp(false)
+                        };
                         continue;
                     }
                     return false;
                 }
-                SimpleMatcherStates::ObjectWild => {
+                SimpleMatcherStates::ObjectWild(escaped) => {
                     if let Some(chr) = str_iter.next() {
-                        if chr == '"' && escapes_in_row_count % 2 == 0 {
+                        if chr == '"' && !escaped {
                             state = SimpleMatcherStates::ObjectWildEnd;
+                            continue;
                         }
-                        if chr == '\\' {
-                            escapes_in_row_count += 1;
+                        state = if chr == '\\' && !escaped {
+                            SimpleMatcherStates::ObjectWild(true)
                         } else {
-                            escapes_in_row_count = 0;
-                        }
+                            SimpleMatcherStates::ObjectWild(false)
+                        };
                         continue;
                     }
                     return false;
@@ -232,15 +240,17 @@ impl Simple {
                 },
                 SimpleMatcherStates::Object => match chr {
                     '}' => SimpleMatcherStates::Normal,
-                    '"' => SimpleMatcherStates::ObjectCmp,
+                    '"' => SimpleMatcherStates::ObjectCmp(false),
                     _ => {
                         return Err(error::Matcher::Parse(path.to_string()));
                     }
                 },
-                SimpleMatcherStates::ObjectCmp => match chr {
+                SimpleMatcherStates::ObjectCmp(false) => match chr {
                     '"' => SimpleMatcherStates::ObjectCmpEnd,
-                    _ => SimpleMatcherStates::ObjectCmp,
+                    '\\' => SimpleMatcherStates::ObjectCmp(true),
+                    _ => SimpleMatcherStates::ObjectCmp(false),
                 },
+                SimpleMatcherStates::ObjectCmp(true) => SimpleMatcherStates::ObjectCmp(false),
                 SimpleMatcherStates::ObjectCmpEnd => match chr {
                     '}' => SimpleMatcherStates::Normal,
                     _ => {
@@ -303,6 +313,15 @@ mod tests {
     }
 
     #[test]
+    fn simple_object_escapes() {
+        let simple = Simple::from_str(r#"{"People"}[0]{"\""}"#).unwrap();
+        assert!(simple.match_path(r#"{"People"}[0]{"\""}"#));
+        assert!(!simple.match_path(r#"{"People"}[0]{""}"#));
+        assert!(!simple.match_path(r#"{"People"}[0]{"\"x"}"#));
+        assert!(!simple.match_path(r#"{"People"}[0]{"y\""}"#));
+    }
+
+    #[test]
     fn simple_wild_object_escapes() {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
         assert!(simple.match_path(r#"{"People"}[0]{"O\"ll"}"#));
@@ -316,6 +335,8 @@ mod tests {
         assert!(Simple::from_str(r#"{}[3]"#).is_ok());
         assert!(Simple::from_str(r#"{"xx"}[]"#).is_ok());
         assert!(Simple::from_str(r#"{}[]"#).is_ok());
+        assert!(Simple::from_str(r#"{"š𐍈€"}"#).is_ok());
+        assert!(Simple::from_str(r#"{"\""}"#).is_ok());
     }
 
     #[test]
@@ -323,5 +344,6 @@ mod tests {
         assert!(Simple::from_str(r#"{"People""#).is_err());
         assert!(Simple::from_str(r#"[}"#).is_err());
         assert!(Simple::from_str(r#"{"People}"#).is_err());
+        assert!(Simple::from_str(r#"{"š𐍈€""#).is_err());
     }
 }
