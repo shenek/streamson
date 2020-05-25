@@ -1,0 +1,19 @@
+[package]
+name = "streamson-tokio"
+version = "0.1.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+description = "Tokio and streamson integration library"
+license = "MIT"
+readme = "README.md"
+keywords = ["json", "tokio"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
+
+[dependencies]
+bytes = "0.5"
+streamson-lib = { version = "0.1.0", path = "../streamson-lib/" }
+tokio-util = { version = "0.3", features = ["codec"] }
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["full"]  }

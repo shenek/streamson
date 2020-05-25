@@ -1,6 +1,6 @@
 //! Module containing errors
 
-use std::{error::Error, fmt, str::Utf8Error};
+use std::{error::Error, fmt, io, str::Utf8Error};
 
 /// Matcher related errors
 #[derive(Debug, PartialEq, Clone)]
@@ -68,12 +68,13 @@ impl fmt::Display for IncorrectInput {
     }
 }
 /// Handler related errors
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug)]
 pub enum General {
     Handler(Handler),
     Matcher(Matcher),
     Utf8Error(Utf8Error),
     IncorrectInput(IncorrectInput),
+    IOError(io::Error),
 }
 
 impl Error for General {}
@@ -84,30 +85,37 @@ impl fmt::Display for General {
             Self::Matcher(err) => err.fmt(f),
             Self::Utf8Error(err) => err.fmt(f),
             Self::IncorrectInput(err) => err.fmt(f),
+            Self::IOError(err) => err.fmt(f),
         }
     }
 }
 
 impl From<Handler> for General {
     fn from(handler: Handler) -> Self {
-        General::Handler(handler)
+        Self::Handler(handler)
     }
 }
 
 impl From<Matcher> for General {
     fn from(matcher: Matcher) -> Self {
-        General::Matcher(matcher)
+        Self::Matcher(matcher)
     }
 }
 
 impl From<Utf8Error> for General {
     fn from(utf8: Utf8Error) -> Self {
-        General::Utf8Error(utf8)
+        Self::Utf8Error(utf8)
     }
 }
 
 impl From<IncorrectInput> for General {
     fn from(incorrect_input: IncorrectInput) -> Self {
-        General::IncorrectInput(incorrect_input)
+        Self::IncorrectInput(incorrect_input)
+    }
+}
+
+impl From<io::Error> for General {
+    fn from(io_error: io::Error) -> Self {
+        Self::IOError(io_error)
     }
 }
