@@ -1,0 +1,22 @@
+[package]
+name = "streamson-python"
+version = "0.1.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+description = "Python wrappers around streamson"
+license = "MIT"
+readme = "README.md"
+keywords = ["json", "python", "splitter"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
+
+[lib]
+name = "streamson"
+crate-type = ["cdylib"]
+
+[package.metadata.maturin]
+classifier = ["Programming Language :: Python"]
+
+[dependencies]
+pyo3 = { version = "0.10", features = ["extension-module"] }
+streamson-lib = "0.2.0"

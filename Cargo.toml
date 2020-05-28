@@ -3,5 +3,6 @@
 members = [
 	"streamson-bin",
 	"streamson-lib",
+	"streamson-python",
 	"streamson-tokio",
 ]
