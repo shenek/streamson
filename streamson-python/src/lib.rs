@@ -3,19 +3,19 @@ use pyo3::create_exception;
 use pyo3::wrap_pyfunction;
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::exceptions;
+
 use std::sync::{Arc, Mutex};
 use streamson_lib::{error, handler, matcher, Collector};
 
-/// Python error mapped to streamson error
 create_exception!(streamson, StreamsonError, exceptions::ValueError);
 
-impl From<erorr::General> for StreamsonError {
+impl From<error::General> for StreamsonError {
     fn from(gerror: error::General) -> Self {
         Self
     }
 }
 
-/// Streamson
+/// Low level Python wrapper for Simple matcher and Buffer handler
 #[pyclass]
 pub struct SimpleStreamson {
     collector: Collector,
@@ -30,7 +30,7 @@ impl SimpleStreamson {
     /// # Arguments
     /// * `matches` - a list of valid simple matches (e.g. `{"users"}`, `[]{"name"}`, `[0]{}`)
     #[new]
-    fn new(matches: Vec<String>) -> Self {
+    pub fn new(matches: Vec<String>) -> Self {
         let handler = Arc::new(Mutex::new(handler::Buffer::new()));
         let mut collector = Collector::new();
         for path_match in matches {
@@ -42,25 +42,33 @@ impl SimpleStreamson {
         Self { collector, handler }
     }
 
-    fn feed(&mut self, data: Bytes) -> PyResult<()> {
-        if let Err(err) = self.collector.process(data.as_bytes()) {
-            Err(StreamsonError::from(err))
+    /// Feeds Streamson processor with data
+    ///
+    /// # Arguments
+    /// * `data` - input data to be processed
+    pub fn feed(&mut self, data: &[u8]) -> PyResult<()> {
+        if let Err(err) = self.collector.process(data) {
+            Err(StreamsonError::from(err).into())
         } else {
             Ok(())
         }
     }
-    /*
-    fn read(&mut self) -> PyObject {
 
-        match self.handler.lock().unwrap() {
+    /// Reads data from Buffer handler
+    ///
+    /// # Returns
+    /// * `None` - if no data present
+    /// * `Some(<path>, <bytes>)` if there are some data
+    fn pop(&mut self) -> Option<(String, Vec<u8>)>{
+
+        match self.handler.lock().unwrap().pop() {
             Some((path, bytes)) => {
-
+                Some((path, bytes.to_vec()))
             },
-            None => PyObject::from_not_null
+            None => None,
         }
 
     }
-    */
 }
 /// This module is a python module implemented in Rust.
 #[pymodule]
@@ -68,3 +76,4 @@ fn streamson(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SimpleStreamson>()?;
 
     Ok(())
+}
