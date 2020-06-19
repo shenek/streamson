@@ -1,13 +1,17 @@
 //! Collections of path matchers (matches the path).
 
+use std::fmt;
+
+pub mod combinator;
 pub mod depth;
 pub mod simple;
 
+pub use combinator::Combinator;
 pub use depth::Depth;
 pub use simple::Simple;
 
 /// Common Matcher trait
-pub trait MatchMaker {
+pub trait MatchMaker: fmt::Debug {
     /// Check whether the path matches
     /// # Arguments
     /// * `path` - path to be matched (has to be a valid path)

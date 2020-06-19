@@ -50,6 +50,36 @@
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
+//! let first_matcher = Box::new(matcher::Depth::new(1, Some(2)));
+//! let second_matcher = Box::new(matcher::Simple::new(r#"{"users"}[]"#));
+//! let matcher = matcher::Combinator::new(first_matcher) |
+//!     matcher::Combinator::new(second_matcher);
+//!
+//! let mut collector = Collector::new();
+//!
+//! // Paths with depths 1, 2 are exported to tmp.txt
+//! collector = collector.add_matcher(
+//!     Box::new(matcher),
+//!     &[stdout_handler.clone(), file_handler],
+//! );
+//!
+//! for input in vec![
+//!     br#"{"users": [1,2]"#.to_vec(),
+//!     br#", "groups": [3, 4]}"#.to_vec(),
+//! ] {
+//!     collector.process(&input).unwrap();
+//! }
+//! ```
+//!
+//! ```
+//! use streamson_lib::{handler::{self, Handler}, matcher, Collector};
+//! use std::sync::{Arc, Mutex};
+//!
+//! let file_handler = Arc::new(
+//!     Mutex::new(handler::File::new("/tmp/out.txt").unwrap())
+//! );
+//! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//!
 //! let matcher = matcher::Depth::new(1, Some(2));
 //!
 //! let mut collector = Collector::new();
