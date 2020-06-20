@@ -4,7 +4,7 @@ use std::{
     io::{stdin, Read},
     sync::{Arc, Mutex},
 };
-use streamson_lib::{error, handler, Collector, Simple};
+use streamson_lib::{error, handler, matcher, Collector};
 
 const BUFFER_SIZE: usize = 2048;
 
@@ -14,6 +14,16 @@ fn write_file_validator(input: String) -> Result<(), String> {
     } else {
         Err(format!("{} is not valid input", input))
     }
+}
+
+fn make_simple_combined_matcher(input: &[&str]) -> Option<matcher::Combinator> {
+    input.iter().fold(None, |comb, path| {
+        Some(if let Some(c) = comb {
+            c | matcher::Combinator::new(Box::new(matcher::Simple::new(path)))
+        } else {
+            matcher::Combinator::new(Box::new(matcher::Simple::new(path)))
+        })
+    })
 }
 
 fn main() -> Result<(), error::General> {
@@ -62,17 +72,16 @@ fn main() -> Result<(), error::General> {
     let mut file_handler_map: HashMap<String, Arc<Mutex<handler::File>>> = HashMap::new();
 
     if let Some(simple_matches) = arg_matches.values_of("print") {
-        for simple in simple_matches {
-            let matcher = Simple::new(simple);
-            collector = collector.add_matcher(Box::new(matcher), &[print_handler.clone()]);
+        let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
+        if let Some(matcher) = matcher {
+            collector = collector.add_matcher(Box::new(matcher), &[print_handler]);
         }
     }
 
     if let Some(simple_matches) = arg_matches.values_of("print_with_header") {
-        for simple in simple_matches {
-            let matcher = Simple::new(simple);
-            collector =
-                collector.add_matcher(Box::new(matcher), &[print_with_header_handler.clone()]);
+        let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
+        if let Some(matcher) = matcher {
+            collector = collector.add_matcher(Box::new(matcher), &[print_with_header_handler]);
         }
     }
 
@@ -80,7 +89,7 @@ fn main() -> Result<(), error::General> {
         for file in file_matches {
             let splitted: Vec<String> = file.split(':').map(String::from).collect();
             let path = splitted[1..].join(":");
-            let matcher = Simple::new(&splitted[0]);
+            let matcher = matcher::Simple::new(&splitted[0]);
             let file_handler = file_handler_map.entry(path.clone()).or_insert_with(|| {
                 Arc::new(Mutex::new(handler::File::new(&path).unwrap_or_else(|_| {
                     panic!("Failed to open output file '{}'", path)
