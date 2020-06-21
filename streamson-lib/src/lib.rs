@@ -106,5 +106,4 @@ pub mod path;
 
 pub use collector::Collector;
 pub use handler::Handler;
-pub use matcher::{MatchMaker, Simple};
 pub use path::{Emitter, Output};

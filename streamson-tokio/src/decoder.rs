@@ -1,5 +1,5 @@
 //! Decoders which implement `tokio_util::codec::Decoder`
-//! and are able to extract (path, bytes) items for AsyncRead
+//! and are able to extract (path, bytes) items for `AsyncRead`
 //!
 
 use bytes::{Bytes, BytesMut};
@@ -7,20 +7,21 @@ use std::sync::{Arc, Mutex};
 use streamson_lib::{error, handler, matcher, Collector};
 use tokio_util::codec::Decoder;
 
-/// This struct uses `streamson_lib::matcher::Simple`
-/// to decode data.
+/// This struct uses `streamson_lib::matcher` to decode data.
 ///
 /// # Examples
 /// ```
 /// use std::io;
-/// use streamson_lib::error;
-/// use streamson_tokio::decoder::SimpleExtractor;
+/// use streamson_lib::{error, matcher};
+/// use streamson_tokio::decoder::Extractor;
 /// use tokio::{fs, stream::StreamExt};
 /// use tokio_util::codec::FramedRead;
 ///
 /// async fn process() -> Result<(), error::General> {
 ///     let mut file = fs::File::open("/tmp/large.json").await?;
-///     let extractor = SimpleExtractor::new(vec![r#"{"users"}[]"#, r#"{"groups"}[]"#]);
+///     let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#))
+///         | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#));
+///     let extractor = Extractor::new(matcher);
 ///     let mut output = FramedRead::new(file, extractor);
 ///     while let Some(item) = output.next().await {
 ///         let (path, data) = item?;
@@ -29,34 +30,26 @@ use tokio_util::codec::Decoder;
 ///     Ok(())
 /// }
 /// ```
-pub struct SimpleExtractor {
+pub struct Extractor {
     collector: Collector,
     handler: Arc<Mutex<handler::Buffer>>,
 }
 
-impl SimpleExtractor {
-    /// Creates a new `SimpleExtractor`
+impl Extractor {
+    /// Creates a new `Extractor`
     ///
     /// # Arguments
-    /// * `matches` - a list of valid matches (see `streamson_lib::matcher::Simple`)
-    pub fn new<P>(matches: Vec<P>) -> Self
-    where
-        P: ToString,
-    {
+    /// * `matcher` - matcher to be used for extractions (see `streamson_lib::matcher`)
+    pub fn new(matcher: impl matcher::MatchMaker + 'static) -> Self {
         // TODO limit max length and fail when reached
         let handler = Arc::new(Mutex::new(handler::Buffer::new()));
         let mut collector = Collector::new();
-        for path_match in matches {
-            collector = collector.add_matcher(
-                Box::new(matcher::Simple::new(path_match)),
-                &[handler.clone()],
-            );
-        }
+        collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
         Self { collector, handler }
     }
 }
 
-impl Decoder for SimpleExtractor {
+impl Decoder for Extractor {
     type Item = (String, Bytes);
     type Error = error::General;
 
@@ -82,9 +75,10 @@ impl Decoder for SimpleExtractor {
 
 #[cfg(test)]
 mod tests {
-    use super::SimpleExtractor;
+    use super::Extractor;
     use bytes::Bytes;
     use std::io::Cursor;
+    use streamson_lib::matcher;
     use tokio::stream::StreamExt;
     use tokio_util::codec::FramedRead;
 
@@ -92,7 +86,9 @@ mod tests {
     async fn basic() {
         let cursor =
             Cursor::new(br#"{"users": ["mike","john"], "groups": ["admin", "staff"]}"#.to_vec());
-        let extractor = SimpleExtractor::new(vec![r#"{"users"}[]"#, r#"{"groups"}[]"#]);
+        let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#))
+            | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#));
+        let extractor = Extractor::new(matcher);
         let mut output = FramedRead::new(cursor, extractor);
 
         assert_eq!(
