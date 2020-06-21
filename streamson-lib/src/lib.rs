@@ -50,8 +50,8 @@
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
-//! let first_matcher = Box::new(matcher::Depth::new(1, Some(2)));
-//! let second_matcher = Box::new(matcher::Simple::new(r#"{"users"}[]"#));
+//! let first_matcher = matcher::Depth::new(1, Some(2));
+//! let second_matcher = matcher::Simple::new(r#"{"users"}[]"#);
 //! let matcher = matcher::Combinator::new(first_matcher) |
 //!     matcher::Combinator::new(second_matcher);
 //!

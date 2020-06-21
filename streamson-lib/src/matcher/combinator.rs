@@ -37,29 +37,29 @@ impl Combinator {
     /// Creates a new matcher combinator
     ///
     /// # Arguments
-    /// * `matcher` - boxed matcher
-    pub fn new(matcher: Box<dyn MatchMaker>) -> Self {
-        Self::Matcher(matcher)
+    /// * `matcher` - matcher to be wrapped
+    pub fn new(matcher: impl MatchMaker + 'static) -> Self {
+        Self::Matcher(Box::new(matcher))
     }
 }
 
 impl ops::Not for Combinator {
-    type Output = Combinator;
+    type Output = Self;
 
-    fn not(self) -> Combinator {
+    fn not(self) -> Self {
         Self::Not(Box::new(self))
     }
 }
 
 impl ops::BitAnd for Combinator {
-    type Output = Combinator;
+    type Output = Self;
     fn bitand(self, rhs: Self) -> Self {
         Self::And(Box::new(self), Box::new(rhs))
     }
 }
 
 impl ops::BitOr for Combinator {
-    type Output = Combinator;
+    type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
         Self::Or(Box::new(self), Box::new(rhs))
     }
@@ -72,14 +72,14 @@ mod tests {
 
     #[test]
     fn wrapper() {
-        let comb = Combinator::new(Box::new(Depth::new(1, Some(1))));
+        let comb = Combinator::new(Depth::new(1, Some(1)));
         assert!(comb.match_path(r#"{"People"}"#));
         assert!(comb.match_path(r#"[0]"#));
     }
 
     #[test]
     fn not() {
-        let comb = !Combinator::new(Box::new(Depth::new(1, None)));
+        let comb = !Combinator::new(Depth::new(1, None));
         assert!(!comb.match_path(r#"{"People"}"#));
         assert!(!comb.match_path(r#"[0]"#));
         assert!(comb.match_path(r#""#));
@@ -88,8 +88,7 @@ mod tests {
 
     #[test]
     fn and() {
-        let comb = Combinator::new(Box::new(Depth::new(1, Some(1))))
-            & Combinator::new(Box::new(Simple::new(r#"{}"#)));
+        let comb = Combinator::new(Depth::new(1, Some(1))) & Combinator::new(Simple::new(r#"{}"#));
         assert!(comb.match_path(r#"{"People"}"#));
         assert!(!comb.match_path(r#"[0]"#));
         assert!(!comb.match_path(r#""#));
@@ -98,8 +97,8 @@ mod tests {
 
     #[test]
     fn or() {
-        let comb = Combinator::new(Box::new(Depth::new(1, Some(1))))
-            | Combinator::new(Box::new(Simple::new(r#"{}[0]"#)));
+        let comb =
+            Combinator::new(Depth::new(1, Some(1))) | Combinator::new(Simple::new(r#"{}[0]"#));
         assert!(comb.match_path(r#"{"People"}"#));
         assert!(comb.match_path(r#"[0]"#));
         assert!(!comb.match_path(r#""#));
@@ -109,10 +108,9 @@ mod tests {
 
     #[test]
     fn complex() {
-        let comb1 = Combinator::new(Box::new(Depth::new(1, Some(1))))
-            | Combinator::new(Box::new(Simple::new(r#"{}[0]"#)));
-        let comb2 = Combinator::new(Box::new(Depth::new(2, Some(2))))
-            | Combinator::new(Box::new(Simple::new(r#"{}"#)));
+        let comb1 =
+            Combinator::new(Depth::new(1, Some(1))) | Combinator::new(Simple::new(r#"{}[0]"#));
+        let comb2 = Combinator::new(Depth::new(2, Some(2))) | Combinator::new(Simple::new(r#"{}"#));
         let comb3 = !comb1 & comb2;
 
         assert!(!comb3.match_path(r#"{"People"}"#));

@@ -19,9 +19,9 @@ fn write_file_validator(input: String) -> Result<(), String> {
 fn make_simple_combined_matcher(input: &[&str]) -> Option<matcher::Combinator> {
     input.iter().fold(None, |comb, path| {
         Some(if let Some(c) = comb {
-            c | matcher::Combinator::new(Box::new(matcher::Simple::new(path)))
+            c | matcher::Combinator::new(matcher::Simple::new(path))
         } else {
-            matcher::Combinator::new(Box::new(matcher::Simple::new(path)))
+            matcher::Combinator::new(matcher::Simple::new(path))
         })
     })
 }
