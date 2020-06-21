@@ -1,3 +1,7 @@
+![Security audit](https://github.com/shenek/streamson/workflows/Security%20audit/badge.svg)
+![Code Quality](https://github.com/shenek/streamson/workflows/Code%20Quality/badge.svg)
+![Release](https://github.com/shenek/streamson/workflows/Release/badge.svg)
+
 # Streamson
 
 A memory efficient set of tools to split large JSONs into a smaller parts.
