@@ -1,0 +1,10 @@
+[package]
+name = "serde"
+version = "0.0.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+
+[dependencies]
+streamson-lib = { path = "../../streamson-lib/" }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"]}

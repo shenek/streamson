@@ -1,0 +1,8 @@
+[package]
+name = "custom-matcher"
+version = "0.0.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+
+[dependencies]
+streamson-lib = { path = "../../streamson-lib/" }
