@@ -1,3 +1,11 @@
+1.0.0 (2020-06-25)
+------------------
+
+* added `Depth` matcher (matches paths with given depth)
+* added `Combinator` matcher (combines matchers - `and`, `or`, `not`)
+* refactor of streamson-tokio so it can use new matchers
+* added examples with custom handler, custom matcher and serde
+
 0.2.0 (2020-05-30)
 ------------------
 
