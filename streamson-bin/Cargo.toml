@@ -1,6 +1,6 @@
 [package]
 name = "streamson-bin"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
 description = "A program which processess large JSON input and splits them into a small ones."
@@ -12,4 +12,4 @@ categories = ["parsing"]
 
 [dependencies]
 clap = "2.33"
-streamson-lib = { version = "1.0.0", path = "../streamson-lib/" }
+streamson-lib = { version = "1.0.1", path = "../streamson-lib/" }

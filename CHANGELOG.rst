@@ -1,3 +1,8 @@
+1.0.1 (2020-06-28)
+------------------
+
+* make matchers and handlers to be safely send between the threads
+
 1.0.0 (2020-06-25)
 ------------------
 
