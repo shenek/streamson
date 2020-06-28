@@ -11,7 +11,7 @@ pub use depth::Depth;
 pub use simple::Simple;
 
 /// Common Matcher trait
-pub trait MatchMaker: fmt::Debug {
+pub trait MatchMaker: fmt::Debug + Send {
     /// Check whether the path matches
     /// # Arguments
     /// * `path` - path to be matched (has to be a valid path)

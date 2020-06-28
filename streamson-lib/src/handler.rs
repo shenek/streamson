@@ -11,7 +11,7 @@ pub use file::File;
 pub use println::PrintLn;
 
 /// Common handler trait
-pub trait Handler {
+pub trait Handler: Send {
     /// Calls handler on splitted data
     ///
     /// # Arguments
