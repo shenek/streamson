@@ -9,7 +9,7 @@ use std::str::FromStr;
 /// It matches {"People"}[0]{"Height"} - height of the first person
 /// It matches {"People"}[]{"Height"} - matches the height of all people
 /// It matches {"People"}[0]{} - matches all attributes of the first person
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Simple {
     path_expr: String,
 }

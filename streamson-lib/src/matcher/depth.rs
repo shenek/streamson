@@ -5,7 +5,7 @@ use super::MatchMaker;
 /// Based on actual path depth
 ///
 /// Path is matched when path depth is higher or equal min and lower or equal max (optional)
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Depth {
     min: usize,
     max: Option<usize>,

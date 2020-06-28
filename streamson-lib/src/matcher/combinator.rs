@@ -2,9 +2,9 @@
 
 use super::MatchMaker;
 use std::ops;
+use std::sync::Arc;
 
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 /// Combines several matches together
 ///
 /// It implements normal boolean algebra
@@ -13,7 +13,7 @@ use std::ops;
 /// * `comb1 | comb2` at least one should pass
 pub enum Combinator {
     /// Represents the actual underlying matcher
-    Matcher(Box<dyn MatchMaker>),
+    Matcher(Arc<dyn MatchMaker + Sync>),
     /// Negates the expression
     Not(Box<Combinator>),
     /// Both expressions should be valid
@@ -38,8 +38,8 @@ impl Combinator {
     ///
     /// # Arguments
     /// * `matcher` - matcher to be wrapped
-    pub fn new(matcher: impl MatchMaker + 'static) -> Self {
-        Self::Matcher(Box::new(matcher))
+    pub fn new(matcher: impl MatchMaker + 'static + Sync) -> Self {
+        Self::Matcher(Arc::new(matcher))
     }
 }
 
