@@ -1,6 +1,6 @@
 [package]
 name = "streamson-lib"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Stepan Henek"]
 edition = "2018"
 description = "Library for splitting large JSONs"
