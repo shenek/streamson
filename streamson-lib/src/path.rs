@@ -173,7 +173,7 @@ impl Emitter {
         }
     }
 
-    /// Muves pending buffer forward (reallocates data)
+    /// Moves pending buffer forward (reallocates data)
     fn advance(&mut self) {
         if self.pending_idx > 0 {
             self.pending.advance(self.pending_idx);
@@ -195,7 +195,9 @@ impl Emitter {
                 self.advance();
                 return Ok(Some(size));
             }
-            size += self.forward()?.unwrap();
+            let chr_size = chr.len_utf8();
+            self.pending_idx += chr_size;
+            size += chr_size;
         }
         Ok(None)
     }
