@@ -102,6 +102,9 @@ pub struct Emitter {
     pending_idx: usize,
     /// Total index agains the first byte passed to input
     total_idx: usize,
+    /// Peek cache - cache for peek call (if index haven't moved the last returned character is
+    /// cached)
+    peek_cache: Option<char>,
 }
 
 impl Default for Emitter {
@@ -112,6 +115,7 @@ impl Default for Emitter {
             pending: BytesMut::default(),
             pending_idx: 0,
             total_idx: 0,
+            peek_cache: None,
         }
     }
 }
@@ -132,17 +136,21 @@ impl Emitter {
     }
 
     /// Checks which utf8 character is currently process
-    fn peek(&self) -> Result<Option<char>, error::General> {
+    fn peek(&mut self) -> Result<Option<char>, error::General> {
+        if let Some(last) = self.peek_cache {
+            return Ok(Some(last));
+        }
         let get_char = |size: usize| {
             if self.pending.len() >= self.pending_idx + size {
                 let decoded = from_utf8(&self.pending[self.pending_idx..self.pending_idx + size])?;
-                Ok(decoded.chars().next()) // Should only return only a single character
+                let res = decoded.chars().next(); // Should only return only a single character
+                Ok(res)
             } else {
                 Ok(None)
             }
         };
         if self.pending.len() > self.pending_idx {
-            match self.pending[self.pending_idx] {
+            let res = match self.pending[self.pending_idx] {
                 0b0000_0000..=0b0111_1111 => get_char(1),
                 0b1100_0000..=0b1101_1111 => get_char(2),
                 0b1110_0000..=0b1110_1111 => get_char(3),
@@ -151,10 +159,21 @@ impl Emitter {
                     // input is not UTF8
                     Err(from_utf8(&[b]).unwrap_err().into())
                 }
+            };
+            if let Ok(Some(chr)) = res {
+                self.peek_cache = Some(chr);
             }
+            res
         } else {
             Ok(None)
         }
+    }
+
+    fn forward_char(&mut self, chr: char) -> usize {
+        let len = chr.len_utf8();
+        self.pending_idx += len;
+        self.peek_cache = None; // invalidate peek cache
+        len
     }
 
     /// Moves current curser character forward
@@ -165,8 +184,7 @@ impl Emitter {
     /// * Ok(usize) -> read X characters (1-4)
     fn forward(&mut self) -> Result<Option<usize>, error::General> {
         if let Some(chr) = self.peek()? {
-            let len = chr.len_utf8();
-            self.pending_idx += len;
+            let len = self.forward_char(chr);
             Ok(Some(len))
         } else {
             Ok(None)
@@ -195,9 +213,7 @@ impl Emitter {
                 self.advance();
                 return Ok(Some(size));
             }
-            let chr_size = chr.len_utf8();
-            self.pending_idx += chr_size;
-            size += chr_size;
+            size += self.forward_char(chr);
         }
         Ok(None)
     }
