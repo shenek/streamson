@@ -14,11 +14,11 @@ pub fn simple(c: &mut Criterion) {
 
     let mut input = Vec::new();
     input.push(br#"{ "users": ["#.to_vec());
-    for _ in 0..5000 {
+    for _ in 0..10_000 {
         input.push(br#"{"a": "c"}"#.to_vec());
     }
     input.push(br#""last"], {"logs":"#.to_vec());
-    for _ in 0..1000 {
+    for _ in 0..50_000 {
         input.push(br#"{"l": "ll"}"#.to_vec());
     }
     input.push(br#""last"]}"""#.to_vec());
