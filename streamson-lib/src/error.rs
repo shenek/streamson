@@ -46,13 +46,13 @@ impl fmt::Display for Handler {
 /// Incorrect input error
 #[derive(Debug, PartialEq, Clone)]
 pub struct IncorrectInput {
-    chr: char,
+    byte: u8,
     idx: usize,
 }
 
 impl IncorrectInput {
-    pub fn new(chr: char, idx: usize) -> Self {
-        Self { chr, idx }
+    pub fn new(byte: u8, idx: usize) -> Self {
+        Self { byte, idx }
     }
 }
 
@@ -62,8 +62,8 @@ impl fmt::Display for IncorrectInput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Incorrect input (character '{}' on idx {})",
-            self.chr, self.idx
+            "Incorrect input (byte '{}' on idx {})",
+            self.byte, self.idx
         )
     }
 }
