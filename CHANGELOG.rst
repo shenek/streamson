@@ -1,3 +1,9 @@
+2.0.0 (2020-07-13)
+------------------
+
+* speed optimizations
+* stops to check whether data are in utf8
+
 1.0.2 (2020-07-02)
 ------------------
 
