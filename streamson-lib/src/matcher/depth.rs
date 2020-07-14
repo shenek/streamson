@@ -26,12 +26,11 @@ impl Depth {
         let mut escaped: bool = false;
         let mut depth: usize = 0;
         for chr in path.chars() {
-            if escaped {
-                escaped = false;
-            } else if chr == '\\' {
-                escaped = true;
-            } else if chr == '}' || chr == ']' {
-                depth += 1;
+            match chr {
+                _ if escaped => escaped = false,
+                '\\' => escaped = true,
+                '}' | ']' => depth += 1,
+                _ => (),
             }
         }
         depth
