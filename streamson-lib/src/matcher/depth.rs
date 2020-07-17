@@ -20,47 +20,41 @@ impl Depth {
     pub fn new(min: usize, max: Option<usize>) -> Self {
         Self { min, max }
     }
-
-    /// Returns depth of a given path
-    pub fn get_depth(path: &str) -> usize {
-        let mut escaped: bool = false;
-        let mut depth: usize = 0;
-        for chr in path.chars() {
-            match chr {
-                _ if escaped => escaped = false,
-                '\\' => escaped = true,
-                '}' | ']' => depth += 1,
-                _ => (),
-            }
-        }
-        depth
-    }
 }
 
 impl MatchMaker for Depth {
     fn match_path(&self, path: &str) -> bool {
-        let depth = Depth::get_depth(path);
-        if let Some(max) = self.max {
-            self.min <= depth && max >= depth
+        let mut escaped: bool = false;
+        let mut depth: usize = 0;
+        let max_num = if let Some(m) = self.max {
+            m
         } else {
-            self.min <= depth
+            usize::MAX
+        };
+        for chr in path.chars() {
+            match chr {
+                _ if escaped => escaped = false,
+                '\\' => escaped = true,
+                '}' | ']' => {
+                    depth += 1;
+                    if self.max.is_none() {
+                        if depth >= self.min {
+                            return true;
+                        }
+                    } else if depth > max_num {
+                        return false;
+                    }
+                }
+                _ => (),
+            }
         }
+        depth >= self.min
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Depth, MatchMaker};
-
-    #[test]
-    fn get_depth() {
-        assert_eq!(Depth::get_depth(""), 0);
-        assert_eq!(Depth::get_depth("[1]"), 1);
-        assert_eq!(Depth::get_depth(r#"{"first"}"#), 1);
-        assert_eq!(Depth::get_depth(r#"[1]{"first"}"#), 2);
-        assert_eq!(Depth::get_depth(r#"{"first"}[1]"#), 2);
-        assert_eq!(Depth::get_depth(r#"{"escaped \] \}"}"#), 1);
-    }
 
     #[test]
     fn match_path() {
