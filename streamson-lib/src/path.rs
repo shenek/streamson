@@ -1,8 +1,11 @@
 //! Emits paths with indexes from input data
 
 use crate::error;
-use bytes::{Buf, BytesMut};
-use std::{fmt, str::from_utf8};
+use std::{
+    collections::{vec_deque::Drain, VecDeque},
+    fmt,
+    str::from_utf8,
+};
 
 #[derive(Debug)]
 enum Element {
@@ -97,7 +100,7 @@ pub struct Emitter {
     /// Paring elements stack
     states: Vec<States>,
     /// Pending buffer
-    pending: BytesMut,
+    pending: VecDeque<u8>,
     /// Total index of pending buffer
     pending_idx: usize,
     /// Total index agains the first byte passed to input
@@ -109,7 +112,7 @@ impl Default for Emitter {
         Self {
             path: vec![],
             states: vec![States::Value(Element::Root), States::RemoveWhitespaces],
-            pending: BytesMut::default(),
+            pending: VecDeque::new(),
             pending_idx: 0,
             total_idx: 0,
         }
@@ -154,12 +157,13 @@ impl Emitter {
     }
 
     /// Moves pending buffer forward (reallocates data)
-    fn advance(&mut self) {
+    fn advance(&mut self) -> Drain<u8> {
+        let to_remove = self.pending_idx;
         if self.pending_idx > 0 {
-            self.pending.advance(self.pending_idx);
             self.total_idx += self.pending_idx;
             self.pending_idx = 0;
         }
+        self.pending.drain(0..to_remove)
     }
 
     /// Feed emitter with data
@@ -433,8 +437,9 @@ impl Emitter {
                     match string_state {
                         StringState::Normal => match byte {
                             b'\"' => {
-                                let key =
-                                    from_utf8(&self.pending[1..self.pending_idx - 1])?.to_string();
+                                let idx = self.pending_idx;
+                                let slice = &self.advance().collect::<Vec<u8>>()[1..idx - 1];
+                                let key = from_utf8(slice)?.to_string();
                                 self.states.push(States::Value(Element::Key(key)));
                                 self.states.push(States::RemoveWhitespaces);
                                 self.states.push(States::Colon);
