@@ -8,7 +8,6 @@ use crate::{
     matcher::MatchMaker,
     path::{Emitter, Output},
 };
-use bytes::BytesMut;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -32,7 +31,7 @@ pub struct Collector {
     /// Buffer index against total idx
     buffer_start: usize,
     /// Buffer which is used to store collected data
-    buffer: Option<BytesMut>,
+    buffer: Option<Vec<u8>>,
     /// Path matchers and handlers
     matchers: Vec<MatcherItem>,
     /// Emits path from data
@@ -129,7 +128,7 @@ impl Collector {
                             if self.buffer.is_none() {
                                 // start the buffer
                                 self.buffer_start = idx;
-                                self.buffer = Some(BytesMut::new());
+                                self.buffer = Some(vec![]);
                             }
                         }
                     }
