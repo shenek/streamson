@@ -176,19 +176,18 @@ impl Collector {
 mod tests {
     use super::Collector;
     use crate::{error, handler::Handler, matcher::Simple};
-    use bytes::Bytes;
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
     struct TestHandler {
         paths: Vec<String>,
-        data: Vec<Bytes>,
+        data: Vec<Vec<u8>>,
     }
 
     impl Handler for TestHandler {
         fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
-            self.data.push(Bytes::from(data.to_vec()));
+            self.data.push(data.to_vec());
             Ok(())
         }
     }
@@ -206,16 +205,16 @@ mod tests {
         );
         let guard = handler.lock().unwrap();
         assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
-        assert_eq!(guard.data[0], Bytes::from(br#"1"#.to_vec()));
+        assert_eq!(guard.data[0], br#"1"#.to_vec());
 
         assert_eq!(guard.paths[1], r#"{"elements"}[1]"#);
-        assert_eq!(guard.data[1], Bytes::from(br#"2"#.to_vec()));
+        assert_eq!(guard.data[1], br#"2"#.to_vec());
 
         assert_eq!(guard.paths[2], r#"{"elements"}[2]"#);
-        assert_eq!(guard.data[2], Bytes::from(br#"3"#.to_vec()));
+        assert_eq!(guard.data[2], br#"3"#.to_vec());
 
         assert_eq!(guard.paths[3], r#"{"elements"}[3]"#);
-        assert_eq!(guard.data[3], Bytes::from(br#"4"#.to_vec()));
+        assert_eq!(guard.data[3], br#"4"#.to_vec());
     }
 
     #[test]
@@ -230,15 +229,15 @@ mod tests {
 
         let guard = handler.lock().unwrap();
         assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
-        assert_eq!(guard.data[0], Bytes::from(br#"1"#.to_vec()));
+        assert_eq!(guard.data[0], br#"1"#.to_vec());
 
         assert_eq!(guard.paths[1], r#"{"elements"}[1]"#);
-        assert_eq!(guard.data[1], Bytes::from(br#"2"#.to_vec()));
+        assert_eq!(guard.data[1], br#"2"#.to_vec());
 
         assert_eq!(guard.paths[2], r#"{"elements"}[2]"#);
-        assert_eq!(guard.data[2], Bytes::from(br#"3"#.to_vec()));
+        assert_eq!(guard.data[2], br#"3"#.to_vec());
 
         assert_eq!(guard.paths[3], r#"{"elements"}[3]"#);
-        assert_eq!(guard.data[3], Bytes::from(br#"4"#.to_vec()));
+        assert_eq!(guard.data[3], br#"4"#.to_vec());
     }
 }
