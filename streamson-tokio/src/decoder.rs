@@ -59,7 +59,7 @@ impl Decoder for Extractor {
                 // pop if necessary
                 let mut handler = self.handler.lock().unwrap();
                 if let Some((path, bytes)) = handler.pop() {
-                    return Ok(Some((path, bytes)));
+                    return Ok(Some((path, Bytes::from(bytes))));
                 }
                 // handler is unlocked here so it can be used later withing `process` method
             }

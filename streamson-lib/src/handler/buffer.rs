@@ -29,14 +29,13 @@
 
 use super::Handler;
 use crate::error;
-use bytes::Bytes;
 use std::collections::VecDeque;
 
 /// Buffer handler responsible for storing slitted JSONs into memory
 #[derive(Debug, Default)]
 pub struct Buffer {
     /// Queue with stored jsons in (path, data) format
-    stored: VecDeque<(String, Bytes)>,
+    stored: VecDeque<(String, Vec<u8>)>,
 }
 
 impl Handler for Buffer {
@@ -44,8 +43,7 @@ impl Handler for Buffer {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
 
-        self.stored
-            .push_back((path.to_string(), Bytes::from(data.to_vec())));
+        self.stored.push_back((path.to_string(), data.to_vec()));
         Ok(())
     }
 }
@@ -73,7 +71,7 @@ impl Buffer {
     ///
     ///
     /// ```
-    pub fn pop(&mut self) -> Option<(String, Bytes)> {
+    pub fn pop(&mut self) -> Option<(String, Vec<u8>)> {
         self.stored.pop_front()
     }
 }
