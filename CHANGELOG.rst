@@ -1,3 +1,12 @@
+3.0.0 (2020-07-21)
+------------------
+
+* fix benchmarks
+* add Depth/Buffer and Combinator/Buffer benchmarks
+* depth matcher optimizations
+* use VecDeque or Vec instead of Bytes and BytesMut (speed optimizations)
+* remove Bytes dependecy
+
 2.0.0 (2020-07-13)
 ------------------
 
