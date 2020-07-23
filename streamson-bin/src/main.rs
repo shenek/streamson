@@ -6,13 +6,22 @@ use std::{
 };
 use streamson_lib::{error, handler, matcher, Collector};
 
-const BUFFER_SIZE: usize = 2048;
+const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB
 
 fn write_file_validator(input: String) -> Result<(), String> {
     if input.contains(':') {
         Ok(())
     } else {
         Err(format!("{} is not valid input", input))
+    }
+}
+
+fn usize_validator(input: String) -> Result<(), String> {
+    let res = input.parse::<usize>().map_err(|err| err.to_string())?;
+    if res == 0 {
+        Err("Buffer can't have 0 size".into())
+    } else {
+        Ok(())
     }
 }
 
@@ -27,6 +36,8 @@ fn make_simple_combined_matcher(input: &[&str]) -> Option<matcher::Combinator> {
 }
 
 fn main() -> Result<(), error::General> {
+    let default_buffer_size = DEFAULT_BUFFER_SIZE.to_string();
+
     let app = App::new(crate_name!())
         .author(crate_authors!())
         .version(crate_version!())
@@ -61,6 +72,17 @@ fn main() -> Result<(), error::General> {
                 .validator(write_file_validator)
                 .value_name("SIMPLE_MATCH:PATH_TO_FILE")
                 .required(false),
+        )
+        .arg(
+            Arg::with_name("buffer_size")
+                .help("Sets internal buffer size")
+                .short("b")
+                .long("buffer-size")
+                .takes_value(true)
+                .validator(usize_validator)
+                .value_name("BUFFER_SIZE")
+                .default_value(&default_buffer_size)
+                .required(false),
         );
 
     let arg_matches = app.get_matches();
@@ -85,6 +107,12 @@ fn main() -> Result<(), error::General> {
         }
     }
 
+    let buffer_size: usize = arg_matches
+        .value_of("buffer_size")
+        .unwrap()
+        .parse()
+        .unwrap();
+
     if let Some(file_matches) = arg_matches.values_of("file") {
         for file in file_matches {
             let splitted: Vec<String> = file.split(':').map(String::from).collect();
@@ -99,12 +127,13 @@ fn main() -> Result<(), error::General> {
         }
     }
 
-    let mut buffer = [0; BUFFER_SIZE];
-    while let Ok(size) = stdin().read(&mut buffer[..]) {
+    let mut buffer = vec![];
+    while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
         collector.process(&buffer[..size])?;
+        buffer.clear();
     }
 
     Ok(())
