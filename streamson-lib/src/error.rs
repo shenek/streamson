@@ -67,9 +67,36 @@ impl fmt::Display for IncorrectInput {
         )
     }
 }
+
+/// Path related error
+#[derive(Debug, PartialEq, Clone)]
+pub struct Path {
+    path: String,
+}
+
+impl Path {
+    pub fn new<T>(path: T) -> Self
+    where
+        T: ToString,
+    {
+        Self {
+            path: path.to_string(),
+        }
+    }
+}
+
+impl Error for Path {}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Wrong path '{}'", self.path)
+    }
+}
+
 /// Handler related errors
 #[derive(Debug)]
 pub enum General {
+    Path(Path),
     Handler(Handler),
     Matcher(Matcher),
     Utf8Error(Utf8Error),
@@ -81,6 +108,7 @@ impl Error for General {}
 impl fmt::Display for General {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::Path(err) => err.fmt(f),
             Self::Handler(err) => err.fmt(f),
             Self::Matcher(err) => err.fmt(f),
             Self::Utf8Error(err) => err.fmt(f),

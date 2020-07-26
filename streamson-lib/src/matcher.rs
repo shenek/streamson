@@ -10,6 +10,8 @@ pub use combinator::Combinator;
 pub use depth::Depth;
 pub use simple::Simple;
 
+use crate::path::Path;
+
 /// Common Matcher trait
 pub trait MatchMaker: fmt::Debug + Send {
     /// Check whether the path matches
@@ -18,5 +20,5 @@ pub trait MatchMaker: fmt::Debug + Send {
     ///
     /// # Returns
     /// * `true` if path matches, `false` otherwise
-    fn match_path(&self, path: &str) -> bool;
+    fn match_path(&self, path: &Path) -> bool;
 }

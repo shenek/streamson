@@ -19,8 +19,8 @@ use tokio_util::codec::Decoder;
 ///
 /// async fn process() -> Result<(), error::General> {
 ///     let mut file = fs::File::open("/tmp/large.json").await?;
-///     let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#))
-///         | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#));
+///     let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
+///         | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
 ///     let extractor = Extractor::new(matcher);
 ///     let mut output = FramedRead::new(file, extractor);
 ///     while let Some(item) = output.next().await {
@@ -86,8 +86,8 @@ mod tests {
     async fn basic() {
         let cursor =
             Cursor::new(br#"{"users": ["mike","john"], "groups": ["admin", "staff"]}"#.to_vec());
-        let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#))
-            | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#));
+        let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
+            | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
         let extractor = Extractor::new(matcher);
         let mut output = FramedRead::new(cursor, extractor);
 

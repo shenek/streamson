@@ -3,12 +3,13 @@
 use crate::error;
 use std::{
     collections::{vec_deque::Drain, VecDeque},
+    convert::TryFrom,
     fmt,
     str::from_utf8,
 };
 
-#[derive(Debug)]
-enum Element {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Element {
     Root,
     Key(String),
     Index(usize),
@@ -27,10 +28,10 @@ impl fmt::Display for Element {
 /// Output of path processing
 #[derive(Debug, PartialEq)]
 pub enum Output {
-    /// Path begings here
-    Start(usize, String),
+    /// Path starts here
+    Start(usize),
     /// Path ends here
-    End(usize, String),
+    End(usize),
     /// Needs more data
     Pending,
     /// No data left in json
@@ -63,6 +64,127 @@ enum States {
     RemoveWhitespaces,
 }
 
+/// Represents the path in a json
+/// e.g. {"users"}[0]
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Path {
+    path: Vec<Element>,
+}
+
+impl Path {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Removes last path element
+    pub fn pop(&mut self) {
+        self.path.pop().unwrap();
+    }
+
+    /// Appends path element
+    pub fn push(&mut self, element: Element) {
+        self.path.push(element);
+    }
+
+    /// Returns the path depth
+    pub fn depth(&self) -> usize {
+        self.path.len()
+    }
+
+    /// Returns the actual path
+    pub fn get_path(&self) -> &[Element] {
+        &self.path
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum PathState {
+    ElementStart,
+    Array,
+    ObjectStart,
+    Object(bool),
+    ObjectEnd,
+}
+
+impl TryFrom<&str> for Path {
+    type Error = error::Path;
+    fn try_from(path_str: &str) -> Result<Self, Self::Error> {
+        let mut state = PathState::ElementStart;
+        let mut path = Self::new();
+        path.push(Element::Root);
+        let mut buffer = vec![];
+        for chr in path_str.chars() {
+            state = match state {
+                PathState::ElementStart => match chr {
+                    '[' => PathState::Array,
+                    '{' => PathState::ObjectStart,
+                    _ => return Err(error::Path::new(path_str)),
+                },
+                PathState::Array => match chr {
+                    '0'..='9' => {
+                        buffer.push(chr);
+                        PathState::Array
+                    }
+                    ']' => {
+                        let idx: usize = buffer.drain(..).collect::<String>().parse().unwrap();
+                        path.push(Element::Index(idx));
+                        PathState::ElementStart
+                    }
+                    _ => return Err(error::Path::new(path_str)),
+                },
+                PathState::ObjectStart => {
+                    if chr == '"' {
+                        PathState::Object(false)
+                    } else {
+                        return Err(error::Path::new(path_str));
+                    }
+                }
+                PathState::Object(escaped) => {
+                    if escaped {
+                        buffer.push(chr);
+                        PathState::Object(false)
+                    } else {
+                        match chr {
+                            '\\' => {
+                                buffer.push(chr);
+                                PathState::Object(true)
+                            }
+                            '"' => PathState::ObjectEnd,
+                            _ => {
+                                buffer.push(chr);
+                                PathState::Object(false)
+                            }
+                        }
+                    }
+                }
+                PathState::ObjectEnd => {
+                    if chr == '}' {
+                        let key: String = buffer.drain(..).collect();
+                        path.push(Element::Key(key));
+                        PathState::ElementStart
+                    } else {
+                        return Err(error::Path::new(path_str));
+                    }
+                }
+            };
+        }
+        if state == PathState::ElementStart {
+            Ok(path)
+        } else {
+            Err(error::Path::new(path_str))
+        }
+    }
+}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for element in &self.path {
+            write!(f, "{}", element)?;
+        }
+        Ok(())
+    }
+}
+
 /// Reads parts of UTF-8 json input and emits paths
 /// e.g. reading of
 /// ```json
@@ -75,28 +197,28 @@ enum States {
 /// ```
 /// should emit (index and path)
 /// ```text
-/// Start( 0, "")
-/// Start( 1, "{\"People\"}")
-/// Start( 3, "{\"People\"}[0]")
-/// Start( 4, "{\"People\"}[0]{\"Height\"}")
-/// End(   5, "{\"People\"}[0]{\"Height\"}")
-/// Start( 6, "{\"People\"}[0]{\"Age\"}")
-/// End(   7, "{\"People\"}[0]{\"Age\"}")
-/// End(   8, "{\"People\"}[0]")
-/// Start( 9, "{\"People\"}[1]")
-/// Start(10, "{\"People\"}[1]{\"Height\"}")
-/// End(  11, "{\"People\"}[1]{\"Height\"}")
-/// Start(12, "{\"People\"}[1]{\"Age\"}")
-/// End(  13, "{\"People\"}[1]{\"Age\"}")
-/// End(  14, "{\"People\"}[1]")
-/// End(  15, "{\"People\"}")
-/// End(  16, "")
+/// Start( 0) // Emitter.path == ""
+/// Start( 1) // Emitter.path == "{\"People\"}"
+/// Start( 3) // Emitter.path == "{\"People\"}[0]"
+/// Start( 4) // Emitter.path == "{\"People\"}[0]{\"Height\"}"
+/// End(   5)
+/// Start( 6) // Emitter.path == "{\"People\"}[0]{\"Age\"}"
+/// End(   7)
+/// End(   8)
+/// Start( 9) // Emitter.path == "{\"People\"}[1]"
+/// Start(10) // Emitter.path == "{\"People\"}[1]{\"Height\"}"
+/// End(  11)
+/// Start(12) // Emitter.path == "{\"People\"}[1]{\"Age\"}"
+/// End(  13)
+/// End(  14)
+/// End(  15)
+/// End(  16)
 /// Finished
 /// ```
 #[derive(Debug)]
 pub struct Emitter {
-    /// Paths stack
-    path: Vec<Element>,
+    /// Path stack
+    path: Path,
     /// Paring elements stack
     states: Vec<States>,
     /// Pending buffer
@@ -110,7 +232,7 @@ pub struct Emitter {
 impl Default for Emitter {
     fn default() -> Self {
         Self {
-            path: vec![],
+            path: Path::default(),
             states: vec![States::Value(Element::Root), States::RemoveWhitespaces],
             pending: VecDeque::new(),
             pending_idx: 0,
@@ -125,13 +247,9 @@ impl Emitter {
         Self::default()
     }
 
-    /// Shows current path
-    fn display_path(&self) -> String {
-        self.path
-            .iter()
-            .map(|e| format!("{}", e))
-            .collect::<Vec<String>>()
-            .join("")
+    /// Returns current path
+    pub fn current_path(&self) -> &Path {
+        &self.path
     }
 
     /// Returns currently processed byte
@@ -201,25 +319,25 @@ impl Emitter {
                     self.advance();
                     self.forward();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'0'..=b'9' => {
                     self.states.push(States::Number);
                     self.advance();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b't' | b'f' => {
                     self.states.push(States::Bool);
                     self.advance();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'n' => {
                     self.states.push(States::Null);
                     self.advance();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'[' => {
                     self.states.push(States::Array(0));
@@ -229,7 +347,7 @@ impl Emitter {
                     self.advance();
                     self.forward();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'{' => {
                     self.states.push(States::Object);
@@ -239,7 +357,7 @@ impl Emitter {
                     self.advance();
                     self.forward();
                     self.path.push(element);
-                    Ok(Some(Output::Start(self.total_idx, self.display_path())))
+                    Ok(Some(Output::Start(self.total_idx)))
                 }
                 b']' | b'}' => {
                     // End of an array or object -> no value matched
@@ -262,9 +380,8 @@ impl Emitter {
                     if state == StringState::Normal {
                         self.forward();
                         self.advance();
-                        let prev_path = self.display_path();
-                        self.path.pop().unwrap();
-                        Ok(Some(Output::End(self.total_idx, prev_path)))
+                        self.path.pop();
+                        Ok(Some(Output::End(self.total_idx)))
                     } else {
                         self.forward();
                         self.states.push(States::Str(StringState::Normal));
@@ -300,9 +417,8 @@ impl Emitter {
                 Ok(None)
             } else {
                 self.advance();
-                let prev_path = self.display_path();
-                self.path.pop().unwrap();
-                Ok(Some(Output::End(self.total_idx, prev_path)))
+                self.path.pop();
+                Ok(Some(Output::End(self.total_idx)))
             }
         } else {
             self.states.push(States::Number);
@@ -318,9 +434,8 @@ impl Emitter {
                 Ok(None)
             } else {
                 self.advance();
-                let prev_path = self.display_path();
-                self.path.pop().unwrap();
-                Ok(Some(Output::End(self.total_idx, prev_path)))
+                self.path.pop();
+                Ok(Some(Output::End(self.total_idx)))
             }
         } else {
             self.states.push(States::Bool);
@@ -336,9 +451,8 @@ impl Emitter {
                 Ok(None)
             } else {
                 self.advance();
-                let prev_path = self.display_path();
-                self.path.pop().unwrap();
-                Ok(Some(Output::End(self.total_idx, prev_path)))
+                self.path.pop();
+                Ok(Some(Output::End(self.total_idx)))
             }
         } else {
             self.states.push(States::Null);
@@ -352,9 +466,8 @@ impl Emitter {
                 b']' => {
                     self.forward();
                     self.advance();
-                    let exported_path = self.display_path();
-                    self.path.pop().unwrap();
-                    Ok(Some(Output::End(self.total_idx, exported_path)))
+                    self.path.pop();
+                    Ok(Some(Output::End(self.total_idx)))
                 }
                 b',' => {
                     self.forward();
@@ -380,9 +493,8 @@ impl Emitter {
                 b'}' => {
                     self.forward();
                     self.advance();
-                    let exported_path = self.display_path();
-                    self.path.pop().unwrap();
-                    Ok(Some(Output::End(self.total_idx, exported_path)))
+                    self.path.pop();
+                    Ok(Some(Output::End(self.total_idx)))
                 }
                 b',' => {
                     self.forward();
@@ -557,7 +669,12 @@ impl Emitter {
 
 #[cfg(test)]
 mod tests {
-    use super::{Emitter, Output};
+    use super::{Element, Emitter, Output, Path};
+    use std::convert::TryFrom;
+
+    fn make_path(path: &str) -> Path {
+        Path::try_from(path).unwrap()
+    }
 
     #[test]
     fn test_spaces() {
@@ -570,14 +687,16 @@ mod tests {
     fn test_string() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"  "test string \" \\\" [ ] {} , :\\""#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(2, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(36, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(2));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(36));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
 
         let mut emitter = Emitter::new();
         emitter.feed(br#"" another one " "#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(15, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(15));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -585,8 +704,9 @@ mod tests {
     fn test_number() {
         let mut emitter = Emitter::new();
         emitter.feed(br#" 3.24 "#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(1, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(5, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(1));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(5));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -594,8 +714,9 @@ mod tests {
     fn test_bool() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"  true  "#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(2, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(6, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(2));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(6));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -604,13 +725,15 @@ mod tests {
         let mut emitter = Emitter::new();
         // TODO think of some better way to terminate the nulls/bools/numbers
         emitter.feed(br#"null"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Pending);
 
         let mut emitter = Emitter::new();
         emitter.feed(br#"null  "#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(4, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(4));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -618,14 +741,18 @@ mod tests {
     fn test_array() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"[ null, 33, "string" ]"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(2, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(6, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(8, "[1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(10, "[1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(12, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(20, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(22, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::Start(2));
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(6));
+        assert_eq!(emitter.read().unwrap(), Output::Start(8));
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(10));
+        assert_eq!(emitter.read().unwrap(), Output::Start(12));
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(20));
+        assert_eq!(emitter.read().unwrap(), Output::End(22));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -633,18 +760,22 @@ mod tests {
     fn test_array_pending() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"[ null, 3"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(2, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(6, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(8, "[1]".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::Start(2));
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(6));
+        assert_eq!(emitter.read().unwrap(), Output::Start(8));
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::Pending);
         emitter.feed(br#"3,"#);
-        assert_eq!(emitter.read().unwrap(), Output::End(10, "[1]".into()));
+        assert_eq!(emitter.read().unwrap(), Output::End(10));
         assert_eq!(emitter.read().unwrap(), Output::Pending);
         emitter.feed(br#" "string" ]"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(12, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(20, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(22, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(12));
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(20));
+        assert_eq!(emitter.read().unwrap(), Output::End(22));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -652,8 +783,9 @@ mod tests {
     fn test_empty_array() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"[]"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(2, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(2));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -661,20 +793,27 @@ mod tests {
     fn test_array_in_array() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"[ [], 33, ["string" , 44], [  ]]"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(2, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(4, "[0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(6, "[1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(8, "[1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(10, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(11, "[2][0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(19, "[2][0]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(22, "[2][1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(24, "[2][1]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(25, "[2]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(27, "[3]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(31, "[3]".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(32, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::Start(2));
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(4));
+        assert_eq!(emitter.read().unwrap(), Output::Start(6));
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(8));
+        assert_eq!(emitter.read().unwrap(), Output::Start(10));
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
+        assert_eq!(emitter.read().unwrap(), Output::Start(11));
+        assert_eq!(emitter.current_path(), &make_path("[2][0]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(19));
+        assert_eq!(emitter.read().unwrap(), Output::Start(22));
+        assert_eq!(emitter.current_path(), &make_path("[2][1]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(24));
+        assert_eq!(emitter.read().unwrap(), Output::End(25));
+        assert_eq!(emitter.read().unwrap(), Output::Start(27));
+        assert_eq!(emitter.current_path(), &make_path("[3]"));
+        assert_eq!(emitter.read().unwrap(), Output::End(31));
+        assert_eq!(emitter.read().unwrap(), Output::End(32));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -682,22 +821,21 @@ mod tests {
     fn test_object() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"{"a":"a", "b" :  true , "c": null, " \" \\\" \\": 33}"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(5, "{\"a\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(8, "{\"a\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(17, "{\"b\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(21, "{\"b\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(29, "{\"c\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(33, "{\"c\"}".into()));
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::Start(50, r#"{" \" \\\" \\"}"#.into())
-        );
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::End(52, r#"{" \" \\\" \\"}"#.into())
-        );
-        assert_eq!(emitter.read().unwrap(), Output::End(53, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::Start(5));
+        assert_eq!(emitter.current_path(), &make_path("{\"a\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(8));
+        assert_eq!(emitter.read().unwrap(), Output::Start(17));
+        assert_eq!(emitter.current_path(), &make_path("{\"b\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(21));
+        assert_eq!(emitter.read().unwrap(), Output::Start(29));
+        assert_eq!(emitter.current_path(), &make_path("{\"c\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(33));
+        assert_eq!(emitter.read().unwrap(), Output::Start(50));
+        assert_eq!(emitter.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
+        assert_eq!(emitter.read().unwrap(), Output::End(52));
+        assert_eq!(emitter.read().unwrap(), Output::End(53));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -705,8 +843,9 @@ mod tests {
     fn test_empty_object() {
         let mut emitter = Emitter::new();
         emitter.feed(br#"{}"#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(0, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(2, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(0));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::End(2));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -714,28 +853,21 @@ mod tests {
     fn test_object_in_object() {
         let mut emitter = Emitter::new();
         emitter.feed(br#" {"u": {}, "j": {"x": {  }, "y": 10}} "#);
-        assert_eq!(emitter.read().unwrap(), Output::Start(1, "".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(7, "{\"u\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(9, "{\"u\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::Start(16, "{\"j\"}".into()));
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::Start(22, "{\"j\"}{\"x\"}".into())
-        );
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::End(26, "{\"j\"}{\"x\"}".into())
-        );
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::Start(33, "{\"j\"}{\"y\"}".into())
-        );
-        assert_eq!(
-            emitter.read().unwrap(),
-            Output::End(35, "{\"j\"}{\"y\"}".into())
-        );
-        assert_eq!(emitter.read().unwrap(), Output::End(36, "{\"j\"}".into()));
-        assert_eq!(emitter.read().unwrap(), Output::End(37, "".into()));
+        assert_eq!(emitter.read().unwrap(), Output::Start(1));
+        assert_eq!(emitter.current_path(), &make_path(""));
+        assert_eq!(emitter.read().unwrap(), Output::Start(7));
+        assert_eq!(emitter.current_path(), &make_path("{\"u\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(9));
+        assert_eq!(emitter.read().unwrap(), Output::Start(16));
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::Start(22));
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"x\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(26));
+        assert_eq!(emitter.read().unwrap(), Output::Start(33));
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"y\"}"));
+        assert_eq!(emitter.read().unwrap(), Output::End(35));
+        assert_eq!(emitter.read().unwrap(), Output::End(36));
+        assert_eq!(emitter.read().unwrap(), Output::End(37));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -753,62 +885,53 @@ mod tests {
             emitter.feed(start_data);
 
             // Gets next item and feed the rest of the data when pending
-            let mut get_item = || loop {
+            let mut get_item = |path: Option<&str>| loop {
                 match emitter.read() {
                     Ok(Output::Pending) => {
                         emitter.feed(end_data);
                         continue;
                     }
                     Ok(e) => {
+                        if let Some(pth) = path {
+                            assert_eq!(emitter.current_path(), &make_path(pth));
+                        }
                         return e;
                     }
                     Err(_) => panic!("Error occured"),
                 }
             };
 
-            assert_eq!(get_item(), Output::Start(1, "".into()));
-            assert_eq!(get_item(), Output::Start(2, "[0]".into()));
-            assert_eq!(get_item(), Output::Start(12, "[0]{\"aha y\"}".into()));
-            assert_eq!(get_item(), Output::End(14, "[0]{\"aha y\"}".into()));
-            assert_eq!(get_item(), Output::Start(21, "[0]{\"j\"}".into()));
-            assert_eq!(get_item(), Output::Start(27, "[0]{\"j\"}{\"x\"}".into()));
-            assert_eq!(get_item(), Output::Start(28, "[0]{\"j\"}{\"x\"}[0]".into()));
-            assert_eq!(get_item(), Output::End(32, "[0]{\"j\"}{\"x\"}[0]".into()));
-            assert_eq!(get_item(), Output::Start(34, "[0]{\"j\"}{\"x\"}[1]".into()));
-            assert_eq!(
-                get_item(),
-                Output::Start(36, "[0]{\"j\"}{\"x\"}[1][0]".into())
-            );
-            assert_eq!(
-                get_item(),
-                Output::End(38, "[0]{\"j\"}{\"x\"}[1][0]".into())
-            );
-            assert_eq!(
-                get_item(),
-                Output::Start(40, "[0]{\"j\"}{\"x\"}[1][1]".into())
-            );
-            assert_eq!(
-                get_item(),
-                Output::End(44, "[0]{\"j\"}{\"x\"}[1][1]".into())
-            );
-            assert_eq!(get_item(), Output::End(46, "[0]{\"j\"}{\"x\"}[1]".into()));
-            assert_eq!(get_item(), Output::End(47, "[0]{\"j\"}{\"x\"}".into()));
-            assert_eq!(get_item(), Output::Start(55, "[0]{\"j\"}{\"y\"}".into()));
-            assert_eq!(get_item(), Output::End(57, "[0]{\"j\"}{\"y\"}".into()));
-            assert_eq!(get_item(), Output::End(58, "[0]{\"j\"}".into()));
-            assert_eq!(get_item(), Output::End(59, "[0]".into()));
-            assert_eq!(get_item(), Output::Start(61, "[1]".into()));
-            assert_eq!(get_item(), Output::End(65, "[1]".into()));
-            assert_eq!(get_item(), Output::Start(67, "[2]".into()));
-            assert_eq!(get_item(), Output::End(69, "[2]".into()));
-            assert_eq!(get_item(), Output::Start(71, "[3]".into()));
-            assert_eq!(get_item(), Output::Start(73, "[3][0]".into()));
-            assert_eq!(get_item(), Output::Start(79, "[3][0]{\"a\"}".into()));
-            assert_eq!(get_item(), Output::End(84, "[3][0]{\"a\"}".into()));
-            assert_eq!(get_item(), Output::End(85, "[3][0]".into()));
-            assert_eq!(get_item(), Output::End(87, "[3]".into()));
-            assert_eq!(get_item(), Output::End(89, "".into()));
-            assert_eq!(get_item(), Output::Finished);
+            assert_eq!(get_item(Some("")), Output::Start(1));
+            assert_eq!(get_item(Some("[0]")), Output::Start(2));
+            assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::Start(12));
+            assert_eq!(get_item(None), Output::End(14));
+            assert_eq!(get_item(Some("[0]{\"j\"}")), Output::Start(21));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::Start(27));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::Start(28));
+            assert_eq!(get_item(None), Output::End(32));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::Start(34));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::Start(36));
+            assert_eq!(get_item(None), Output::End(38));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::Start(40));
+            assert_eq!(get_item(None), Output::End(44));
+            assert_eq!(get_item(None), Output::End(46));
+            assert_eq!(get_item(None), Output::End(47));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::Start(55));
+            assert_eq!(get_item(None), Output::End(57));
+            assert_eq!(get_item(None), Output::End(58));
+            assert_eq!(get_item(None), Output::End(59));
+            assert_eq!(get_item(Some("[1]")), Output::Start(61));
+            assert_eq!(get_item(None), Output::End(65));
+            assert_eq!(get_item(Some("[2]")), Output::Start(67));
+            assert_eq!(get_item(None), Output::End(69));
+            assert_eq!(get_item(Some("[3]")), Output::Start(71));
+            assert_eq!(get_item(Some("[3][0]")), Output::Start(73));
+            assert_eq!(get_item(Some("[3][0]{\"a\"}")), Output::Start(79));
+            assert_eq!(get_item(None), Output::End(84));
+            assert_eq!(get_item(None), Output::End(85));
+            assert_eq!(get_item(None), Output::End(87));
+            assert_eq!(get_item(None), Output::End(89));
+            assert_eq!(get_item(None), Output::Finished);
         }
     }
 
@@ -825,28 +948,52 @@ mod tests {
             emitter.feed(start_data);
 
             // Gets next item and feed the rest of the data when pending
-            let mut get_item = || loop {
+            let mut get_item = |path: Option<&str>| loop {
                 match emitter.read() {
                     Ok(Output::Pending) => {
                         emitter.feed(end_data);
                         continue;
                     }
                     Ok(e) => {
+                        if let Some(pth) = path {
+                            assert_eq!(emitter.current_path(), &make_path(pth));
+                        }
                         return e;
                     }
                     Err(_) => panic!("Error occured"),
                 }
             };
 
-            assert_eq!(get_item(), Output::Start(0, "".into()));
-            assert_eq!(get_item(), Output::Start(1, "[0]".into()));
-            assert_eq!(get_item(), Output::Start(15, "[0]{\"š𐍈€\"}".into()));
-            assert_eq!(get_item(), Output::End(26, "[0]{\"š𐍈€\"}".into()));
-            assert_eq!(get_item(), Output::End(27, "[0]".into()));
-            assert_eq!(get_item(), Output::Start(29, "[1]".into()));
-            assert_eq!(get_item(), Output::End(40, "[1]".into()));
-            assert_eq!(get_item(), Output::End(41, "".into()));
-            assert_eq!(get_item(), Output::Finished);
+            assert_eq!(get_item(Some("")), Output::Start(0));
+            assert_eq!(get_item(Some("[0]")), Output::Start(1));
+            assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::Start(15));
+            assert_eq!(get_item(None), Output::End(26));
+            assert_eq!(get_item(None), Output::End(27));
+            assert_eq!(get_item(Some("[1]")), Output::Start(29));
+            assert_eq!(get_item(None), Output::End(40));
+            assert_eq!(get_item(None), Output::End(41));
+            assert_eq!(get_item(None), Output::Finished);
         }
+    }
+
+    #[test]
+    fn test_path_from_string_empty() {
+        assert!(Path::try_from("").is_ok());
+    }
+
+    #[test]
+    fn test_path_from_string_array() {
+        let mut path = Path::new();
+        path.push(Element::Root);
+        path.push(Element::Index(0));
+        assert_eq!(Path::try_from("[0]").unwrap(), path);
+    }
+
+    #[test]
+    fn test_path_from_string_object() {
+        let mut path = Path::new();
+        path.push(Element::Root);
+        path.push(Element::Key(r#"my-ke\\y\" "#.into()));
+        assert_eq!(Path::try_from(r#"{"my-ke\\y\" "}"#).unwrap(), path);
     }
 }

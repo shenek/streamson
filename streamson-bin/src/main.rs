@@ -27,11 +27,15 @@ fn usize_validator(input: String) -> Result<(), String> {
 
 fn make_simple_combined_matcher(input: &[&str]) -> Option<matcher::Combinator> {
     input.iter().fold(None, |comb, path| {
-        Some(if let Some(c) = comb {
-            c | matcher::Combinator::new(matcher::Simple::new(path))
+        if let Ok(simple) = matcher::Simple::new(path) {
+            Some(if let Some(c) = comb {
+                c | matcher::Combinator::new(simple)
+            } else {
+                matcher::Combinator::new(simple)
+            })
         } else {
-            matcher::Combinator::new(matcher::Simple::new(path))
-        })
+            comb
+        }
     })
 }
 
@@ -117,7 +121,7 @@ fn main() -> Result<(), error::General> {
         for file in file_matches {
             let splitted: Vec<String> = file.split(':').map(String::from).collect();
             let path = splitted[1..].join(":");
-            let matcher = matcher::Simple::new(&splitted[0]);
+            let matcher = matcher::Simple::new(&splitted[0])?;
             let file_handler = file_handler_map.entry(path.clone()).or_insert_with(|| {
                 Arc::new(Mutex::new(handler::File::new(&path).unwrap_or_else(|_| {
                     panic!("Failed to open output file '{}'", path)

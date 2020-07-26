@@ -1,4 +1,4 @@
-use streamson_lib::{handler, matcher, Collector};
+use streamson_lib::{handler, matcher, path::Path, Collector};
 
 use std::sync::{Arc, Mutex};
 
@@ -17,8 +17,8 @@ impl Letter {
 }
 
 impl matcher::MatchMaker for Letter {
-    fn match_path(&self, path: &str) -> bool {
-        path.chars().any(|c| c == self.letter)
+    fn match_path(&self, path: &Path) -> bool {
+        path.to_string().chars().any(|c| c == self.letter)
     }
 }
 

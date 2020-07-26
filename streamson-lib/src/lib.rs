@@ -16,8 +16,8 @@
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
-//! let first_matcher = matcher::Simple::new(r#"{"users"}[]"#);
-//! let second_matcher = matcher::Simple::new(r#"{"groups"}[]"#);
+//! let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
+//! let second_matcher = matcher::Simple::new(r#"{"groups"}[]"#).unwrap();
 //!
 //! let mut collector = Collector::new();
 //!
@@ -51,7 +51,7 @@
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
 //! let first_matcher = matcher::Depth::new(1, Some(2));
-//! let second_matcher = matcher::Simple::new(r#"{"users"}[]"#);
+//! let second_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
 //! let matcher = matcher::Combinator::new(first_matcher) |
 //!     matcher::Combinator::new(second_matcher);
 //!

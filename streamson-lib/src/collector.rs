@@ -36,8 +36,8 @@ pub struct Collector {
     matchers: Vec<MatcherItem>,
     /// Emits path from data
     emitter: Emitter,
-    /// Path stack
-    path_stack: Vec<StackItem>,
+    /// Matched stack
+    matched_stack: Vec<Vec<StackItem>>,
 }
 
 impl Collector {
@@ -60,7 +60,7 @@ impl Collector {
     ///
     /// let mut collector = Collector::new();
     /// let handler = handler::PrintLn::new();
-    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#);
+    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// let collector = Collector::new().add_matcher(
     ///     Box::new(matcher),
     ///     &[Arc::new(Mutex::new(handler))]
@@ -110,20 +110,24 @@ impl Collector {
                 Output::Finished => {
                     return Ok(true);
                 }
-                Output::Start(idx, path) => {
+                Output::Start(idx) => {
+                    // extend the input
                     let to = idx - self.input_start;
                     if let Some(stored) = self.buffer.as_mut() {
                         stored.extend(&input[inner_idx..to]);
                     }
                     inner_idx = to;
 
+                    let mut matched = vec![];
+                    let path = self.emitter.current_path();
+
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
-                        if matcher.match_path(&path) {
-                            self.path_stack.push(StackItem {
+                        if matcher.match_path(path) {
+                            matched.push(StackItem {
                                 idx,
                                 match_idx,
-                                path: path.clone(),
+                                path: path.to_string(),
                             });
                             if self.buffer.is_none() {
                                 // start the buffer
@@ -132,32 +136,31 @@ impl Collector {
                             }
                         }
                     }
+
+                    self.matched_stack.push(matched);
                 }
-                Output::End(idx, path) => {
+                Output::End(idx) => {
                     let to = idx - self.input_start;
                     if let Some(stored) = self.buffer.as_mut() {
                         stored.extend(&input[inner_idx..to]);
                     }
                     inner_idx = to;
 
-                    if let Some(item) = self.path_stack.pop() {
-                        if item.path == path {
-                            // matches
-                            for handler in &self.matchers[item.match_idx].1 {
-                                handler.lock().unwrap().handle(
-                                    &path,
-                                    &self.buffer.as_ref().unwrap()
-                                        [item.idx - self.buffer_start..idx - self.buffer_start],
-                                )?;
-                            }
-                            if self.path_stack.is_empty() {
-                                self.buffer = None; // clear the buffer
-                            }
-                            continue;
-                        } else {
-                            // put back the previous item
-                            self.path_stack.push(item);
+                    let items = self.matched_stack.pop().unwrap();
+                    for item in items {
+                        // matches
+                        for handler in &self.matchers[item.match_idx].1 {
+                            handler.lock().unwrap().handle(
+                                &item.path,
+                                &self.buffer.as_ref().unwrap()
+                                    [item.idx - self.buffer_start..idx - self.buffer_start],
+                            )?;
                         }
+                    }
+
+                    // Clear the buffer if there is no need to keep the buffer
+                    if self.matched_stack.iter().all(|items| items.is_empty()) {
+                        self.buffer = None; // clear the buffer
                     }
                 }
                 Output::Pending => {
@@ -196,7 +199,7 @@ mod tests {
     fn basic() {
         let mut collector = Collector::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
-        let matcher = Simple::new(r#"{"elements"}[]"#);
+        let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
         collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
 
         assert!(
@@ -221,7 +224,7 @@ mod tests {
     fn basic_pending() {
         let mut collector = Collector::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
-        let matcher = Simple::new(r#"{"elements"}[]"#);
+        let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
         collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
 
         assert_eq!(collector.process(br#"{"elem"#).unwrap(), false);

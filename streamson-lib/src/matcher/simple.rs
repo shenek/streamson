@@ -1,8 +1,18 @@
 //! Simple path matcher
 
 use super::MatchMaker;
-use crate::error;
+use crate::{
+    error,
+    path::{Element, Path},
+};
 use std::str::FromStr;
+
+/// TODO document
+#[derive(Debug, Clone, PartialEq)]
+enum SimplePathElement {
+    Key(Option<String>),
+    Index(Option<usize>),
+}
 
 /// Based on orignal path format {"People"}[0]{"Height"}
 ///
@@ -11,190 +21,136 @@ use std::str::FromStr;
 /// It matches {"People"}[0]{} - matches all attributes of the first person
 #[derive(Default, Debug, Clone)]
 pub struct Simple {
-    path_expr: String,
+    path: Vec<SimplePathElement>,
 }
 
 #[derive(Debug, PartialEq)]
 enum SimpleMatcherStates {
-    Normal,
+    ElementStart,
     Array,
-    ArrayCmp,
-    ArrayWild,
-    Object,
-    ObjectWildStart,
-    ObjectWild(bool),
-    ObjectWildEnd,
-    ObjectCmpStart,
-    ObjectCmp(bool),
-    ObjectCmpEnd,
+    ObjectStart,
+    Object(bool),
+    ObjectEnd,
 }
 
 impl MatchMaker for Simple {
-    fn match_path(&self, path: &str) -> bool {
-        let mut str_iter = path.chars();
-        let mut expr_iter = self.path_expr.chars();
-        let mut state = SimpleMatcherStates::Normal;
-        loop {
-            match state {
-                SimpleMatcherStates::Normal => {
-                    let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
-                    if expr_opt.is_none() || str_opt.is_none() {
-                        return expr_opt == str_opt;
-                    }
-                    if expr_opt != str_opt {
-                        return false;
-                    }
-                    if expr_opt == Some('[') {
-                        state = SimpleMatcherStates::Array;
-                    }
-                    if expr_opt == Some('{') {
-                        state = SimpleMatcherStates::Object;
-                    }
-                }
-                SimpleMatcherStates::Array => {
-                    let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
-                    if let (Some(expr_chr), Some(str_chr)) = (expr_opt, str_opt) {
-                        if expr_chr == ']' {
-                            if str_chr.is_numeric() {
-                                state = SimpleMatcherStates::ArrayWild;
-                            } else {
-                                return false;
-                            }
-                        } else {
-                            if str_chr != expr_chr {
-                                return false;
-                            }
-                            if !str_chr.is_numeric() {
-                                return false;
-                            }
-                            state = SimpleMatcherStates::ArrayCmp;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                SimpleMatcherStates::ArrayCmp => {
-                    let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
-                    if expr_opt.is_none() || str_opt.is_none() {
-                        return false;
-                    }
-                    if expr_opt == str_opt {
-                        if expr_opt == Some(']') {
-                            state = SimpleMatcherStates::Normal;
-                        } else if !expr_opt.unwrap().is_numeric() {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                SimpleMatcherStates::ArrayWild => {
-                    if let Some(opt_chr) = str_iter.next() {
-                        if !opt_chr.is_numeric() {
-                            if opt_chr == ']' {
-                                state = SimpleMatcherStates::Normal;
-                                continue;
-                            }
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                SimpleMatcherStates::Object => {
-                    if let Some(expr_chr) = expr_iter.next() {
-                        state = match expr_chr {
-                            '}' => SimpleMatcherStates::ObjectWildStart,
-                            '"' => SimpleMatcherStates::ObjectCmpStart,
-                            _ => return false,
-                        };
-                    } else {
-                        return false;
-                    }
-                }
-                SimpleMatcherStates::ObjectWildStart => {
-                    if let Some(opt_chr) = str_iter.next() {
-                        if opt_chr == '"' {
-                            state = SimpleMatcherStates::ObjectWild(false);
-                            continue;
-                        }
-                    }
-                    return false;
-                }
-                SimpleMatcherStates::ObjectCmpStart => {
-                    if let Some(chr) = str_iter.next() {
-                        if chr == '"' {
-                            state = SimpleMatcherStates::ObjectCmp(false);
-                            continue;
-                        }
-                    }
-                    return false;
-                }
-                SimpleMatcherStates::ObjectCmp(escaped) => {
-                    let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
-                    if expr_opt.is_none() || str_opt.is_none() {
-                        return expr_opt == str_opt;
-                    }
-                    if expr_opt == str_opt {
-                        if expr_opt == Some('"') && !escaped {
-                            state = SimpleMatcherStates::ObjectCmpEnd;
-                            continue;
-                        }
-                        state = if expr_opt == Some('\\')
-                            && state == SimpleMatcherStates::ObjectCmp(false)
-                        {
-                            SimpleMatcherStates::ObjectCmp(true)
-                        } else {
-                            SimpleMatcherStates::ObjectCmp(false)
-                        };
-                        continue;
-                    }
-                    return false;
-                }
-                SimpleMatcherStates::ObjectWild(escaped) => {
-                    if let Some(chr) = str_iter.next() {
-                        if chr == '"' && !escaped {
-                            state = SimpleMatcherStates::ObjectWildEnd;
-                            continue;
-                        }
-                        state = if chr == '\\' && !escaped {
-                            SimpleMatcherStates::ObjectWild(true)
-                        } else {
-                            SimpleMatcherStates::ObjectWild(false)
-                        };
-                        continue;
-                    }
-                    return false;
-                }
-                SimpleMatcherStates::ObjectCmpEnd => {
-                    let (expr_opt, str_opt) = (expr_iter.next(), str_iter.next());
-                    if expr_opt == Some('}') && str_opt == Some('}') {
-                        state = SimpleMatcherStates::Normal;
-                        continue;
-                    }
-                    return false;
-                }
-                SimpleMatcherStates::ObjectWildEnd => {
-                    if let Some(chr) = str_iter.next() {
-                        if chr == '}' {
-                            state = SimpleMatcherStates::Normal;
-                            continue;
-                        }
-                    }
-                    return false;
-                }
+    fn match_path(&self, path: &Path) -> bool {
+        if path.depth() - 1 != self.path.len() {
+            // extra root element
+            return false;
+        }
+
+        for (element, selement) in path
+            .get_path()
+            .iter()
+            .filter(|e| *e != &Element::Root)
+            .zip(self.path.iter())
+        {
+            match selement {
+                SimplePathElement::Key(Some(key)) => match element {
+                    Element::Key(k) if k == key => {}
+                    _ => return false,
+                },
+                SimplePathElement::Key(None) => match element {
+                    Element::Key(_) => {}
+                    _ => return false,
+                },
+                SimplePathElement::Index(Some(idx)) => match element {
+                    Element::Index(i) if i == idx => {}
+                    _ => return false,
+                },
+                SimplePathElement::Index(None) => match element {
+                    Element::Index(_) => {}
+                    _ => return false,
+                },
             }
         }
+        true
     }
 }
 
 impl FromStr for Simple {
     type Err = error::Matcher;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Simple::is_valid(s)?;
-        Ok(Self {
-            path_expr: s.into(),
-        })
+
+    fn from_str(path: &str) -> Result<Self, Self::Err> {
+        let mut state = SimpleMatcherStates::ElementStart;
+        let mut buffer = vec![];
+        let mut result = vec![];
+
+        for chr in path.chars() {
+            state = match state {
+                SimpleMatcherStates::ElementStart => match chr {
+                    '[' => SimpleMatcherStates::Array,
+                    '{' => SimpleMatcherStates::ObjectStart,
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::Array => match chr {
+                    ']' => {
+                        let new_element = if buffer.is_empty() {
+                            SimplePathElement::Index(None)
+                        } else {
+                            SimplePathElement::Index(Some(
+                                buffer
+                                    .drain(..)
+                                    .collect::<String>()
+                                    .parse()
+                                    .map_err(|_| error::Matcher::Parse(path.to_string()))?,
+                            ))
+                        };
+                        result.push(new_element);
+                        SimpleMatcherStates::ElementStart
+                    }
+                    '0'..='9' => {
+                        buffer.push(chr);
+                        SimpleMatcherStates::Array
+                    }
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::ObjectStart => match chr {
+                    '}' => {
+                        result.push(SimplePathElement::Key(None));
+                        SimpleMatcherStates::ElementStart
+                    }
+                    '"' => SimpleMatcherStates::Object(false),
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+                SimpleMatcherStates::Object(false) => match chr {
+                    '"' => SimpleMatcherStates::ObjectEnd,
+                    '\\' => {
+                        buffer.push(chr);
+                        SimpleMatcherStates::Object(true)
+                    }
+                    _ => {
+                        buffer.push(chr);
+                        SimpleMatcherStates::Object(false)
+                    }
+                },
+                SimpleMatcherStates::Object(true) => {
+                    buffer.push(chr);
+                    SimpleMatcherStates::Object(false)
+                }
+                SimpleMatcherStates::ObjectEnd => match chr {
+                    '}' => {
+                        result.push(SimplePathElement::Key(Some(buffer.drain(..).collect())));
+                        SimpleMatcherStates::ElementStart
+                    }
+                    _ => {
+                        return Err(error::Matcher::Parse(path.to_string()));
+                    }
+                },
+            }
+        }
+        if state == SimpleMatcherStates::ElementStart {
+            Ok(Self { path: result })
+        } else {
+            Err(error::Matcher::Parse(path.to_string()))
+        }
     }
 }
 
@@ -203,129 +159,70 @@ impl Simple {
     ///
     /// # Arguments
     /// * `path_expr` - path expression (e.g. `{"users"}[0]{"addresses"}{}`)
-    pub fn new<T>(path_expr: T) -> Self
-    where
-        T: ToString,
-    {
-        Self {
-            path_expr: path_expr.to_string(),
-        }
-    }
-
-    /// Check whether the path is valid
-    fn is_valid(path: &str) -> Result<(), error::Matcher> {
-        let mut state = SimpleMatcherStates::Normal;
-        for chr in path.chars() {
-            state = match state {
-                SimpleMatcherStates::Normal => match chr {
-                    '[' => SimpleMatcherStates::Array,
-                    '{' => SimpleMatcherStates::Object,
-                    _ => {
-                        return Err(error::Matcher::Parse(path.to_string()));
-                    }
-                },
-                SimpleMatcherStates::Array => match chr {
-                    ']' => SimpleMatcherStates::Normal,
-                    '0'..='9' => SimpleMatcherStates::ArrayCmp,
-                    _ => {
-                        return Err(error::Matcher::Parse(path.to_string()));
-                    }
-                },
-                SimpleMatcherStates::ArrayCmp => match chr {
-                    ']' => SimpleMatcherStates::Normal,
-                    '0'..='9' => SimpleMatcherStates::ArrayCmp,
-                    _ => {
-                        return Err(error::Matcher::Parse(path.to_string()));
-                    }
-                },
-                SimpleMatcherStates::Object => match chr {
-                    '}' => SimpleMatcherStates::Normal,
-                    '"' => SimpleMatcherStates::ObjectCmp(false),
-                    _ => {
-                        return Err(error::Matcher::Parse(path.to_string()));
-                    }
-                },
-                SimpleMatcherStates::ObjectCmp(false) => match chr {
-                    '"' => SimpleMatcherStates::ObjectCmpEnd,
-                    '\\' => SimpleMatcherStates::ObjectCmp(true),
-                    _ => SimpleMatcherStates::ObjectCmp(false),
-                },
-                SimpleMatcherStates::ObjectCmp(true) => SimpleMatcherStates::ObjectCmp(false),
-                SimpleMatcherStates::ObjectCmpEnd => match chr {
-                    '}' => SimpleMatcherStates::Normal,
-                    _ => {
-                        return Err(error::Matcher::Parse(path.to_string()));
-                    }
-                },
-                _ => unreachable!(),
-            }
-        }
-        if state == SimpleMatcherStates::Normal {
-            Ok(())
-        } else {
-            Err(error::Matcher::Parse(path.to_string()))
-        }
+    pub fn new(path_expr: &str) -> Result<Self, error::Matcher> {
+        Self::from_str(path_expr)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{MatchMaker, Simple};
-    use std::str::FromStr;
+    use crate::path::Path;
+    use std::{convert::TryFrom, str::FromStr};
 
     #[test]
     fn simple_exact() {
         let simple = Simple::from_str(r#"{"People"}[0]{"Height"}"#).unwrap();
 
-        assert!(!simple.match_path(r#"{"People"}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]"#));
-        assert!(!simple.match_path(r#"{"People"}[0]{"Age"}"#));
-        assert!(simple.match_path(r#"{"People"}[0]{"Height"}"#));
-        assert!(!simple.match_path(r#"{"People"}[1]"#));
-        assert!(!simple.match_path(r#"{"People"}[1]{"Age"}"#));
-        assert!(!simple.match_path(r#"{"People"}[1]{"Height"}"#));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
     }
 
     #[test]
     fn simple_wild_array() {
         let simple = Simple::from_str(r#"{"People"}[]{"Height"}"#).unwrap();
 
-        assert!(!simple.match_path(r#"{"People"}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]"#));
-        assert!(!simple.match_path(r#"{"People"}[0]{"Age"}"#));
-        assert!(simple.match_path(r#"{"People"}[0]{"Height"}"#));
-        assert!(!simple.match_path(r#"{"People"}[1]"#));
-        assert!(!simple.match_path(r#"{"People"}[1]{"Age"}"#));
-        assert!(simple.match_path(r#"{"People"}[1]{"Height"}"#));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
     }
 
     #[test]
     fn simple_wild_object() {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
 
-        assert!(!simple.match_path(r#"{"People"}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]"#));
-        assert!(simple.match_path(r#"{"People"}[0]{"Age"}"#));
-        assert!(simple.match_path(r#"{"People"}[0]{"Height"}"#));
-        assert!(!simple.match_path(r#"{"People"}[1]"#));
-        assert!(!simple.match_path(r#"{"People"}[1]{"Age"}"#));
-        assert!(!simple.match_path(r#"{"People"}[1]{"Height"}"#));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
     }
 
     #[test]
     fn simple_object_escapes() {
         let simple = Simple::from_str(r#"{"People"}[0]{"\""}"#).unwrap();
-        assert!(simple.match_path(r#"{"People"}[0]{"\""}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]{""}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]{"\"x"}"#));
-        assert!(!simple.match_path(r#"{"People"}[0]{"y\""}"#));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"\""}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{""}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"\"x"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"y\""}"#).unwrap()));
     }
 
     #[test]
     fn simple_wild_object_escapes() {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
-        assert!(simple.match_path(r#"{"People"}[0]{"O\"ll"}"#));
-        assert!(simple.match_path(r#"{"People"}[0]{"O\\\"ll"}"#));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"O\"ll"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"O\\\"ll"}"#).unwrap()));
     }
 
     #[test]

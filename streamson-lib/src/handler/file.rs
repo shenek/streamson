@@ -133,7 +133,7 @@ mod tests {
         let tmp_path = NamedTempFile::new().unwrap().into_temp_path();
         let str_path = tmp_path.to_str().unwrap();
 
-        let matcher = matcher::Simple::new(r#"{"aa"}[]"#);
+        let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
         let handler = handler::File::new(str_path).unwrap();
 
         let output = make_output(
@@ -160,7 +160,7 @@ mod tests {
         let tmp_path = NamedTempFile::new().unwrap().into_temp_path();
         let str_path = tmp_path.to_str().unwrap();
 
-        let matcher = matcher::Simple::new(r#"{"aa"}[]"#);
+        let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
         let handler = handler::File::new(str_path).unwrap().set_separator("XXX");
 
         let output = make_output(
@@ -178,7 +178,7 @@ mod tests {
         let tmp_path = NamedTempFile::new().unwrap().into_temp_path();
         let str_path = tmp_path.to_str().unwrap();
 
-        let matcher = matcher::Simple::new(r#"{"aa"}[]"#);
+        let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
         let handler = handler::File::new(str_path).unwrap().set_show_path(true);
 
         let output = make_output(

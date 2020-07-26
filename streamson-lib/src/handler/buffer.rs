@@ -7,7 +7,7 @@
 //!
 //! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new()));
 //!
-//! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#);
+//! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
 //! let mut collector = Collector::new();
 //!

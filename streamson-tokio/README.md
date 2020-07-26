@@ -13,8 +13,8 @@ So that you can easily split jsons using asynchronous rust.
  use tokio_util::codec::FramedRead;
 
  let mut file = fs::File::open("/tmp/large.json").await?;
- let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#))
-     | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#));
+ let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
+     | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
  let extractor = Extractor::new(matcher);
  let mut output = FramedRead::new(file, extractor);
  while let Some(item) = output.next().await {

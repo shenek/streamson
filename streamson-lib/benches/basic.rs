@@ -21,8 +21,8 @@ fn gen_input() -> Vec<Vec<u8>> {
 pub fn simple(c: &mut Criterion) {
     let mut collector = Collector::new();
 
-    let first_matcher = matcher::Simple::new(r#"{"users"}[]"#);
-    let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#);
+    let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
+    let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#).unwrap();
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
 
     collector = collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
@@ -70,7 +70,7 @@ pub fn combinator(c: &mut Criterion) {
     let mut collector = Collector::new();
 
     let first_matcher = matcher::Combinator::new(matcher::Depth::new(1, None));
-    let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#));
+    let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));

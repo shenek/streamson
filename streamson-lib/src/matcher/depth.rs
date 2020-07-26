@@ -1,6 +1,7 @@
 //! Depth path matcher
 
 use super::MatchMaker;
+use crate::path::Path;
 
 /// Based on actual path depth
 ///
@@ -23,58 +24,41 @@ impl Depth {
 }
 
 impl MatchMaker for Depth {
-    fn match_path(&self, path: &str) -> bool {
-        let mut escaped: bool = false;
-        let mut depth: usize = 0;
-        let max_num = if let Some(m) = self.max {
-            m
+    fn match_path(&self, path: &Path) -> bool {
+        let depth = path.depth() - 1; // Skip the Element::Root
+        if let Some(max) = self.max {
+            self.min <= depth && depth <= max
         } else {
-            usize::MAX
-        };
-        for chr in path.chars() {
-            match chr {
-                _ if escaped => escaped = false,
-                '\\' => escaped = true,
-                '}' | ']' => {
-                    depth += 1;
-                    if self.max.is_none() {
-                        if depth >= self.min {
-                            return true;
-                        }
-                    } else if depth > max_num {
-                        return false;
-                    }
-                }
-                _ => (),
-            }
+            self.min <= depth
         }
-        depth >= self.min
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Depth, MatchMaker};
+    use crate::path::Path;
+    use std::convert::TryFrom;
 
     #[test]
     fn match_path() {
         let depth = Depth::new(2, None);
 
-        assert!(!depth.match_path(r#"{"People"}"#));
-        assert!(depth.match_path(r#"{"People"}[0]"#));
-        assert!(depth.match_path(r#"{"People"}[0]{"Age"}"#));
-        assert!(depth.match_path(r#"{"People"}[0]{"Height"}"#));
-        assert!(depth.match_path(r#"{"People"}[1]"#));
-        assert!(depth.match_path(r#"{"People"}[1]{"Age"}"#));
-        assert!(depth.match_path(r#"{"People"}[1]{"Height"}"#));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
 
         let depth = Depth::new(2, Some(2));
-        assert!(!depth.match_path(r#"{"People"}"#));
-        assert!(depth.match_path(r#"{"People"}[0]"#));
-        assert!(!depth.match_path(r#"{"People"}[0]{"Age"}"#));
-        assert!(!depth.match_path(r#"{"People"}[0]{"Height"}"#));
-        assert!(depth.match_path(r#"{"People"}[1]"#));
-        assert!(!depth.match_path(r#"{"People"}[1]{"Age"}"#));
-        assert!(!depth.match_path(r#"{"People"}[1]{"Height"}"#));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
     }
 }

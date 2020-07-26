@@ -32,7 +32,7 @@ impl handler::Handler for UserHandler {
 
 fn main() {
     let handler = Arc::new(Mutex::new(UserHandler::default()));
-    let matcher = matcher::Simple::new(r#"{"users"}[]"#);
+    let matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
 
     Collector::new().add_matcher(
         Box::new(matcher), &[handler.clone()]).process(br#"{"users": [{"firstname": "Carl", "surname": "Streamson"}, {"firstname": "Stream", "surname": "Carlson"}]}"#).unwrap();
