@@ -1,3 +1,9 @@
+4.0.0 (2020-07-29)
+------------------
+
+* matcher refactoring
+* other speed optimizations
+
 3.0.0 (2020-07-21)
 ------------------
 

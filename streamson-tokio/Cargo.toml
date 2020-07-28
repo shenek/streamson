@@ -1,6 +1,6 @@
 [package]
 name = "streamson-tokio"
-version = "3.0.0"
+version = "4.0.0"
 authors = ["Stepan Henek"]
 edition = "2018"
 description = "Tokio and streamson integration library"
@@ -12,7 +12,7 @@ categories = ["parsing"]
 
 [dependencies]
 bytes = "0.5"
-streamson-lib = { version = "3.0.0", path = "../streamson-lib/" }
+streamson-lib = { version = "4.0.0", path = "../streamson-lib/" }
 tokio-util = { version = "0.3", features = ["codec"] }
 
 [dev-dependencies]
