@@ -28,7 +28,7 @@
 //! ```
 
 use super::Handler;
-use crate::error;
+use crate::{error, path::Path};
 use std::collections::VecDeque;
 
 /// Buffer handler responsible for storing slitted JSONs into memory
@@ -51,7 +51,7 @@ impl Default for Buffer {
 }
 
 impl Handler for Buffer {
-    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
+    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
         //

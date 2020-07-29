@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use streamson_lib::{error, handler, matcher, Collector};
+use streamson_lib::{error, handler, matcher, path::Path, Collector};
 
 use std::sync::{Arc, Mutex};
 
@@ -23,7 +23,7 @@ pub struct UserHandler {
 }
 
 impl handler::Handler for UserHandler {
-    fn handle(&mut self, _path: &str, data: &[u8]) -> Result<(), error::Handler> {
+    fn handle(&mut self, _path: &Path, data: &[u8]) -> Result<(), error::Handler> {
         let new_user = serde_json::from_slice(data).map_err(error::Handler::new)?;
         self.users.push(new_user);
         Ok(())

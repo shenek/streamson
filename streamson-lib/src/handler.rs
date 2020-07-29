@@ -1,6 +1,6 @@
 //! Collections of handler (what to do with matched paths and data).
 
-use crate::error;
+use crate::{error, path::Path};
 
 pub mod buffer;
 pub mod file;
@@ -25,7 +25,7 @@ pub trait Handler: Send {
     /// # Errors
     ///
     /// Handler failed (e.g. failed to write to output file).
-    fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler>;
+    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler>;
 
     /// Should path be displayed in the output
     fn show_path(&self) -> bool {

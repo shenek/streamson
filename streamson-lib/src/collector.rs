@@ -14,8 +14,6 @@ use std::sync::{Arc, Mutex};
 struct StackItem {
     /// Total index
     idx: usize,
-    /// Path which was matched
-    path: String,
     /// Idx to vec of matchers
     match_idx: usize,
 }
@@ -124,11 +122,7 @@ impl Collector {
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
                         if matcher.match_path(path) {
-                            matched.push(StackItem {
-                                idx,
-                                match_idx,
-                                path: path.to_string(),
-                            });
+                            matched.push(StackItem { idx, match_idx });
                             if self.buffer.is_none() {
                                 // start the buffer
                                 self.buffer_start = idx;
@@ -140,6 +134,7 @@ impl Collector {
                     self.matched_stack.push(matched);
                 }
                 Output::End(idx) => {
+                    let current_path = self.emitter.current_path();
                     let to = idx - self.input_start;
                     if let Some(stored) = self.buffer.as_mut() {
                         stored.extend(&input[inner_idx..to]);
@@ -151,7 +146,7 @@ impl Collector {
                         // matches
                         for handler in &self.matchers[item.match_idx].1 {
                             handler.lock().unwrap().handle(
-                                &item.path,
+                                current_path,
                                 &self.buffer.as_ref().unwrap()
                                     [item.idx - self.buffer_start..idx - self.buffer_start],
                             )?;
@@ -162,6 +157,9 @@ impl Collector {
                     if self.matched_stack.iter().all(|items| items.is_empty()) {
                         self.buffer = None; // clear the buffer
                     }
+
+                    // Pop the path
+                    self.emitter.current_path().pop();
                 }
                 Output::Pending => {
                     self.input_start += input.len();
@@ -178,7 +176,7 @@ impl Collector {
 #[cfg(test)]
 mod tests {
     use super::Collector;
-    use crate::{error, handler::Handler, matcher::Simple};
+    use crate::{error, handler::Handler, matcher::Simple, path::Path};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -188,7 +186,7 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &str, data: &[u8]) -> Result<(), error::Handler> {
+        fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(data.to_vec());
             Ok(())
