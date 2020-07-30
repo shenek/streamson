@@ -21,7 +21,7 @@ use tokio_util::codec::Decoder;
 ///     let mut file = fs::File::open("/tmp/large.json").await?;
 ///     let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
 ///         | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
-///     let extractor = Extractor::new(matcher);
+///     let extractor = Extractor::new(matcher, true);
 ///     let mut output = FramedRead::new(file, extractor);
 ///     while let Some(item) = output.next().await {
 ///         let (path, data) = item?;
@@ -40,9 +40,12 @@ impl Extractor {
     ///
     /// # Arguments
     /// * `matcher` - matcher to be used for extractions (see `streamson_lib::matcher`)
-    pub fn new(matcher: impl matcher::MatchMaker + 'static) -> Self {
+    /// * `include_path` - will path be included in output
+    pub fn new(matcher: impl matcher::MatchMaker + 'static, include_path: bool) -> Self {
         // TODO limit max length and fail when reached
-        let handler = Arc::new(Mutex::new(handler::Buffer::new()));
+        let handler = Arc::new(Mutex::new(
+            handler::Buffer::new().set_show_path(include_path),
+        ));
         let mut collector = Collector::new();
         collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
         Self { collector, handler }
@@ -50,7 +53,7 @@ impl Extractor {
 }
 
 impl Decoder for Extractor {
-    type Item = (String, Bytes);
+    type Item = (Option<String>, Bytes);
     type Error = error::General;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -83,18 +86,18 @@ mod tests {
     use tokio_util::codec::FramedRead;
 
     #[tokio::test]
-    async fn basic() {
+    async fn with_included_path() {
         let cursor =
             Cursor::new(br#"{"users": ["mike","john"], "groups": ["admin", "staff"]}"#.to_vec());
         let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
             | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
-        let extractor = Extractor::new(matcher);
+        let extractor = Extractor::new(matcher, true);
         let mut output = FramedRead::new(cursor, extractor);
 
         assert_eq!(
             output.next().await.unwrap().unwrap(),
             (
-                r#"{"users"}[0]"#.to_string(),
+                Some(r#"{"users"}[0]"#.to_string()),
                 Bytes::from_static(br#""mike""#)
             )
         );
@@ -102,7 +105,7 @@ mod tests {
         assert_eq!(
             output.next().await.unwrap().unwrap(),
             (
-                r#"{"users"}[1]"#.to_string(),
+                Some(r#"{"users"}[1]"#.to_string()),
                 Bytes::from_static(br#""john""#)
             )
         );
@@ -110,7 +113,7 @@ mod tests {
         assert_eq!(
             output.next().await.unwrap().unwrap(),
             (
-                r#"{"groups"}[0]"#.to_string(),
+                Some(r#"{"groups"}[0]"#.to_string()),
                 Bytes::from_static(br#""admin""#)
             )
         );
@@ -118,9 +121,41 @@ mod tests {
         assert_eq!(
             output.next().await.unwrap().unwrap(),
             (
-                r#"{"groups"}[1]"#.to_string(),
+                Some(r#"{"groups"}[1]"#.to_string()),
                 Bytes::from_static(br#""staff""#)
             )
+        );
+
+        assert!(output.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn without_included_path() {
+        let cursor =
+            Cursor::new(br#"{"users": ["mike","john"], "groups": ["admin", "staff"]}"#.to_vec());
+        let matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"users"}[]"#).unwrap())
+            | matcher::Combinator::new(matcher::Simple::new(r#"{"groups"}[]"#).unwrap());
+        let extractor = Extractor::new(matcher, false);
+        let mut output = FramedRead::new(cursor, extractor);
+
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (None, Bytes::from_static(br#""mike""#))
+        );
+
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (None, Bytes::from_static(br#""john""#))
+        );
+
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (None, Bytes::from_static(br#""admin""#))
+        );
+
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (None, Bytes::from_static(br#""staff""#))
         );
 
         assert!(output.next().await.is_none());
