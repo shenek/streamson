@@ -3,16 +3,17 @@ use std::sync::{Arc, Mutex};
 use streamson_lib::{handler, matcher, Collector};
 
 const INPUT_BUFFER_SIZE: usize = 1024;
+const ITEM_COUNT: usize = 10_000;
 
 fn gen_input(size: usize) -> Vec<Vec<u8>> {
     let mut all_in_one = vec![];
 
     all_in_one.extend(br#"{ "users": ["#.to_vec());
-    for _ in 0..5_000 {
+    for _ in 0..ITEM_COUNT / 2 - 1 {
         all_in_one.extend(br#"{"a": "c"},"#.to_vec());
     }
     all_in_one.extend(br#""last"], "logs": ["#.to_vec());
-    for _ in 0..5_000 {
+    for _ in 0..ITEM_COUNT / 2 - 1 {
         all_in_one.extend(br#"{"l": "ll"},"#.to_vec());
     }
     all_in_one.extend(br#""last"]}"""#.to_vec());
@@ -26,17 +27,24 @@ fn run_group(
     name: &str,
     mut collector: Collector,
     handler: Arc<Mutex<handler::Buffer>>,
+    expected_count: usize,
 ) {
     let input = gen_input(INPUT_BUFFER_SIZE);
+    let mut count = 0;
     group.bench_function(name, |b| {
         b.iter(|| {
             for data in &input {
                 collector.process(black_box(data)).unwrap();
                 let mut guard = handler.lock().unwrap();
-                while let Some((_, _)) = guard.pop() {}
+                while let Some((_path, _data)) = guard.pop() {
+                    count += 1;
+                }
             }
         })
     });
+    if count != expected_count {
+        panic!("Count {}!={}", count, expected_count)
+    }
 }
 
 pub fn simple(c: &mut Criterion) {
@@ -50,7 +58,13 @@ pub fn simple(c: &mut Criterion) {
     collector = collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
 
     let mut group = c.benchmark_group("Simple");
-    run_group(&mut group, "Buffer(no path)", collector, handler);
+    run_group(
+        &mut group,
+        "Buffer(no path)",
+        collector,
+        handler,
+        ITEM_COUNT,
+    );
 
     let mut collector = Collector::new();
     let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
@@ -59,7 +73,21 @@ pub fn simple(c: &mut Criterion) {
 
     collector = collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector = collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
-    run_group(&mut group, "Buffer(with path)", collector, handler);
+    run_group(
+        &mut group,
+        "Buffer(with path)",
+        collector,
+        handler,
+        ITEM_COUNT,
+    );
+
+    let mut collector = Collector::new();
+    let first_matcher = matcher::Simple::new(r#"{"not-found"}[]"#).unwrap();
+    let second_matcher = matcher::Simple::new(r#"{"found-not"}[]"#).unwrap();
+    let handler = Arc::new(Mutex::new(handler::Buffer::new()));
+    collector = collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
+    collector = collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    run_group(&mut group, "NoMatch", collector, handler, 0);
 
     group.finish();
 }
@@ -75,13 +103,33 @@ pub fn depth(c: &mut Criterion) {
     collector = collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
 
     let mut group = c.benchmark_group("Depth");
-    run_group(&mut group, "Buffer(no path)", collector, handler);
+    run_group(
+        &mut group,
+        "Buffer(no path)",
+        collector,
+        handler,
+        ITEM_COUNT * 2 + 2,
+    );
 
     let mut collector = Collector::new();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
     collector = collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector = collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
-    run_group(&mut group, "Buffer(with path)", collector, handler);
+    run_group(
+        &mut group,
+        "Buffer(with path)",
+        collector,
+        handler,
+        ITEM_COUNT * 2 + 2,
+    );
+
+    let mut collector = Collector::new();
+    let first_matcher = matcher::Depth::new(50, None);
+    let second_matcher = matcher::Depth::new(40, Some(60));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new()));
+    collector = collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
+    collector = collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    run_group(&mut group, "NoMatch", collector, handler, 0);
 
     group.finish();
 }
@@ -89,7 +137,7 @@ pub fn depth(c: &mut Criterion) {
 pub fn combinator(c: &mut Criterion) {
     let mut collector = Collector::new();
 
-    let first_matcher = matcher::Combinator::new(matcher::Depth::new(1, None));
+    let first_matcher = matcher::Combinator::new(matcher::Depth::new(1, Some(1)));
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
@@ -99,16 +147,49 @@ pub fn combinator(c: &mut Criterion) {
     collector = collector.add_matcher(Box::new(second_combo.clone()), &[handler.clone()]);
 
     let mut group = c.benchmark_group("Combinator");
-    run_group(&mut group, "Buffer(no path)", collector, handler);
+    run_group(
+        &mut group,
+        "Buffer(no path)",
+        collector,
+        handler,
+        ITEM_COUNT / 2 + 4,
+    );
 
     let mut collector = Collector::new();
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    collector = collector.add_matcher(Box::new(first_combo), &[handler.clone()]);
+    collector = collector.add_matcher(Box::new(second_combo), &[handler.clone()]);
+    run_group(
+        &mut group,
+        "Buffer(with path)",
+        collector,
+        handler,
+        ITEM_COUNT / 2 + 4,
+    );
+
+    let mut collector = Collector::new();
+    let first_matcher = matcher::Combinator::new(matcher::Depth::new(40, Some(60)));
+    let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"none"}[]"#).unwrap());
+    let first_combo = first_matcher.clone() | second_matcher.clone();
+    let second_combo = first_matcher & !second_matcher;
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
     collector = collector.add_matcher(Box::new(first_combo), &[handler.clone()]);
     collector = collector.add_matcher(Box::new(second_combo), &[handler.clone()]);
-    run_group(&mut group, "Buffer(with path)", collector, handler);
+    run_group(&mut group, "NoMatch", collector, handler, 0);
 
     group.finish();
 }
 
-criterion_group!(benches, simple, depth, combinator);
+pub fn void(c: &mut Criterion) {
+    let collector = Collector::new();
+    let mut group = c.benchmark_group("Void");
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(false)));
+    run_group(&mut group, "Buffer(no path)", collector, handler, 0);
+
+    let collector = Collector::new();
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    run_group(&mut group, "Buffer(with path)", collector, handler, 0);
+}
+
+criterion_group!(benches, simple, depth, combinator, void);
 criterion_main!(benches);
