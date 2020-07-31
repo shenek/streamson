@@ -172,9 +172,6 @@ impl Collector {
                         self.collecting = false;
                         self.buffer.clear();
                     }
-
-                    // Pop the path
-                    self.emitter.current_path().pop();
                 }
                 Output::Pending => {
                     self.input_start += input.len();

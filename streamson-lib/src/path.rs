@@ -38,6 +38,15 @@ pub enum Output {
     Finished,
 }
 
+impl Output {
+    pub fn is_end(&self) -> bool {
+        match self {
+            Self::End(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 enum ObjectKeyState {
     Init,
@@ -78,6 +87,9 @@ impl Path {
 
     /// Removes last path element
     pub fn pop(&mut self) {
+        if self.path.len() == 1 {
+            panic!();
+        }
         self.path.pop().unwrap();
     }
 
@@ -227,6 +239,8 @@ pub struct Emitter {
     pending_idx: usize,
     /// Total index agains the first byte passed to input
     total_idx: usize,
+    /// Indicator whether to pop path in the next read
+    pop_path: bool,
 }
 
 impl Default for Emitter {
@@ -237,6 +251,7 @@ impl Default for Emitter {
             pending: VecDeque::new(),
             pending_idx: 0,
             total_idx: 0,
+            pop_path: false,
         }
     }
 }
@@ -604,6 +619,11 @@ impl Emitter {
     /// Note that validity of input JSON is not checked.
     pub fn read(&mut self) -> Result<Output, error::General> {
         while let Some(state) = self.states.pop() {
+            if self.pop_path {
+                self.path.pop();
+                self.pop_path = false;
+            }
+
             match state {
                 States::RemoveWhitespaces => {
                     if let Some(output) = self.process_remove_whitespace()? {
@@ -617,31 +637,37 @@ impl Emitter {
                 }
                 States::Str(state) => {
                     if let Some(output) = self.process_str(state)? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
                 States::Number => {
                     if let Some(output) = self.process_number()? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
                 States::Bool => {
                     if let Some(output) = self.process_bool()? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
                 States::Null => {
                     if let Some(output) = self.process_null()? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
                 States::Array(idx) => {
                     if let Some(output) = self.process_array(idx)? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
                 States::Object => {
                     if let Some(output) = self.process_object()? {
+                        self.pop_path = output.is_end();
                         return Ok(output);
                     }
                 }
@@ -684,7 +710,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(2));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(36));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
 
         let mut emitter = Emitter::new();
@@ -692,7 +718,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(0));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(15));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -703,7 +729,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(1));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(5));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -714,7 +740,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(2));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(6));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -732,7 +758,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(0));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(4));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -745,17 +771,17 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(2));
         assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::End(6));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(8));
         assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::End(10));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(12));
         assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::End(20));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::End(22));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -768,21 +794,23 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(2));
         assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::End(6));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(8));
         assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::Pending);
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
         emitter.feed(br#"3,"#);
         assert_eq!(emitter.read().unwrap(), Output::End(10));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::Pending);
+        assert_eq!(emitter.current_path(), &make_path(""));
         emitter.feed(br#" "string" ]"#);
         assert_eq!(emitter.read().unwrap(), Output::Start(12));
         assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::End(20));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::End(22));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -793,7 +821,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(0));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(2));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -806,29 +834,29 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(2));
         assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::End(4));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[0]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(6));
         assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::End(8));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[1]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(10));
         assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(11));
         assert_eq!(emitter.current_path(), &make_path("[2][0]"));
         assert_eq!(emitter.read().unwrap(), Output::End(19));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[2][0]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(22));
         assert_eq!(emitter.current_path(), &make_path("[2][1]"));
         assert_eq!(emitter.read().unwrap(), Output::End(24));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[2][1]"));
         assert_eq!(emitter.read().unwrap(), Output::End(25));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[2]"));
         assert_eq!(emitter.read().unwrap(), Output::Start(27));
         assert_eq!(emitter.current_path(), &make_path("[3]"));
         assert_eq!(emitter.read().unwrap(), Output::End(31));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("[3]"));
         assert_eq!(emitter.read().unwrap(), Output::End(32));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -841,21 +869,21 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(5));
         assert_eq!(emitter.current_path(), &make_path("{\"a\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(8));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"a\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(17));
         assert_eq!(emitter.current_path(), &make_path("{\"b\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(21));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"b\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(29));
         assert_eq!(emitter.current_path(), &make_path("{\"c\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(33));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"c\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(50));
         assert_eq!(emitter.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
         assert_eq!(emitter.read().unwrap(), Output::End(52));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
         assert_eq!(emitter.read().unwrap(), Output::End(53));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -866,7 +894,7 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(0));
         assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::End(2));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -879,21 +907,21 @@ mod tests {
         assert_eq!(emitter.read().unwrap(), Output::Start(7));
         assert_eq!(emitter.current_path(), &make_path("{\"u\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(9));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"u\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(16));
         assert_eq!(emitter.current_path(), &make_path("{\"j\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(22));
         assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(26));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(emitter.read().unwrap(), Output::Start(33));
         assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"y\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(35));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}{\"y\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(36));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path("{\"j\"}"));
         assert_eq!(emitter.read().unwrap(), Output::End(37));
-        emitter.current_path().pop();
+        assert_eq!(emitter.current_path(), &make_path(""));
         assert_eq!(emitter.read().unwrap(), Output::Finished);
     }
 
@@ -921,9 +949,6 @@ mod tests {
                         if let Some(pth) = path {
                             assert_eq!(emitter.current_path(), &make_path(pth));
                         }
-                        if let Output::End(_) = e {
-                            emitter.current_path().pop();
-                        }
                         return e;
                     }
                     Err(_) => panic!("Error occured"),
@@ -933,33 +958,33 @@ mod tests {
             assert_eq!(get_item(Some("")), Output::Start(1));
             assert_eq!(get_item(Some("[0]")), Output::Start(2));
             assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::Start(12));
-            assert_eq!(get_item(None), Output::End(14));
+            assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::End(14));
             assert_eq!(get_item(Some("[0]{\"j\"}")), Output::Start(21));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::Start(27));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::Start(28));
-            assert_eq!(get_item(None), Output::End(32));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::End(32));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::Start(34));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::Start(36));
-            assert_eq!(get_item(None), Output::End(38));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::End(38));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::Start(40));
-            assert_eq!(get_item(None), Output::End(44));
-            assert_eq!(get_item(None), Output::End(46));
-            assert_eq!(get_item(None), Output::End(47));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::End(44));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::End(46));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::End(47));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::Start(55));
-            assert_eq!(get_item(None), Output::End(57));
-            assert_eq!(get_item(None), Output::End(58));
-            assert_eq!(get_item(None), Output::End(59));
+            assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::End(57));
+            assert_eq!(get_item(Some("[0]{\"j\"}")), Output::End(58));
+            assert_eq!(get_item(Some("[0]")), Output::End(59));
             assert_eq!(get_item(Some("[1]")), Output::Start(61));
-            assert_eq!(get_item(None), Output::End(65));
+            assert_eq!(get_item(Some("[1]")), Output::End(65));
             assert_eq!(get_item(Some("[2]")), Output::Start(67));
-            assert_eq!(get_item(None), Output::End(69));
+            assert_eq!(get_item(Some("[2]")), Output::End(69));
             assert_eq!(get_item(Some("[3]")), Output::Start(71));
             assert_eq!(get_item(Some("[3][0]")), Output::Start(73));
             assert_eq!(get_item(Some("[3][0]{\"a\"}")), Output::Start(79));
-            assert_eq!(get_item(None), Output::End(84));
-            assert_eq!(get_item(None), Output::End(85));
-            assert_eq!(get_item(None), Output::End(87));
-            assert_eq!(get_item(None), Output::End(89));
+            assert_eq!(get_item(Some("[3][0]{\"a\"}")), Output::End(84));
+            assert_eq!(get_item(Some("[3][0]")), Output::End(85));
+            assert_eq!(get_item(Some("[3]")), Output::End(87));
+            assert_eq!(get_item(Some("")), Output::End(89));
             assert_eq!(get_item(None), Output::Finished);
         }
     }
@@ -987,9 +1012,6 @@ mod tests {
                         if let Some(pth) = path {
                             assert_eq!(emitter.current_path(), &make_path(pth));
                         }
-                        if let Output::End(_) = e {
-                            emitter.current_path().pop();
-                        }
                         return e;
                     }
                     Err(_) => panic!("Error occured"),
@@ -999,11 +1021,11 @@ mod tests {
             assert_eq!(get_item(Some("")), Output::Start(0));
             assert_eq!(get_item(Some("[0]")), Output::Start(1));
             assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::Start(15));
-            assert_eq!(get_item(None), Output::End(26));
-            assert_eq!(get_item(None), Output::End(27));
+            assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::End(26));
+            assert_eq!(get_item(Some("[0]")), Output::End(27));
             assert_eq!(get_item(Some("[1]")), Output::Start(29));
-            assert_eq!(get_item(None), Output::End(40));
-            assert_eq!(get_item(None), Output::End(41));
+            assert_eq!(get_item(Some("[1]")), Output::End(40));
+            assert_eq!(get_item(Some("")), Output::End(41));
             assert_eq!(get_item(None), Output::Finished);
         }
     }
