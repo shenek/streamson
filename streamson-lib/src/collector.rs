@@ -22,20 +22,35 @@ struct StackItem {
 type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and triggers handlers
-#[derive(Default)]
 pub struct Collector {
     /// Input idx against total idx
     input_start: usize,
     /// Buffer index against total idx
     buffer_start: usize,
     /// Buffer which is used to store collected data
-    buffer: Option<Vec<u8>>,
+    buffer: Vec<u8>,
+    /// Indicator whether data are collected
+    collecting: bool,
     /// Path matchers and handlers
     matchers: Vec<MatcherItem>,
     /// Emits path from data
     emitter: Emitter,
     /// Matched stack
     matched_stack: Vec<Vec<StackItem>>,
+}
+
+impl Default for Collector {
+    fn default() -> Self {
+        Self {
+            input_start: 0,
+            buffer_start: 0,
+            buffer: vec![],
+            collecting: false,
+            matchers: vec![],
+            emitter: Emitter::new(),
+            matched_stack: vec![],
+        }
+    }
 }
 
 impl Collector {
@@ -111,8 +126,8 @@ impl Collector {
                 Output::Start(idx) => {
                     // extend the input
                     let to = idx - self.input_start;
-                    if let Some(stored) = self.buffer.as_mut() {
-                        stored.extend(&input[inner_idx..to]);
+                    if self.collecting {
+                        self.buffer.extend(&input[inner_idx..to]);
                     }
                     inner_idx = to;
 
@@ -123,10 +138,10 @@ impl Collector {
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
                         if matcher.match_path(path) {
                             matched.push(StackItem { idx, match_idx });
-                            if self.buffer.is_none() {
+                            if !self.collecting {
                                 // start the buffer
                                 self.buffer_start = idx;
-                                self.buffer = Some(vec![]);
+                                self.collecting = true;
                             }
                         }
                     }
@@ -136,8 +151,8 @@ impl Collector {
                 Output::End(idx) => {
                     let current_path = self.emitter.current_path();
                     let to = idx - self.input_start;
-                    if let Some(stored) = self.buffer.as_mut() {
-                        stored.extend(&input[inner_idx..to]);
+                    if self.collecting {
+                        self.buffer.extend(&input[inner_idx..to]);
                     }
                     inner_idx = to;
 
@@ -147,15 +162,15 @@ impl Collector {
                         for handler in &self.matchers[item.match_idx].1 {
                             handler.lock().unwrap().handle(
                                 current_path,
-                                &self.buffer.as_ref().unwrap()
-                                    [item.idx - self.buffer_start..idx - self.buffer_start],
+                                &self.buffer[item.idx - self.buffer_start..idx - self.buffer_start],
                             )?;
                         }
                     }
 
                     // Clear the buffer if there is no need to keep the buffer
                     if self.matched_stack.iter().all(|items| items.is_empty()) {
-                        self.buffer = None; // clear the buffer
+                        self.collecting = false;
+                        self.buffer.clear();
                     }
 
                     // Pop the path
@@ -163,8 +178,8 @@ impl Collector {
                 }
                 Output::Pending => {
                     self.input_start += input.len();
-                    if let Some(stored) = self.buffer.as_mut() {
-                        stored.extend(&input[inner_idx..]);
+                    if self.collecting {
+                        self.buffer.extend(&input[inner_idx..]);
                     }
                     return Ok(false);
                 }
