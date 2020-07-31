@@ -2,20 +2,23 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::sync::{Arc, Mutex};
 use streamson_lib::{handler, matcher, Collector};
 
-fn gen_input() -> Vec<Vec<u8>> {
-    let mut input = Vec::new();
-    input.push(br#"{ "users": ["#.to_vec());
-    for _ in 0..5_000 {
-        input.push(br#"{"a": "c"},"#.to_vec());
-    }
-    input.push(br#""last"], "logs": ["#.to_vec());
-    for _ in 0..5_000 {
-        input.push(br#"{"l": "ll"},"#.to_vec());
-    }
-    input.push(br#""last"]}"""#.to_vec());
-    input.push(br#"}"#.to_vec());
+const INPUT_BUFFER_SIZE: usize = 1024;
 
-    input
+fn gen_input(size: usize) -> Vec<Vec<u8>> {
+    let mut all_in_one = vec![];
+
+    all_in_one.extend(br#"{ "users": ["#.to_vec());
+    for _ in 0..5_000 {
+        all_in_one.extend(br#"{"a": "c"},"#.to_vec());
+    }
+    all_in_one.extend(br#""last"], "logs": ["#.to_vec());
+    for _ in 0..5_000 {
+        all_in_one.extend(br#"{"l": "ll"},"#.to_vec());
+    }
+    all_in_one.extend(br#""last"]}"""#.to_vec());
+    all_in_one.extend(br#"}"#.to_vec());
+
+    all_in_one.chunks(size).map(|e| e.to_vec()).collect()
 }
 
 fn run_group(
@@ -24,7 +27,7 @@ fn run_group(
     mut collector: Collector,
     handler: Arc<Mutex<handler::Buffer>>,
 ) {
-    let input = gen_input();
+    let input = gen_input(INPUT_BUFFER_SIZE);
     group.bench_function(name, |b| {
         b.iter(|| {
             for data in &input {
