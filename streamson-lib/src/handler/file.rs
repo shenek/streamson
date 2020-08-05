@@ -122,7 +122,8 @@ mod tests {
         input: &[u8],
     ) -> String {
         let handler = Arc::new(Mutex::new(handler));
-        let mut collector = Collector::new().add_matcher(Box::new(matcher), &[handler]);
+        let mut collector = Collector::new();
+        collector.add_matcher(Box::new(matcher), &[handler]);
 
         assert!(collector.process(input).unwrap());
         fs::read_to_string(path).unwrap()

@@ -16,7 +16,7 @@ use streamson_lib::{Collector, GenericError, PrintLn, Simple};
 let mut collector = Collector::new();
 let handler = Arc::new(Mutex::new(PrintLn::new());
 let matcher = Simple(r#"{"users"}[]"#).unwrap();
-collector = collector.add_matcher(Box::new(matcher), &[handler]);
+collector.add_matcher(Box::new(matcher), &[handler]);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {

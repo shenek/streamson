@@ -22,13 +22,13 @@
 //! let mut collector = Collector::new();
 //!
 //! // exports users to stdout and /tmp/out.txt
-//! collector = collector.add_matcher(
+//! collector.add_matcher(
 //!     Box::new(first_matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );
 //!
 //! // groups are going to be expoted only to stdout
-//! collector = collector.add_matcher(
+//! collector.add_matcher(
 //!     Box::new(second_matcher),
 //!     &[stdout_handler],
 //! );
@@ -58,7 +58,7 @@
 //! let mut collector = Collector::new();
 //!
 //! // Paths with depths 1, 2 are exported to tmp.txt
-//! collector = collector.add_matcher(
+//! collector.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );
@@ -85,7 +85,7 @@
 //! let mut collector = Collector::new();
 //!
 //! // Paths with depths 1, 2 are exported to tmp.txt
-//! collector = collector.add_matcher(
+//! collector.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );

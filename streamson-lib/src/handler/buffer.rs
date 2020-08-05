@@ -12,7 +12,7 @@
 //! let mut collector = Collector::new();
 //!
 //! // Set the matcher for collector
-//! collector = collector.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+//! collector.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),

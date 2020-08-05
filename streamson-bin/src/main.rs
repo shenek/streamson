@@ -100,14 +100,14 @@ fn main() -> Result<(), error::General> {
     if let Some(simple_matches) = arg_matches.values_of("print") {
         let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
         if let Some(matcher) = matcher {
-            collector = collector.add_matcher(Box::new(matcher), &[print_handler]);
+            collector.add_matcher(Box::new(matcher), &[print_handler]);
         }
     }
 
     if let Some(simple_matches) = arg_matches.values_of("print_with_header") {
         let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
         if let Some(matcher) = matcher {
-            collector = collector.add_matcher(Box::new(matcher), &[print_with_header_handler]);
+            collector.add_matcher(Box::new(matcher), &[print_with_header_handler]);
         }
     }
 
@@ -127,7 +127,7 @@ fn main() -> Result<(), error::General> {
                     panic!("Failed to open output file '{}'", path)
                 })))
             });
-            collector = collector.add_matcher(Box::new(matcher), &[file_handler.clone()]);
+            collector.add_matcher(Box::new(matcher), &[file_handler.clone()]);
         }
     }
 

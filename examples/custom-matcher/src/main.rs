@@ -25,10 +25,10 @@ impl matcher::MatchMaker for Letter {
 fn main() {
     let handler = Arc::new(Mutex::new(handler::PrintLn::new().set_show_path(true)));
     let matcher = Letter::new('l');
-    let collector = Collector::new();
+    let mut collector = Collector::new();
 
+    collector.add_matcher(Box::new(matcher), &[handler]);
     collector
-        .add_matcher(Box::new(matcher), &[handler])
         .process(br#"{"first": {"log": [1,2,3,4]}}"#)
         .unwrap();
 

@@ -47,7 +47,7 @@ impl Extractor {
             handler::Buffer::new().set_show_path(include_path),
         ));
         let mut collector = Collector::new();
-        collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
+        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
         Self { collector, handler }
     }
 }

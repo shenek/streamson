@@ -74,18 +74,18 @@ impl Collector {
     /// let mut collector = Collector::new();
     /// let handler = handler::PrintLn::new();
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
-    /// let collector = Collector::new().add_matcher(
+    /// let mut collector = Collector::new();
+    /// collector.add_matcher(
     ///     Box::new(matcher),
     ///     &[Arc::new(Mutex::new(handler))]
     /// );
     /// ```
     pub fn add_matcher(
-        mut self,
+        &mut self,
         matcher: Box<dyn MatchMaker>,
         handlers: &[Arc<Mutex<dyn Handler>>],
-    ) -> Self {
+    ) {
         self.matchers.push((matcher, handlers.to_vec()));
-        self
     }
 
     /// Processes input data
@@ -210,7 +210,7 @@ mod tests {
         let mut collector = Collector::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
+        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
 
         assert!(
             collector.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
@@ -235,7 +235,7 @@ mod tests {
         let mut collector = Collector::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        collector = collector.add_matcher(Box::new(matcher), &[handler.clone()]);
+        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
 
         assert_eq!(collector.process(br#"{"elem"#).unwrap(), false);
         assert_eq!(collector.process(br#"ents": [1, 2, 3, 4]}"#).unwrap(), true);
