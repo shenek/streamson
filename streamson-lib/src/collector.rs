@@ -6,7 +6,7 @@ use crate::{
     error,
     handler::Handler,
     matcher::MatchMaker,
-    path::{Emitter, Output},
+    streamer::{Output, Streamer},
 };
 use std::sync::{Arc, Mutex};
 
@@ -33,8 +33,8 @@ pub struct Collector {
     collecting: bool,
     /// Path matchers and handlers
     matchers: Vec<MatcherItem>,
-    /// Emits path from data
-    emitter: Emitter,
+    /// Responsible for data extraction
+    streamer: Streamer,
     /// Matched stack
     matched_stack: Vec<Vec<StackItem>>,
 }
@@ -47,7 +47,7 @@ impl Default for Collector {
             buffer: vec![],
             collecting: false,
             matchers: vec![],
-            emitter: Emitter::new(),
+            streamer: Streamer::new(),
             matched_stack: vec![],
         }
     }
@@ -116,10 +116,10 @@ impl Collector {
     /// JSONs and if not. It still might be splitted without an error.
     /// This is caused because streamson does not validate JSON.
     pub fn process(&mut self, input: &[u8]) -> Result<bool, error::General> {
-        self.emitter.feed(input);
+        self.streamer.feed(input);
         let mut inner_idx = 0;
         loop {
-            match self.emitter.read()? {
+            match self.streamer.read()? {
                 Output::Finished => {
                     return Ok(true);
                 }
@@ -132,7 +132,7 @@ impl Collector {
                     inner_idx = to;
 
                     let mut matched = vec![];
-                    let path = self.emitter.current_path();
+                    let path = self.streamer.current_path();
 
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
@@ -149,7 +149,7 @@ impl Collector {
                     self.matched_stack.push(matched);
                 }
                 Output::End(idx) => {
-                    let current_path = self.emitter.current_path();
+                    let current_path = self.streamer.current_path();
                     let to = idx - self.input_start;
                     if self.collecting {
                         self.buffer.extend(&input[inner_idx..to]);

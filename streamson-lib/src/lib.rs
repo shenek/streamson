@@ -103,7 +103,9 @@ pub mod error;
 pub mod handler;
 pub mod matcher;
 pub mod path;
+pub mod streamer;
 
 pub use collector::Collector;
 pub use handler::Handler;
-pub use path::{Emitter, Output};
+pub use path::Path;
+pub use streamer::{Output, Streamer};
