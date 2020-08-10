@@ -31,18 +31,21 @@ impl Output {
     }
 }
 
+/// Key parsing states
 #[derive(Debug)]
 enum ObjectKeyState {
     Init,
     Parse(StringState),
 }
 
+/// Parsing string states
 #[derive(Debug, PartialEq)]
 enum StringState {
     Normal,
     Escaped,
 }
 
+/// JSON processing states
 #[derive(Debug)]
 enum States {
     Value(Element),
@@ -164,28 +167,20 @@ impl Streamer {
         self.pending.extend(input);
     }
 
-    /// Moves cursor forward while characters are namespace
-    fn remove_whitespaces(&mut self) -> Option<usize> {
-        let mut size = 0;
+    /// Moves cursor forward while characters are whitespace
+    fn process_remove_whitespace(&mut self) -> Result<Option<Output>, error::General> {
         while let Some(byte) = self.peek() {
             if !byte.is_ascii_whitespace() {
                 self.advance();
-                return Some(size);
+                return Ok(None);
             }
-            size += 1;
             self.forward();
         }
-        None
+        self.states.push(States::RemoveWhitespaces);
+        Ok(Some(Output::Pending))
     }
 
-    fn process_remove_whitespace(&mut self) -> Result<Option<Output>, error::General> {
-        if self.remove_whitespaces().is_none() {
-            self.states.push(States::RemoveWhitespaces);
-            return Ok(Some(Output::Pending));
-        }
-        Ok(None)
-    }
-
+    /// Processes value which type will be determined later
     fn process_value(&mut self, element: Element) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             match byte {
@@ -248,6 +243,7 @@ impl Streamer {
         }
     }
 
+    /// Processes string on the input
     fn process_str(&mut self, state: StringState) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             match byte {
@@ -283,6 +279,7 @@ impl Streamer {
         }
     }
 
+    /// Processes the number
     fn process_number(&mut self) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_digit() || byte == b'.' {
@@ -299,6 +296,7 @@ impl Streamer {
         }
     }
 
+    /// Processes bool
     fn process_bool(&mut self) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_alphabetic() {
@@ -315,6 +313,7 @@ impl Streamer {
         }
     }
 
+    /// Processes null
     fn process_null(&mut self) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_alphabetic() {
@@ -331,6 +330,7 @@ impl Streamer {
         }
     }
 
+    /// Processes an array
     fn process_array(&mut self, idx: usize) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             match byte {
@@ -357,6 +357,7 @@ impl Streamer {
         }
     }
 
+    /// Processes and object
     fn process_object(&mut self) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             match byte {
@@ -383,6 +384,7 @@ impl Streamer {
         }
     }
 
+    /// Processes object key
     fn process_object_key(
         &mut self,
         state: ObjectKeyState,
@@ -456,6 +458,7 @@ impl Streamer {
         }
     }
 
+    /// Processes a single colon
     fn process_colon(&mut self) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             if byte != b':' {

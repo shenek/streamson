@@ -3,6 +3,7 @@
 use crate::error;
 use std::{convert::TryFrom, fmt};
 
+/// An element of the path
 #[derive(Debug, Clone, PartialEq)]
 pub enum Element {
     Root,
@@ -56,6 +57,7 @@ impl Path {
     }
 }
 
+/// Path parsing state
 #[derive(Debug, PartialEq)]
 enum PathState {
     ElementStart,
@@ -67,6 +69,7 @@ enum PathState {
 
 impl TryFrom<&str> for Path {
     type Error = error::Path;
+
     fn try_from(path_str: &str) -> Result<Self, Self::Error> {
         let mut state = PathState::ElementStart;
         let mut path = Self::new();

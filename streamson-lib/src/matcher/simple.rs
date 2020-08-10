@@ -7,7 +7,7 @@ use crate::{
 };
 use std::str::FromStr;
 
-/// TODO document
+/// SimplePath path matcher
 #[derive(Debug, Clone, PartialEq)]
 enum SimplePathElement {
     Key(Option<String>),
