@@ -16,6 +16,9 @@ categories = ["parsing"]
 tempfile = "3.1"
 criterion = "0.3"
 
+[lib]
+bench = false
+
 [[bench]]
 name = "basic"
 harness = false

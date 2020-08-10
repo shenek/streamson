@@ -1,0 +1,14 @@
+on: [pull_request]
+name: benchmark pull requests
+jobs:
+  runBenchmark:
+    name: run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      - uses: jasonwilliams/criterion-compare-action@master
+        with:
+          cwd: streamson-lib/
+          token: ${{ secrets.GITHUB_TOKEN }}
