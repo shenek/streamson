@@ -48,7 +48,7 @@ enum StringState {
 /// JSON processing states
 #[derive(Debug)]
 enum States {
-    Value(Element),
+    Value(Option<Element>),
     Str(StringState),
     Number,
     Bool,
@@ -110,7 +110,7 @@ impl Default for Streamer {
     fn default() -> Self {
         Self {
             path: Path::default(),
-            states: vec![States::Value(Element::Root), States::RemoveWhitespaces],
+            states: vec![States::Value(None), States::RemoveWhitespaces],
             pending: VecDeque::new(),
             pending_idx: 0,
             total_idx: 0,
@@ -181,42 +181,55 @@ impl Streamer {
     }
 
     /// Processes value which type will be determined later
-    fn process_value(&mut self, element: Element) -> Result<Option<Output>, error::General> {
+    fn process_value(
+        &mut self,
+        element: Option<Element>,
+    ) -> Result<Option<Output>, error::General> {
         if let Some(byte) = self.peek() {
             match byte {
                 b'"' => {
                     self.states.push(States::Str(StringState::Normal));
                     self.advance();
                     self.forward();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'0'..=b'9' => {
                     self.states.push(States::Number);
                     self.advance();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b't' | b'f' => {
                     self.states.push(States::Bool);
                     self.advance();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'n' => {
                     self.states.push(States::Null);
                     self.advance();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'[' => {
                     self.states.push(States::Array(0));
                     self.states.push(States::RemoveWhitespaces);
-                    self.states.push(States::Value(Element::Index(0)));
+                    self.states.push(States::Value(Some(Element::Index(0))));
                     self.states.push(States::RemoveWhitespaces);
                     self.advance();
                     self.forward();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b'{' => {
@@ -226,7 +239,9 @@ impl Streamer {
                     self.states.push(States::RemoveWhitespaces);
                     self.advance();
                     self.forward();
-                    self.path.push(element);
+                    if let Some(element) = element {
+                        self.path.push(element);
+                    }
                     Ok(Some(Output::Start(self.total_idx)))
                 }
                 b']' | b'}' => {
@@ -343,7 +358,8 @@ impl Streamer {
                     self.forward();
                     self.states.push(States::Array(idx + 1));
                     self.states.push(States::RemoveWhitespaces);
-                    self.states.push(States::Value(Element::Index(idx + 1)));
+                    self.states
+                        .push(States::Value(Some(Element::Index(idx + 1))));
                     self.states.push(States::RemoveWhitespaces);
                     Ok(None)
                 }
@@ -423,7 +439,7 @@ impl Streamer {
                                 let idx = self.pending_idx;
                                 let slice = &self.advance().collect::<Vec<u8>>()[1..idx - 1];
                                 let key = from_utf8(slice)?.to_string();
-                                self.states.push(States::Value(Element::Key(key)));
+                                self.states.push(States::Value(Some(Element::Key(key))));
                                 self.states.push(States::RemoveWhitespaces);
                                 self.states.push(States::Colon);
                                 self.states.push(States::RemoveWhitespaces);

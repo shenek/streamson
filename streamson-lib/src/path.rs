@@ -6,7 +6,6 @@ use std::{convert::TryFrom, fmt};
 /// An element of the path
 #[derive(Debug, Clone, PartialEq)]
 pub enum Element {
-    Root,
     Key(String),
     Index(usize),
 }
@@ -16,7 +15,6 @@ impl fmt::Display for Element {
         match self {
             Self::Key(string) => write!(f, "{{\"{}\"}}", string),
             Self::Index(idx) => write!(f, "[{}]", idx),
-            Self::Root => write!(f, ""),
         }
     }
 }
@@ -35,9 +33,6 @@ impl Path {
 
     /// Removes last path element
     pub fn pop(&mut self) {
-        if self.path.len() == 1 {
-            panic!();
-        }
         self.path.pop().unwrap();
     }
 
@@ -73,7 +68,6 @@ impl TryFrom<&str> for Path {
     fn try_from(path_str: &str) -> Result<Self, Self::Error> {
         let mut state = PathState::ElementStart;
         let mut path = Self::new();
-        path.push(Element::Root);
         let mut buffer = vec![];
         for chr in path_str.chars() {
             state = match state {
@@ -160,7 +154,6 @@ mod tests {
     #[test]
     fn test_path_from_string_array() {
         let mut path = Path::new();
-        path.push(Element::Root);
         path.push(Element::Index(0));
         assert_eq!(Path::try_from("[0]").unwrap(), path);
     }
@@ -168,7 +161,6 @@ mod tests {
     #[test]
     fn test_path_from_string_object() {
         let mut path = Path::new();
-        path.push(Element::Root);
         path.push(Element::Key(r#"my-ke\\y\" "#.into()));
         assert_eq!(Path::try_from(r#"{"my-ke\\y\" "}"#).unwrap(), path);
     }

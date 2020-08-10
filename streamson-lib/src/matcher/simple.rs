@@ -35,17 +35,11 @@ enum SimpleMatcherStates {
 
 impl MatchMaker for Simple {
     fn match_path(&self, path: &Path) -> bool {
-        if path.depth() - 1 != self.path.len() {
-            // extra root element
+        if path.depth() != self.path.len() {
             return false;
         }
 
-        for (element, selement) in path
-            .get_path()
-            .iter()
-            .filter(|e| *e != &Element::Root)
-            .zip(self.path.iter())
-        {
+        for (element, selement) in path.get_path().iter().zip(self.path.iter()) {
             match selement {
                 SimplePathElement::Key(Some(key)) => match element {
                     Element::Key(k) if k == key => {}

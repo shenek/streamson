@@ -27,7 +27,7 @@ impl Depth {
 
 impl MatchMaker for Depth {
     fn match_path(&self, path: &Path) -> bool {
-        let depth = path.depth() - 1; // Skip the Element::Root
+        let depth = path.depth();
         if let Some(max) = self.max {
             self.min <= depth && depth <= max
         } else {
