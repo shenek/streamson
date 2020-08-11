@@ -1,3 +1,5 @@
+[![docs.rs](https://docs.rs/streamson-tokio/badge.svg)](https://docs.rs/streamson-tokio)
+
 # Streamson tokio
 
 A library which integrates streamson with tokio.

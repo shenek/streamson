@@ -1,3 +1,5 @@
+[![docs.rs](https://docs.rs/streamson-lib/badge.svg)](https://docs.rs/streamson-lib)
+
 # Streamson Lib
 
 Rust library to split large JSONs.
