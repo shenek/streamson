@@ -1,0 +1,13 @@
+[package]
+name = "streamson-futures"
+version = "4.0.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+
+[dependencies]
+bytes = "0.5"
+futures = "~0.3.5"
+streamson-lib = { version = "4.0.0", path = "../streamson-lib/" }
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["full"]  }

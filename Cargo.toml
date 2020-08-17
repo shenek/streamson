@@ -2,6 +2,7 @@
 
 members = [
 	"streamson-bin",
+	"streamson-futures",
 	"streamson-lib",
 	"streamson-tokio",
 	"streamson-extra-matchers",
