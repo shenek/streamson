@@ -1,9 +1,9 @@
 //! Depth path matcher
 
+use std::str::FromStr;
+
 use super::MatchMaker;
 use crate::{error, path::Path};
-
-use std::str::FromStr;
 
 /// Based on actual path depth
 ///

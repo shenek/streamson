@@ -4,6 +4,7 @@ members = [
 	"streamson-bin",
 	"streamson-lib",
 	"streamson-tokio",
+	"streamson-extra-matchers",
 	"examples/custom-matcher",
 	"examples/serde",
 ]

@@ -1,9 +1,8 @@
 //! Combinator path matcher
 
-use super::MatchMaker;
-use std::ops;
-use std::sync::Arc;
+use std::{ops, sync::Arc};
 
+use super::MatchMaker;
 use crate::path::Path;
 
 #[derive(Debug, Clone)]

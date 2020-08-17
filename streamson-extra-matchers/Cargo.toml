@@ -1,0 +1,19 @@
+[package]
+name = "streamson-extra-matchers"
+version = "4.0.0"
+authors = ["Stepan Henek"]
+edition = "2018"
+description = "Extra matchers for streamson library"
+license = "MIT"
+readme = "README.md"
+keywords = ["json"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
+
+[features]
+default = ["with_regex"]
+with_regex = ["regex"]
+
+[dependencies]
+regex = { version = "1", optional = true }
+streamson-lib = { version = "4.0.0", path = "../streamson-lib/" }
