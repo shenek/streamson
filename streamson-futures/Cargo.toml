@@ -1,8 +1,17 @@
 [package]
 name = "streamson-futures"
 version = "4.0.0"
-authors = ["Stepan Henek"]
+authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
+description = "A library which integrates streamson with futures stream"
+license = "MIT"
+readme = "README.md"
+keywords = ["json", "futures"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 bytes = "0.5"

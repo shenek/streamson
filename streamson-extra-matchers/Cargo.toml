@@ -10,6 +10,9 @@ keywords = ["json"]
 repository = "https://github.com/shenek/streamson"
 categories = ["parsing"]
 
+[badges]
+maintenance = { status = "actively-developed" }
+
 [features]
 default = ["with_regex"]
 with_regex = ["regex"]

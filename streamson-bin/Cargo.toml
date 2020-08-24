@@ -10,6 +10,9 @@ keywords = ["json"]
 repository = "https://github.com/shenek/streamson"
 categories = ["parsing"]
 
+[badges]
+maintenance = { status = "actively-developed" }
+
 [dependencies]
 clap = "2.33"
 streamson-lib = { version = "4.0.0", path = "../streamson-lib/" }
