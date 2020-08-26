@@ -1,0 +1,17 @@
+[package]
+name = "streamson-generator"
+version = "4.0.0"
+authors = ["Stepan Henek <stepan@henek.name>"]
+edition = "2018"
+description = "A library which integrates streamson with generators"
+license = "MIT"
+readme = "README.md"
+keywords = ["json", "generator"]
+repository = "https://github.com/shenek/streamson"
+categories = ["parsing"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+streamson-lib = { version = "4.0.0", path = "../streamson-lib/" }

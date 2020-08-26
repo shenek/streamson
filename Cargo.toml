@@ -3,9 +3,20 @@
 members = [
 	"streamson-bin",
 	"streamson-futures",
+	"streamson-extra-matchers",
+	"streamson-lib",
+	"streamson-generator",
+	"streamson-tokio",
+	"examples/custom-matcher",
+	"examples/serde",
+]
+
+default-members = [
+	"streamson-bin",
+	"streamson-futures",
+	"streamson-extra-matchers",
 	"streamson-lib",
 	"streamson-tokio",
-	"streamson-extra-matchers",
 	"examples/custom-matcher",
 	"examples/serde",
 ]

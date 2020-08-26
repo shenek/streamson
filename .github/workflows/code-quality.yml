@@ -43,6 +43,19 @@ jobs:
         with:
           command: test
 
+      - name: Install unstable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Run unstable tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --package streamson-generator
+
   lints:
     name: Lints
     runs-on: ubuntu-latest
