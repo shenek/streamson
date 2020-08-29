@@ -1,3 +1,16 @@
+4.1.0 (2020-08-29)
+------------------
+* new streamson-generato subcrate (unstable)
+* new streamson-futures subcrate
+* new streamson-extra-matchers subcrate
+* remove Root path element
+* rename some classes
+* add_matcher no longer uses builder pattern
+* parse depth matcher from str
+* various performance improvements
+* extend benchmarks
+* make path optional in Buffer handler
+
 4.0.0 (2020-07-29)
 ------------------
 
