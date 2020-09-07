@@ -89,7 +89,7 @@ impl Handler for File {
         &self.separator
     }
 
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
+    fn handle(&mut self, path: &Path, data: &[u8], _: usize) -> Result<(), error::Handler> {
         if self.show_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())

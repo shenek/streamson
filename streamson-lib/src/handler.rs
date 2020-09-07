@@ -17,6 +17,7 @@ pub trait Handler: Send {
     /// # Arguments
     /// * `path` - path which was matched
     /// * `data` - matched data
+    /// * `idx`  - input data index of next data after handle
     ///
     /// # Returns
     /// * `Ok(())` - Handler was successfully executed
@@ -25,7 +26,16 @@ pub trait Handler: Send {
     /// # Errors
     ///
     /// Handler failed (e.g. failed to write to output file).
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler>;
+    fn handle(&mut self, path: &Path, data: &[u8], idx: usize) -> Result<(), error::Handler>;
+
+    /// Calls when matcher first matches
+    ///
+    /// # Arguments
+    /// * `path` - path which was matched
+    /// * `idx`  - input data index of next data after handle
+    fn handle_start(&mut self, _path: &Path, _idx: usize) -> Result<(), error::Handler> {
+        Ok(())
+    }
 
     /// Should path be displayed in the output
     fn show_path(&self) -> bool {
