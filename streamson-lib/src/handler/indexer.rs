@@ -1,47 +1,48 @@
-//! Handler which buffers output which can be manually extracted
+//! Handler which stores indexes where matched data are kept.
+//! The data should be within <start_idx, end_idx) range
 //!
 //! # Example
 //! ```
 //! use streamson_lib::{handler, matcher, Collector};
 //! use std::sync::{Arc, Mutex};
 //!
-//! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+//! let indexer_handler = Arc::new(Mutex::new(handler::Indexer::new().set_show_path(true)));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
 //! let mut collector = Collector::new();
 //!
 //! // Set the matcher for collector
-//! collector.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+//! collector.add_matcher(Box::new(matcher), &[indexer_handler.clone()]);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),
 //!     br#""id": 2, "name": "second}]}"#.to_vec(),
 //! ] {
 //!     collector.process(&input).unwrap();
-//!     let mut guard = buffer_handler.lock().unwrap();
-//!     while let Some((path, data)) = guard.pop() {
+//!     let mut guard = indexer_handler.lock().unwrap();
+//!     while let Some((path, output)) = guard.pop() {
 //!         // Do something with the data
-//!         println!("{} (len {})", path.unwrap(), data.len());
+//!         println!("{} ({:?})", path.unwrap(), output);
 //!     }
 //! }
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::Output};
 use std::collections::VecDeque;
 
-/// Buffer handler responsible for storing slitted JSONs into memory
+/// Indexer handler responsible for storing index of the matches
 #[derive(Debug)]
-pub struct Buffer {
-    /// Queue with stored jsons in (path, data) format
-    stored: VecDeque<(Option<String>, Vec<u8>)>,
+pub struct Indexer {
+    /// Queue with stored indexes
+    stored: VecDeque<(Option<String>, Output)>,
 
     /// Not to show path will spare some allocation
     show_path: bool,
 }
 
-impl Default for Buffer {
+impl Default for Indexer {
     fn default() -> Self {
         Self {
             stored: VecDeque::new(),
@@ -50,18 +51,20 @@ impl Default for Buffer {
     }
 }
 
-impl Handler for Buffer {
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
-        // TODO we may limit the max VecDeque size and raise
-        // an error when reached
-        //
-        let path_opt = if self.show_path {
-            Some(path.to_string())
-        } else {
-            None
-        };
+impl Handler for Indexer {
+    fn handle(&mut self, _path: &Path, _data: &[u8]) -> Result<(), error::Handler> {
+        Ok(())
+    }
 
-        self.stored.push_back((path_opt, data.to_vec()));
+    fn handle_idx(&mut self, path: &Path, idx: Output) -> Result<(), error::Handler> {
+        self.stored.push_back((
+            if self.show_path {
+                Some(path.to_string())
+            } else {
+                None
+            },
+            idx,
+        ));
         Ok(())
     }
 
@@ -70,8 +73,8 @@ impl Handler for Buffer {
     }
 }
 
-impl Buffer {
-    /// Creates a new handler which stores output within itself
+impl Indexer {
+    /// Creates a new handler which stores indexes within itself
     pub fn new() -> Self {
         Self::default()
     }
@@ -84,7 +87,7 @@ impl Buffer {
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::Buffer::new().set_show_path(true);
+    /// let file = handler::Indexer::new().set_show_path(true);
     /// ```
     pub fn set_show_path(mut self, show_path: bool) -> Self {
         self.show_path = show_path;
@@ -95,20 +98,20 @@ impl Buffer {
     ///
     /// # Returns
     /// * `None` - queue is empty
-    /// * `Some((path, data))` - stored data remove from the queue and returned
+    /// * `Some((path, output))` - stored data remove from the queue and returned
     ///
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let mut buffer = handler::buffer::Buffer::new().set_show_path(true);
-    /// while let Some((path, data)) = buffer.pop() {
+    /// let mut indexer = handler::Indexer::new().set_show_path(true);
+    /// while let Some((path, output)) = indexer.pop() {
     ///     // Do something with the data
-    ///     println!("{} (len {})", path.unwrap(), data.len());
+    ///     println!("{} ({:?})", path.unwrap(), output);
     /// }
     ///
     ///
     /// ```
-    pub fn pop(&mut self) -> Option<(Option<String>, Vec<u8>)> {
+    pub fn pop(&mut self) -> Option<(Option<String>, Output)> {
         self.stored.pop_front()
     }
 }

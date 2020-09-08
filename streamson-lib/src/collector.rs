@@ -140,7 +140,10 @@ impl Collector {
                             matched.push(StackItem { idx, match_idx });
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
-                                handler.lock().unwrap().handle_start(path, idx)?;
+                                handler
+                                    .lock()
+                                    .unwrap()
+                                    .handle_idx(path, Output::Start(idx))?;
                             }
 
                             if !self.collecting {
@@ -165,10 +168,11 @@ impl Collector {
                     for item in items {
                         // run handlers for the matches
                         for handler in &self.matchers[item.match_idx].1 {
-                            handler.lock().unwrap().handle(
+                            let mut guard = handler.lock().unwrap();
+                            guard.handle_idx(current_path, Output::End(idx))?;
+                            guard.handle(
                                 current_path,
                                 &self.buffer[item.idx - self.buffer_start..idx - self.buffer_start],
-                                idx,
                             )?;
                         }
                     }
@@ -204,7 +208,7 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &Path, data: &[u8], _: usize) -> Result<(), error::Handler> {
+        fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(data.to_vec());
             Ok(())

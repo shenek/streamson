@@ -1,13 +1,15 @@
 //! Collections of handler (what to do with matched paths and data).
 
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::Output};
 
 pub mod buffer;
 pub mod file;
+pub mod indexer;
 pub mod println;
 
 pub use buffer::Buffer;
 pub use file::File;
+pub use indexer::Indexer;
 pub use println::PrintLn;
 
 /// Common handler trait
@@ -26,14 +28,14 @@ pub trait Handler: Send {
     /// # Errors
     ///
     /// Handler failed (e.g. failed to write to output file).
-    fn handle(&mut self, path: &Path, data: &[u8], idx: usize) -> Result<(), error::Handler>;
+    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler>;
 
-    /// Calls when matcher first matches
+    /// Calls when an index occured
     ///
     /// # Arguments
     /// * `path` - path which was matched
     /// * `idx`  - input data index of next data after handle
-    fn handle_start(&mut self, _path: &Path, _idx: usize) -> Result<(), error::Handler> {
+    fn handle_idx(&mut self, _path: &Path, _idx: Output) -> Result<(), error::Handler> {
         Ok(())
     }
 
