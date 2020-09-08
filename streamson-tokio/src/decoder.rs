@@ -44,7 +44,7 @@ impl Extractor {
     pub fn new(matcher: impl matcher::MatchMaker + 'static, include_path: bool) -> Self {
         // TODO limit max length and fail when reached
         let handler = Arc::new(Mutex::new(
-            handler::Buffer::new().set_show_path(include_path),
+            handler::Buffer::new().set_use_path(include_path),
         ));
         let mut collector = Collector::new();
         collector.add_matcher(Box::new(matcher), &[handler.clone()]);

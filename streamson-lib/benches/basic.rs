@@ -52,7 +52,7 @@ pub fn simple(c: &mut Criterion) {
 
     let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
     let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#).unwrap();
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(false)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
     collector.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
@@ -69,7 +69,7 @@ pub fn simple(c: &mut Criterion) {
     let mut collector = Collector::new();
     let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
     let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#).unwrap();
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
 
     collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
@@ -97,7 +97,7 @@ pub fn depth(c: &mut Criterion) {
 
     let first_matcher = matcher::Depth::new(1, None);
     let second_matcher = matcher::Depth::new(1, Some(1));
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(false)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
     collector.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
@@ -112,7 +112,7 @@ pub fn depth(c: &mut Criterion) {
     );
 
     let mut collector = Collector::new();
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
     collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
     run_group(
@@ -141,7 +141,7 @@ pub fn combinator(c: &mut Criterion) {
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(false)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
     collector.add_matcher(Box::new(first_combo.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_combo.clone()), &[handler.clone()]);
@@ -156,7 +156,7 @@ pub fn combinator(c: &mut Criterion) {
     );
 
     let mut collector = Collector::new();
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
     collector.add_matcher(Box::new(first_combo), &[handler.clone()]);
     collector.add_matcher(Box::new(second_combo), &[handler.clone()]);
     run_group(
@@ -183,11 +183,11 @@ pub fn combinator(c: &mut Criterion) {
 pub fn void(c: &mut Criterion) {
     let collector = Collector::new();
     let mut group = c.benchmark_group("Void");
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(false)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
     run_group(&mut group, "Buffer(no path)", collector, handler, 0);
 
     let collector = Collector::new();
-    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+    let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
     run_group(&mut group, "Buffer(with path)", collector, handler, 0);
 }
 

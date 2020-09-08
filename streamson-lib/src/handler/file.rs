@@ -11,7 +11,7 @@ pub struct File {
 
     /// Indicator whether the path will be displayed
     /// e.g. `{"items"}: {"sub": 4}` vs `{"sub": 4}`
-    show_path: bool,
+    use_path: bool,
 
     /// String which will be appended to the end of each record
     /// to separate it with the next record (default '#')
@@ -35,7 +35,7 @@ impl File {
         let file = fs::File::create(fs_path).map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(Self {
             file,
-            show_path: false,
+            use_path: false,
             separator: "\n".into(),
         })
     }
@@ -43,17 +43,17 @@ impl File {
     /// Set whether to show path
     ///
     /// # Arguments
-    /// * `show_path` - should path be shown in the output
+    /// * `use_path` - should path be shown in the output
     ///
     /// # Example
     /// ```
     /// use streamson_lib::handler;
     /// let file = handler::File::new("/tmp/output.txt")
     ///     .unwrap()
-    ///     .set_show_path(true);
+    ///     .set_use_path(true);
     /// ```
-    pub fn set_show_path(mut self, show_path: bool) -> Self {
-        self.show_path = show_path;
+    pub fn set_use_path(mut self, use_path: bool) -> Self {
+        self.use_path = use_path;
         self
     }
 
@@ -81,8 +81,8 @@ impl File {
 }
 
 impl Handler for File {
-    fn show_path(&self) -> bool {
-        self.show_path
+    fn use_path(&self) -> bool {
+        self.use_path
     }
 
     fn separator(&self) -> &str {
@@ -90,7 +90,7 @@ impl Handler for File {
     }
 
     fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
-        if self.show_path {
+        if self.use_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())
                 .map_err(|err| error::Handler::new(err.to_string()))?;
@@ -175,12 +175,12 @@ mod tests {
     }
 
     #[test]
-    fn show_path() {
+    fn use_path() {
         let tmp_path = NamedTempFile::new().unwrap().into_temp_path();
         let str_path = tmp_path.to_str().unwrap();
 
         let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
-        let handler = handler::File::new(str_path).unwrap().set_show_path(true);
+        let handler = handler::File::new(str_path).unwrap().set_use_path(true);
 
         let output = make_output(
             str_path,

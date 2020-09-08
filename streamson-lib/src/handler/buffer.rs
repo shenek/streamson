@@ -5,7 +5,7 @@
 //! use streamson_lib::{handler, matcher, Collector};
 //! use std::sync::{Arc, Mutex};
 //!
-//! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+//! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
@@ -38,14 +38,14 @@ pub struct Buffer {
     stored: VecDeque<(Option<String>, Vec<u8>)>,
 
     /// Not to show path will spare some allocation
-    show_path: bool,
+    use_path: bool,
 }
 
 impl Default for Buffer {
     fn default() -> Self {
         Self {
             stored: VecDeque::new(),
-            show_path: false,
+            use_path: false,
         }
     }
 }
@@ -55,7 +55,7 @@ impl Handler for Buffer {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
         //
-        let path_opt = if self.show_path {
+        let path_opt = if self.use_path {
             Some(path.to_string())
         } else {
             None
@@ -65,8 +65,8 @@ impl Handler for Buffer {
         Ok(())
     }
 
-    fn show_path(&self) -> bool {
-        self.show_path
+    fn use_path(&self) -> bool {
+        self.use_path
     }
 }
 
@@ -79,15 +79,15 @@ impl Buffer {
     /// Set whether to show path
     ///
     /// # Arguments
-    /// * `show_path` - should path be store with data
+    /// * `use_path` - should path be store with data
     ///
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::Buffer::new().set_show_path(true);
+    /// let file = handler::Buffer::new().set_use_path(true);
     /// ```
-    pub fn set_show_path(mut self, show_path: bool) -> Self {
-        self.show_path = show_path;
+    pub fn set_use_path(mut self, use_path: bool) -> Self {
+        self.use_path = use_path;
         self
     }
 
@@ -100,7 +100,7 @@ impl Buffer {
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let mut buffer = handler::buffer::Buffer::new().set_show_path(true);
+    /// let mut buffer = handler::buffer::Buffer::new().set_use_path(true);
     /// while let Some((path, data)) = buffer.pop() {
     ///     // Do something with the data
     ///     println!("{} (len {})", path.unwrap(), data.len());

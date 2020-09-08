@@ -23,7 +23,7 @@ impl matcher::MatchMaker for Letter {
 }
 
 fn main() {
-    let handler = Arc::new(Mutex::new(handler::PrintLn::new().set_show_path(true)));
+    let handler = Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
     let matcher = Letter::new('l');
     let mut collector = Collector::new();
 

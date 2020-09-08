@@ -55,7 +55,7 @@ where
     /// * `matcher` - matcher which will be used for the extraction
     pub fn new(input: I, matcher: Box<dyn matcher::MatchMaker>) -> Self {
         let collector = Arc::new(Mutex::new(Collector::new()));
-        let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_show_path(true)));
+        let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
         collector
             .lock()
             .unwrap()

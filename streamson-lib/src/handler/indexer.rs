@@ -6,7 +6,7 @@
 //! use streamson_lib::{handler, matcher, Collector};
 //! use std::sync::{Arc, Mutex};
 //!
-//! let indexer_handler = Arc::new(Mutex::new(handler::Indexer::new().set_show_path(true)));
+//! let indexer_handler = Arc::new(Mutex::new(handler::Indexer::new().set_use_path(true)));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
@@ -39,14 +39,14 @@ pub struct Indexer {
     stored: VecDeque<(Option<String>, Output)>,
 
     /// Not to show path will spare some allocation
-    show_path: bool,
+    use_path: bool,
 }
 
 impl Default for Indexer {
     fn default() -> Self {
         Self {
             stored: VecDeque::new(),
-            show_path: false,
+            use_path: false,
         }
     }
 }
@@ -58,7 +58,7 @@ impl Handler for Indexer {
 
     fn handle_idx(&mut self, path: &Path, idx: Output) -> Result<(), error::Handler> {
         self.stored.push_back((
-            if self.show_path {
+            if self.use_path {
                 Some(path.to_string())
             } else {
                 None
@@ -68,8 +68,8 @@ impl Handler for Indexer {
         Ok(())
     }
 
-    fn show_path(&self) -> bool {
-        self.show_path
+    fn use_path(&self) -> bool {
+        self.use_path
     }
 }
 
@@ -82,15 +82,15 @@ impl Indexer {
     /// Set whether to show path
     ///
     /// # Arguments
-    /// * `show_path` - should path be store with data
+    /// * `use_path` - should path be store with data
     ///
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::Indexer::new().set_show_path(true);
+    /// let file = handler::Indexer::new().set_use_path(true);
     /// ```
-    pub fn set_show_path(mut self, show_path: bool) -> Self {
-        self.show_path = show_path;
+    pub fn set_use_path(mut self, use_path: bool) -> Self {
+        self.use_path = use_path;
         self
     }
 
@@ -103,7 +103,7 @@ impl Indexer {
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let mut indexer = handler::Indexer::new().set_show_path(true);
+    /// let mut indexer = handler::Indexer::new().set_use_path(true);
     /// while let Some((path, output)) = indexer.pop() {
     ///     // Do something with the data
     ///     println!("{} ({:?})", path.unwrap(), output);

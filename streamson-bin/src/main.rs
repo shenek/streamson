@@ -94,7 +94,7 @@ fn main() -> Result<(), error::General> {
     let mut collector = Collector::new();
     let print_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
     let print_with_header_handler =
-        Arc::new(Mutex::new(handler::PrintLn::new().set_show_path(true)));
+        Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
     let mut file_handler_map: HashMap<String, Arc<Mutex<handler::File>>> = HashMap::new();
 
     if let Some(simple_matches) = arg_matches.values_of("print") {

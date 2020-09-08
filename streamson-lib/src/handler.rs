@@ -39,8 +39,8 @@ pub trait Handler: Send {
         Ok(())
     }
 
-    /// Should path be displayed in the output
-    fn show_path(&self) -> bool {
+    /// Should path be used
+    fn use_path(&self) -> bool {
         false
     }
 

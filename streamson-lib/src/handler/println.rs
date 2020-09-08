@@ -8,7 +8,7 @@ use std::str;
 pub struct PrintLn {
     /// Indicator whether the path will be displayed
     /// e.g. `{"items"}: {"sub": 4}` vs `{"sub": 4}`
-    show_path: bool,
+    use_path: bool,
 
     /// String which will be appended to the end of each record
     /// to separate it with the next record (default '#')
@@ -18,7 +18,7 @@ pub struct PrintLn {
 impl Default for PrintLn {
     fn default() -> Self {
         Self {
-            show_path: false,
+            use_path: false,
             separator: "\n".into(),
         }
     }
@@ -33,15 +33,15 @@ impl PrintLn {
     /// Set whether to show path
     ///
     /// # Arguments
-    /// * `show_path` - should path be shown in the output
+    /// * `use_path` - should path be shown in the output
     ///
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::PrintLn::new().set_show_path(true);
+    /// let file = handler::PrintLn::new().set_use_path(true);
     /// ```
-    pub fn set_show_path(mut self, show_path: bool) -> Self {
-        self.show_path = show_path;
+    pub fn set_use_path(mut self, use_path: bool) -> Self {
+        self.use_path = use_path;
         self
     }
 
@@ -68,8 +68,8 @@ impl PrintLn {
 }
 
 impl Handler for PrintLn {
-    fn show_path(&self) -> bool {
-        self.show_path
+    fn use_path(&self) -> bool {
+        self.use_path
     }
 
     fn separator(&self) -> &str {
@@ -78,7 +78,7 @@ impl Handler for PrintLn {
 
     fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
         let str_data = str::from_utf8(data).map_err(|err| error::Handler::new(err.to_string()))?;
-        if self.show_path() {
+        if self.use_path() {
             print!("{}: {}{}", path, str_data, self.separator());
         } else {
             print!("{}{}", str_data, self.separator());
