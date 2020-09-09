@@ -89,14 +89,14 @@ impl Handler for File {
         &self.separator
     }
 
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
+    fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
         if self.use_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())
                 .map_err(|err| error::Handler::new(err.to_string()))?;
         }
         self.file
-            .write(data)
+            .write(data.unwrap())
             .map_err(|err| error::Handler::new(err.to_string()))?;
         let separator = self.separator().to_string();
         self.file

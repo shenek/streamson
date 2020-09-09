@@ -28,7 +28,7 @@ pub trait Handler: Send {
     /// # Errors
     ///
     /// Handler failed (e.g. failed to write to output file).
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler>;
+    fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler>;
 
     /// Calls when an index occured
     ///
@@ -47,5 +47,16 @@ pub trait Handler: Send {
     /// A str which will be used to separate records
     fn separator(&self) -> &str {
         "\n"
+    }
+
+    /// If true is returned a buffer will
+    /// be used to store input data when
+    /// matcher matches
+    ///
+    /// Required for most of the handlers,
+    /// but there can be situations where,
+    /// it can be avioded
+    fn buffering_required(&self) -> bool {
+        true
     }
 }

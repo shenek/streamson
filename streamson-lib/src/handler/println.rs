@@ -76,8 +76,9 @@ impl Handler for PrintLn {
         &self.separator
     }
 
-    fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
-        let str_data = str::from_utf8(data).map_err(|err| error::Handler::new(err.to_string()))?;
+    fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
+        let str_data =
+            str::from_utf8(data.unwrap()).map_err(|err| error::Handler::new(err.to_string()))?;
         if self.use_path() {
             print!("{}: {}{}", path, str_data, self.separator());
         } else {

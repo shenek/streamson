@@ -52,7 +52,7 @@ impl Default for Indexer {
 }
 
 impl Handler for Indexer {
-    fn handle(&mut self, _path: &Path, _data: &[u8]) -> Result<(), error::Handler> {
+    fn handle(&mut self, _path: &Path, _data: Option<&[u8]>) -> Result<(), error::Handler> {
         Ok(())
     }
 
@@ -70,6 +70,12 @@ impl Handler for Indexer {
 
     fn use_path(&self) -> bool {
         self.use_path
+    }
+
+    fn buffering_required(&self) -> bool {
+        // no need to buffer input
+        // handler doesn't use matched data
+        false
     }
 }
 

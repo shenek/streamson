@@ -16,6 +16,8 @@ struct StackItem {
     idx: usize,
     /// Idx to vec of matchers
     match_idx: usize,
+    /// Is it required to buffer input data
+    buffering_required: bool,
 }
 
 /// Item in matcher list
@@ -137,16 +139,23 @@ impl Collector {
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
                         if matcher.match_path(path) {
-                            matched.push(StackItem { idx, match_idx });
+                            let mut buffering_required = false;
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
-                                handler
-                                    .lock()
-                                    .unwrap()
-                                    .handle_idx(path, Output::Start(idx))?;
+                                let mut guard = handler.lock().unwrap();
+                                guard.handle_idx(path, Output::Start(idx))?;
+                                if guard.buffering_required() {
+                                    buffering_required = true
+                                }
                             }
 
-                            if !self.collecting {
+                            matched.push(StackItem {
+                                idx,
+                                match_idx,
+                                buffering_required,
+                            });
+
+                            if !self.collecting & buffering_required {
                                 // start the buffer
                                 self.buffer_start = idx;
                                 self.collecting = true;
@@ -170,15 +179,27 @@ impl Collector {
                         for handler in &self.matchers[item.match_idx].1 {
                             let mut guard = handler.lock().unwrap();
                             guard.handle_idx(current_path, Output::End(idx))?;
+                            let buffering_required = guard.buffering_required();
                             guard.handle(
                                 current_path,
-                                &self.buffer[item.idx - self.buffer_start..idx - self.buffer_start],
+                                if buffering_required {
+                                    Some(
+                                        &self.buffer
+                                            [item.idx - self.buffer_start..idx - self.buffer_start],
+                                    )
+                                } else {
+                                    None
+                                },
                             )?;
                         }
                     }
 
                     // Clear the buffer if there is no need to keep the buffer
-                    if self.matched_stack.iter().all(|items| items.is_empty()) {
+                    if self
+                        .matched_stack
+                        .iter()
+                        .all(|items| items.iter().all(|item| !item.buffering_required))
+                    {
                         self.collecting = false;
                         self.buffer.clear();
                     }
@@ -208,9 +229,9 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &Path, data: &[u8]) -> Result<(), error::Handler> {
+        fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
-            self.data.push(data.to_vec());
+            self.data.push(data.unwrap().to_vec());
             Ok(())
         }
     }
