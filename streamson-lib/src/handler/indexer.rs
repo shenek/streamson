@@ -121,3 +121,50 @@ impl Indexer {
         self.stored.pop_front()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Indexer;
+    use crate::{handler::buffer::Buffer, matcher::Simple, streamer::Output, Collector};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn indexer_handler() {
+        let mut collector = Collector::new();
+
+        let indexer_handler = Arc::new(Mutex::new(Indexer::new()));
+        let buffer_handler = Arc::new(Mutex::new(Buffer::default()));
+        let matcher_all = Simple::new(r#"{"elements"}"#).unwrap();
+        let matcher_elements = Simple::new(r#"{"elements"}[]"#).unwrap();
+
+        collector.add_matcher(Box::new(matcher_all), &[indexer_handler.clone()]);
+        collector.add_matcher(
+            Box::new(matcher_elements),
+            &[indexer_handler.clone(), buffer_handler.clone()],
+        );
+
+        assert!(
+            collector.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
+            true
+        );
+        // Test indexer handler
+        let mut guard = indexer_handler.lock().unwrap();
+        assert_eq!(guard.pop().unwrap(), (None, Output::Start(13)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::Start(14)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::End(15)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::Start(17)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::End(18)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::Start(20)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::End(21)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::Start(23)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::End(24)));
+        assert_eq!(guard.pop().unwrap(), (None, Output::End(25)));
+
+        // Test whether buffer handler contains the right data
+        let mut guard = buffer_handler.lock().unwrap();
+        assert_eq!(guard.pop().unwrap(), (None, vec![b'1']));
+        assert_eq!(guard.pop().unwrap(), (None, vec![b'2']));
+        assert_eq!(guard.pop().unwrap(), (None, vec![b'3']));
+        assert_eq!(guard.pop().unwrap(), (None, vec![b'4']));
+    }
+}
