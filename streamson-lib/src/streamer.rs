@@ -16,6 +16,8 @@ pub enum Output {
     Start(usize),
     /// Path ends here
     End(usize),
+    /// Element separator idx (idx of `,` between array/object elements)
+    Separator(usize),
     /// Needs more data
     Pending,
     /// No data left in json
@@ -361,7 +363,7 @@ impl Streamer {
                     self.states
                         .push(States::Value(Some(Element::Index(idx + 1))));
                     self.states.push(States::RemoveWhitespaces);
-                    Ok(None)
+                    Ok(Some(Output::Separator(self.total_idx)))
                 }
                 byte => {
                     Err(error::IncorrectInput::new(byte, self.total_idx + self.pending_idx).into())
@@ -388,7 +390,7 @@ impl Streamer {
                     self.states.push(States::RemoveWhitespaces);
                     self.states.push(States::ObjectKey(ObjectKeyState::Init));
                     self.states.push(States::RemoveWhitespaces);
-                    Ok(None)
+                    Ok(Some(Output::Separator(self.total_idx)))
                 }
                 byte => {
                     Err(error::IncorrectInput::new(byte, self.total_idx + self.pending_idx).into())
@@ -652,10 +654,12 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(6));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(6));
         assert_eq!(streamer.read().unwrap(), Output::Start(8));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(10));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(10));
         assert_eq!(streamer.read().unwrap(), Output::Start(12));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::End(20));
@@ -675,6 +679,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(6));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(6));
         assert_eq!(streamer.read().unwrap(), Output::Start(8));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::Pending);
@@ -682,6 +687,7 @@ mod test {
         streamer.feed(br#"3,"#);
         assert_eq!(streamer.read().unwrap(), Output::End(10));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(10));
         assert_eq!(streamer.read().unwrap(), Output::Pending);
         assert_eq!(streamer.current_path(), &make_path(""));
         streamer.feed(br#" "string" ]"#);
@@ -715,22 +721,26 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(4));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(4));
         assert_eq!(streamer.read().unwrap(), Output::Start(6));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(8));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(8));
         assert_eq!(streamer.read().unwrap(), Output::Start(10));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::Start(11));
         assert_eq!(streamer.current_path(), &make_path("[2][0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(19));
         assert_eq!(streamer.current_path(), &make_path("[2][0]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(20));
         assert_eq!(streamer.read().unwrap(), Output::Start(22));
         assert_eq!(streamer.current_path(), &make_path("[2][1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(24));
         assert_eq!(streamer.current_path(), &make_path("[2][1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(25));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(25));
         assert_eq!(streamer.read().unwrap(), Output::Start(27));
         assert_eq!(streamer.current_path(), &make_path("[3]"));
         assert_eq!(streamer.read().unwrap(), Output::End(31));
@@ -750,14 +760,17 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("{\"a\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(8));
         assert_eq!(streamer.current_path(), &make_path("{\"a\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(8));
         assert_eq!(streamer.read().unwrap(), Output::Start(17));
         assert_eq!(streamer.current_path(), &make_path("{\"b\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(21));
         assert_eq!(streamer.current_path(), &make_path("{\"b\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(22));
         assert_eq!(streamer.read().unwrap(), Output::Start(29));
         assert_eq!(streamer.current_path(), &make_path("{\"c\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(33));
         assert_eq!(streamer.current_path(), &make_path("{\"c\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(33));
         assert_eq!(streamer.read().unwrap(), Output::Start(50));
         assert_eq!(streamer.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
         assert_eq!(streamer.read().unwrap(), Output::End(52));
@@ -788,12 +801,14 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(9));
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(9));
         assert_eq!(streamer.read().unwrap(), Output::Start(16));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Start(22));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(26));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(26));
         assert_eq!(streamer.read().unwrap(), Output::Start(33));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(35));
@@ -839,25 +854,32 @@ mod test {
             assert_eq!(get_item(Some("[0]")), Output::Start(2));
             assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::Start(12));
             assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::End(14));
+            assert_eq!(get_item(None), Output::Separator(14));
             assert_eq!(get_item(Some("[0]{\"j\"}")), Output::Start(21));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::Start(27));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::Start(28));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::End(32));
+            assert_eq!(get_item(None), Output::Separator(32));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::Start(34));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::Start(36));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::End(38));
+            assert_eq!(get_item(None), Output::Separator(38));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::Start(40));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::End(44));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::End(46));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::End(47));
+            assert_eq!(get_item(None), Output::Separator(47));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::Start(55));
             assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::End(57));
             assert_eq!(get_item(Some("[0]{\"j\"}")), Output::End(58));
             assert_eq!(get_item(Some("[0]")), Output::End(59));
+            assert_eq!(get_item(None), Output::Separator(59));
             assert_eq!(get_item(Some("[1]")), Output::Start(61));
             assert_eq!(get_item(Some("[1]")), Output::End(65));
+            assert_eq!(get_item(None), Output::Separator(65));
             assert_eq!(get_item(Some("[2]")), Output::Start(67));
             assert_eq!(get_item(Some("[2]")), Output::End(69));
+            assert_eq!(get_item(None), Output::Separator(69));
             assert_eq!(get_item(Some("[3]")), Output::Start(71));
             assert_eq!(get_item(Some("[3][0]")), Output::Start(73));
             assert_eq!(get_item(Some("[3][0]{\"a\"}")), Output::Start(79));
@@ -903,6 +925,7 @@ mod test {
             assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::Start(15));
             assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::End(26));
             assert_eq!(get_item(Some("[0]")), Output::End(27));
+            assert_eq!(get_item(None), Output::Separator(27));
             assert_eq!(get_item(Some("[1]")), Output::Start(29));
             assert_eq!(get_item(Some("[1]")), Output::End(40));
             assert_eq!(get_item(Some("")), Output::End(41));

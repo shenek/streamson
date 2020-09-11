@@ -1,4 +1,4 @@
-//! The main logic of JSON processing
+//! The main logic of collecting JSON processing
 //!
 //! It puts together matchers, handlers and path extraction.
 
@@ -62,6 +62,8 @@ impl Collector {
     }
 
     /// Returns a `Collector` with extended matcher and handlers
+    /// It collects matched data and triggers handlers when entire
+    /// data are read.
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
@@ -211,6 +213,7 @@ impl Collector {
                     }
                     return Ok(false);
                 }
+                Output::Separator(_) => {}
             }
         }
     }

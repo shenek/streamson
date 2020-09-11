@@ -100,12 +100,14 @@
 
 pub mod collector;
 pub mod error;
+pub mod filter;
 pub mod handler;
 pub mod matcher;
 pub mod path;
 pub mod streamer;
 
 pub use collector::Collector;
+pub use filter::Filter;
 pub use handler::Handler;
 pub use path::Path;
 pub use streamer::{Output, Streamer};
