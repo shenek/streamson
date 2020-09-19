@@ -23,5 +23,9 @@ criterion = "=0.3.2"
 bench = false
 
 [[bench]]
-name = "basic"
+name = "collector"
+harness = false
+
+[[bench]]
+name = "filter"
 harness = false

@@ -22,6 +22,12 @@ fn gen_input(size: usize) -> Vec<Vec<u8>> {
     all_in_one.chunks(size).map(|e| e.to_vec()).collect()
 }
 
+fn get_benchmark_group(
+    c: &mut Criterion,
+) -> criterion::BenchmarkGroup<'_, criterion::measurement::WallTime> {
+    c.benchmark_group("Collector")
+}
+
 fn run_group(
     group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
     name: &str,
@@ -57,10 +63,10 @@ pub fn simple(c: &mut Criterion) {
     collector.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
 
-    let mut group = c.benchmark_group("Simple");
+    let mut group = get_benchmark_group(c);
     run_group(
         &mut group,
-        "Buffer(no path)",
+        "Simple-Buffer(no path)",
         collector,
         handler,
         ITEM_COUNT,
@@ -75,7 +81,7 @@ pub fn simple(c: &mut Criterion) {
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
     run_group(
         &mut group,
-        "Buffer(with path)",
+        "Simple-Buffer(with path)",
         collector,
         handler,
         ITEM_COUNT,
@@ -87,7 +93,7 @@ pub fn simple(c: &mut Criterion) {
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
     collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
-    run_group(&mut group, "NoMatch", collector, handler, 0);
+    run_group(&mut group, "Simple-NoMatch", collector, handler, 0);
 
     group.finish();
 }
@@ -102,10 +108,10 @@ pub fn depth(c: &mut Criterion) {
     collector.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
 
-    let mut group = c.benchmark_group("Depth");
+    let mut group = get_benchmark_group(c);
     run_group(
         &mut group,
-        "Buffer(no path)",
+        "Depth-Buffer(no path)",
         collector,
         handler,
         ITEM_COUNT * 2 + 2,
@@ -117,7 +123,7 @@ pub fn depth(c: &mut Criterion) {
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
     run_group(
         &mut group,
-        "Buffer(with path)",
+        "Depth-Buffer(with path)",
         collector,
         handler,
         ITEM_COUNT * 2 + 2,
@@ -129,7 +135,7 @@ pub fn depth(c: &mut Criterion) {
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
     collector.add_matcher(Box::new(first_matcher), &[handler.clone()]);
     collector.add_matcher(Box::new(second_matcher), &[handler.clone()]);
-    run_group(&mut group, "NoMatch", collector, handler, 0);
+    run_group(&mut group, "Depth-NoMatch", collector, handler, 0);
 
     group.finish();
 }
@@ -146,10 +152,10 @@ pub fn combinator(c: &mut Criterion) {
     collector.add_matcher(Box::new(first_combo.clone()), &[handler.clone()]);
     collector.add_matcher(Box::new(second_combo.clone()), &[handler.clone()]);
 
-    let mut group = c.benchmark_group("Combinator");
+    let mut group = get_benchmark_group(c);
     run_group(
         &mut group,
-        "Buffer(no path)",
+        "Combinator-Buffer(no path)",
         collector,
         handler,
         ITEM_COUNT / 2 + 4,
@@ -161,7 +167,7 @@ pub fn combinator(c: &mut Criterion) {
     collector.add_matcher(Box::new(second_combo), &[handler.clone()]);
     run_group(
         &mut group,
-        "Buffer(with path)",
+        "Combinator-Buffer(with path)",
         collector,
         handler,
         ITEM_COUNT / 2 + 4,
@@ -175,20 +181,20 @@ pub fn combinator(c: &mut Criterion) {
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
     collector.add_matcher(Box::new(first_combo), &[handler.clone()]);
     collector.add_matcher(Box::new(second_combo), &[handler.clone()]);
-    run_group(&mut group, "NoMatch", collector, handler, 0);
+    run_group(&mut group, "Combinator-NoMatch", collector, handler, 0);
 
     group.finish();
 }
 
 pub fn void(c: &mut Criterion) {
     let collector = Collector::new();
-    let mut group = c.benchmark_group("Void");
+    let mut group = get_benchmark_group(c);
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
-    run_group(&mut group, "Buffer(no path)", collector, handler, 0);
+    run_group(&mut group, "Void-Buffer(no path)", collector, handler, 0);
 
     let collector = Collector::new();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-    run_group(&mut group, "Buffer(with path)", collector, handler, 0);
+    run_group(&mut group, "Void-Buffer(with path)", collector, handler, 0);
 }
 
 criterion_group!(benches, simple, depth, combinator, void);
