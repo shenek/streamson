@@ -11,7 +11,7 @@ It enables to use streamson with async runs
 use bytes::Bytes;
 use futures::stream::{self, StreamExt};
 use streamson_lib::matcher;
-use streamson_futures::stream::CollectorStream;
+use streamson_futures::stream::BufferStream;
 
 let stream = stream::iter(
     vec![r#"{"users": ["#, r#"{"name": "carl", "id": 1}"#, r#"]}"#]
@@ -20,5 +20,5 @@ let stream = stream::iter(
         .collect::<Vec<Bytes>>()
 );
 let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
-let wrapped_stream = CollectorStream::new(stream, Box::new(matcher));
+let wrapped_stream = BufferStream::new(stream, Box::new(matcher));
 ```

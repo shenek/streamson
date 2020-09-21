@@ -8,7 +8,7 @@
 //!
 //! # Examples
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, Collector};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
@@ -19,16 +19,16 @@
 //! let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
 //! let second_matcher = matcher::Simple::new(r#"{"groups"}[]"#).unwrap();
 //!
-//! let mut collector = Collector::new();
+//! let mut trigger = strategy::Trigger::new();
 //!
 //! // exports users to stdout and /tmp/out.txt
-//! collector.add_matcher(
+//! trigger.add_matcher(
 //!     Box::new(first_matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );
 //!
 //! // groups are going to be expoted only to stdout
-//! collector.add_matcher(
+//! trigger.add_matcher(
 //!     Box::new(second_matcher),
 //!     &[stdout_handler],
 //! );
@@ -37,12 +37,12 @@
 //!     br#"{"users": [1,2]"#.to_vec(),
 //!     br#", "groups": [3, 4]}"#.to_vec(),
 //! ] {
-//!     collector.process(&input).unwrap();
+//!     trigger.process(&input).unwrap();
 //! }
 //! ```
 //!
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, Collector};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
@@ -55,10 +55,10 @@
 //! let matcher = matcher::Combinator::new(first_matcher) |
 //!     matcher::Combinator::new(second_matcher);
 //!
-//! let mut collector = Collector::new();
+//! let mut trigger = strategy::Trigger::new();
 //!
 //! // Paths with depths 1, 2 are exported to tmp.txt
-//! collector.add_matcher(
+//! trigger.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );
@@ -67,12 +67,12 @@
 //!     br#"{"users": [1,2]"#.to_vec(),
 //!     br#", "groups": [3, 4]}"#.to_vec(),
 //! ] {
-//!     collector.process(&input).unwrap();
+//!     trigger.process(&input).unwrap();
 //! }
 //! ```
 //!
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, Collector};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
@@ -82,10 +82,10 @@
 //!
 //! let matcher = matcher::Depth::new(1, Some(2));
 //!
-//! let mut collector = Collector::new();
+//! let mut trigger = strategy::Trigger::new();
 //!
 //! // Paths with depths 1, 2 are exported to tmp.txt
-//! collector.add_matcher(
+//! trigger.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
 //! );
@@ -94,20 +94,17 @@
 //!     br#"{"users": [1,2]"#.to_vec(),
 //!     br#", "groups": [3, 4]}"#.to_vec(),
 //! ] {
-//!     collector.process(&input).unwrap();
+//!     trigger.process(&input).unwrap();
 //! }
 //! ```
 
-pub mod collector;
 pub mod error;
-pub mod filter;
 pub mod handler;
 pub mod matcher;
 pub mod path;
+pub mod strategy;
 pub mod streamer;
 
-pub use collector::Collector;
-pub use filter::Filter;
 pub use handler::Handler;
 pub use path::Path;
 pub use streamer::{Output, Streamer};

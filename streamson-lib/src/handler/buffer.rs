@@ -2,23 +2,23 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, Collector};
+//! use streamson_lib::{handler, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
-//! let mut collector = Collector::new();
+//! let mut trigger = strategy::Trigger::new();
 //!
-//! // Set the matcher for collector
-//! collector.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+//! // Set the matcher for trigger strategy
+//! trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),
 //!     br#""id": 2, "name": "second}]}"#.to_vec(),
 //! ] {
-//!     collector.process(&input).unwrap();
+//!     trigger.process(&input).unwrap();
 //!     let mut guard = buffer_handler.lock().unwrap();
 //!     while let Some((path, data)) = guard.pop() {
 //!         // Do something with the data

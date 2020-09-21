@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use streamson_lib::{matcher, Filter};
+use streamson_lib::{matcher, strategy};
 
 const ITEM_COUNT: usize = 100;
 const INPUT_BUFFER_SIZE: usize = 1024;
@@ -30,7 +30,7 @@ fn get_benchmark_group(
 fn run_group(
     group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
     name: &str,
-    mut filter: Filter,
+    mut filter: strategy::Filter,
 ) {
     let input = gen_input(INPUT_BUFFER_SIZE);
 
@@ -44,7 +44,7 @@ fn run_group(
 }
 
 pub fn combinator(c: &mut Criterion) {
-    let mut filter = Filter::new();
+    let mut filter = strategy::Filter::new();
 
     let first_matcher = matcher::Combinator::new(matcher::Depth::new(1, Some(1)));
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#).unwrap());
@@ -57,12 +57,12 @@ pub fn combinator(c: &mut Criterion) {
     let mut group = get_benchmark_group(c);
     run_group(&mut group, "Combinator-Buffer(no path)", filter);
 
-    let mut filter = Filter::new();
+    let mut filter = strategy::Filter::new();
     filter.add_matcher(Box::new(first_combo.clone()));
     filter.add_matcher(Box::new(second_combo.clone()));
     run_group(&mut group, "Combinator-Buffer(with path)", filter);
 
-    let mut filter = Filter::new();
+    let mut filter = strategy::Filter::new();
     let first_matcher = matcher::Combinator::new(matcher::Depth::new(40, Some(60)));
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"none"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
@@ -77,7 +77,7 @@ pub fn combinator(c: &mut Criterion) {
 pub fn void(c: &mut Criterion) {
     let mut group = get_benchmark_group(c);
 
-    let filter = Filter::new();
+    let filter = strategy::Filter::new();
     run_group(&mut group, "Void", filter);
 }
 criterion_group!(benches, void, combinator);

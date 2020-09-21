@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use streamson_lib::{error::General as StreamsonError, handler, matcher, Collector};
+use streamson_lib::{error::General as StreamsonError, handler, matcher, strategy};
 
 /// Wraps streamson extraction around a generator
 ///
@@ -62,7 +62,7 @@ where
     G: Generator<Yield = Vec<u8>, Return = ()> + Unpin,
 {
     input_generator: G,
-    collector: Arc<Mutex<Collector>>,
+    trigger: Arc<Mutex<strategy::Trigger>>,
     buffer: Arc<Mutex<handler::Buffer>>,
     error_occured: bool,
     exitting: bool,
@@ -73,12 +73,12 @@ where
     G: Generator<Yield = Vec<u8>, Return = ()> + Unpin,
 {
     pub fn new(input_generator: G, matcher: Box<dyn matcher::MatchMaker>) -> Self {
-        let mut collector = Collector::new();
+        let mut trigger = strategy::Trigger::new();
         let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-        collector.add_matcher(matcher, &[buffer.clone()]);
+        trigger.add_matcher(matcher, &[buffer.clone()]);
         Self {
             input_generator,
-            collector: Arc::new(Mutex::new(collector)),
+            trigger: Arc::new(Mutex::new(trigger)),
             buffer,
             error_occured: false,
             exitting: false,
@@ -114,7 +114,7 @@ where
             let input = Pin::new(&mut self.input_generator).resume(());
             match input {
                 GeneratorState::Yielded(bytes) => {
-                    let process_res = self.collector.lock().unwrap().process(&bytes);
+                    let process_res = self.trigger.lock().unwrap().process(&bytes);
                     match process_res {
                         Ok(true) => self.exitting = true,
                         Ok(false) => continue,

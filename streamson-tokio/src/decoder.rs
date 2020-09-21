@@ -4,7 +4,7 @@
 
 use bytes::{Bytes, BytesMut};
 use std::sync::{Arc, Mutex};
-use streamson_lib::{error, handler, matcher, Collector};
+use streamson_lib::{error, handler, matcher, strategy};
 use tokio_util::codec::Decoder;
 
 /// This struct uses `streamson_lib::matcher` to decode data.
@@ -31,7 +31,7 @@ use tokio_util::codec::Decoder;
 /// }
 /// ```
 pub struct Extractor {
-    collector: Collector,
+    trigger: strategy::Trigger,
     handler: Arc<Mutex<handler::Buffer>>,
 }
 
@@ -46,9 +46,9 @@ impl Extractor {
         let handler = Arc::new(Mutex::new(
             handler::Buffer::new().set_use_path(include_path),
         ));
-        let mut collector = Collector::new();
-        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
-        Self { collector, handler }
+        let mut trigger = strategy::Trigger::new();
+        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        Self { trigger, handler }
     }
 }
 
@@ -71,7 +71,7 @@ impl Decoder for Extractor {
                 return Ok(None);
             }
             let data = buf.split_to(buf.len());
-            self.collector.process(&data[..])?;
+            self.trigger.process(&data[..])?;
         }
     }
 }

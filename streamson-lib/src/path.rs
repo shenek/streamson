@@ -1,4 +1,4 @@
-//! Streams paths with indexes from input data
+//! Structs to handle abstraction over a path in JSON
 
 use crate::error;
 use std::{convert::TryFrom, fmt};

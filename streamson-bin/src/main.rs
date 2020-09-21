@@ -4,7 +4,7 @@ use std::{
     io::{stdin, Read},
     sync::{Arc, Mutex},
 };
-use streamson_lib::{error, handler, matcher, Collector};
+use streamson_lib::{error, handler, matcher, strategy};
 
 const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB
 
@@ -91,7 +91,7 @@ fn main() -> Result<(), error::General> {
 
     let arg_matches = app.get_matches();
 
-    let mut collector = Collector::new();
+    let mut trigger = strategy::Trigger::new();
     let print_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
     let print_with_header_handler =
         Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
@@ -100,14 +100,14 @@ fn main() -> Result<(), error::General> {
     if let Some(simple_matches) = arg_matches.values_of("print") {
         let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
         if let Some(matcher) = matcher {
-            collector.add_matcher(Box::new(matcher), &[print_handler]);
+            trigger.add_matcher(Box::new(matcher), &[print_handler]);
         }
     }
 
     if let Some(simple_matches) = arg_matches.values_of("print_with_header") {
         let matcher = make_simple_combined_matcher(&simple_matches.collect::<Vec<&str>>());
         if let Some(matcher) = matcher {
-            collector.add_matcher(Box::new(matcher), &[print_with_header_handler]);
+            trigger.add_matcher(Box::new(matcher), &[print_with_header_handler]);
         }
     }
 
@@ -127,7 +127,7 @@ fn main() -> Result<(), error::General> {
                     panic!("Failed to open output file '{}'", path)
                 })))
             });
-            collector.add_matcher(Box::new(matcher), &[file_handler.clone()]);
+            trigger.add_matcher(Box::new(matcher), &[file_handler.clone()]);
         }
     }
 
@@ -136,7 +136,7 @@ fn main() -> Result<(), error::General> {
         if size == 0 {
             break;
         }
-        collector.process(&buffer[..size])?;
+        trigger.process(&buffer[..size])?;
         buffer.clear();
     }
 

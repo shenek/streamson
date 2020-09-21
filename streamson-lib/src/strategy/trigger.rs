@@ -1,6 +1,10 @@
-//! The main logic of collecting JSON processing
+//! The main logic of trigger JSON processing
 //!
-//! It puts together matchers, handlers and path extraction.
+//! It uses matchers, handlers and path extraction,
+//! to call a handler on the matched part of data
+//!
+//! Note that it doesn't change the json while processing,
+//! which makes it the fastest strategy in streamson-lib.
 
 use crate::{
     error,
@@ -24,7 +28,7 @@ struct StackItem {
 type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and triggers handlers
-pub struct Collector {
+pub struct Trigger {
     /// Input idx against total idx
     input_start: usize,
     /// Buffer index against total idx
@@ -41,7 +45,7 @@ pub struct Collector {
     matched_stack: Vec<Vec<StackItem>>,
 }
 
-impl Default for Collector {
+impl Default for Trigger {
     fn default() -> Self {
         Self {
             input_start: 0,
@@ -55,13 +59,13 @@ impl Default for Collector {
     }
 }
 
-impl Collector {
-    /// Creates new collector
+impl Trigger {
+    /// Creates a new `Trigger`
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns a `Collector` with extended matcher and handlers
+    /// Returns a `Trigger` with extended matcher and handlers
     /// It collects matched data and triggers handlers when entire
     /// data are read.
     ///
@@ -72,14 +76,14 @@ impl Collector {
     /// # Example
     ///
     /// ```
-    /// use streamson_lib::{Collector, matcher, handler};
+    /// use streamson_lib::{strategy, matcher, handler};
     /// use std::sync::{Arc, Mutex};
     ///
-    /// let mut collector = Collector::new();
+    /// let mut trigger = strategy::Trigger::new();
     /// let handler = handler::PrintLn::new();
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
-    /// let mut collector = Collector::new();
-    /// collector.add_matcher(
+    /// let mut trigger = strategy::Trigger::new();
+    /// trigger.add_matcher(
     ///     Box::new(matcher),
     ///     &[Arc::new(Mutex::new(handler))]
     /// );
@@ -105,10 +109,10 @@ impl Collector {
     /// # Example
     ///
     /// ```
-    /// use streamson_lib::Collector;
+    /// use streamson_lib::strategy;
     ///
-    /// let mut collector = Collector::new();
-    /// collector.process(br#"{}"#);
+    /// let mut trigger = strategy::Trigger::new();
+    /// trigger.process(br#"{}"#);
     /// ```
     ///
     /// # Errors
@@ -221,7 +225,7 @@ impl Collector {
 
 #[cfg(test)]
 mod tests {
-    use super::Collector;
+    use super::Trigger;
     use crate::{error, handler::Handler, matcher::Simple, path::Path};
     use std::sync::{Arc, Mutex};
 
@@ -241,13 +245,13 @@ mod tests {
 
     #[test]
     fn basic() {
-        let mut collector = Collector::new();
+        let mut trigger = Trigger::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
 
         assert!(
-            collector.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
+            trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
             true
         );
         let guard = handler.lock().unwrap();
@@ -266,13 +270,13 @@ mod tests {
 
     #[test]
     fn basic_pending() {
-        let mut collector = Collector::new();
+        let mut trigger = Trigger::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        collector.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
 
-        assert_eq!(collector.process(br#"{"elem"#).unwrap(), false);
-        assert_eq!(collector.process(br#"ents": [1, 2, 3, 4]}"#).unwrap(), true);
+        assert_eq!(trigger.process(br#"{"elem"#).unwrap(), false);
+        assert_eq!(trigger.process(br#"ents": [1, 2, 3, 4]}"#).unwrap(), true);
 
         let guard = handler.lock().unwrap();
         assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);

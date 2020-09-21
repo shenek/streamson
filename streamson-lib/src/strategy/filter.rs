@@ -3,13 +3,14 @@
 //! It uses matchers and filters matched parts
 //! from output
 
+use std::{collections::VecDeque, mem::swap};
+
 use crate::{
     error,
     matcher::MatchMaker,
     path::Path,
     streamer::{Output, Streamer},
 };
-use std::{collections::VecDeque, mem::swap};
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
 pub struct Filter {
@@ -50,6 +51,21 @@ impl Filter {
     /// Create new filter
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Split working buffer and return the removed part
+    ///
+    /// # Arguments
+    /// * `idx` - total idx to split
+    fn move_forward(&mut self, idx: usize) -> VecDeque<u8> {
+        let mut splitted = self.buffer.split_off(idx - self.buffer_idx);
+
+        // Swap to return cut part
+        swap(&mut self.buffer, &mut splitted);
+
+        self.buffer_idx = idx;
+
+        splitted
     }
 
     /// Adds new matcher into filtering
@@ -162,21 +178,6 @@ impl Filter {
                 }
             }
         }
-    }
-
-    /// Split working buffer and return the removed part
-    ///
-    /// # Arguments
-    /// * `idx` - total idx to split
-    fn move_forward(&mut self, idx: usize) -> VecDeque<u8> {
-        let mut splitted = self.buffer.split_off(idx - self.buffer_idx);
-
-        // Swap to return cut part
-        swap(&mut self.buffer, &mut splitted);
-
-        self.buffer_idx = idx;
-
-        splitted
     }
 }
 

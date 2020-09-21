@@ -1,4 +1,4 @@
-//! Streams paths with indexes from input data
+//! Streams significant point of JSON from input data
 
 use crate::{
     error,

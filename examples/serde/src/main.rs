@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use streamson_lib::{error, handler, matcher, path::Path, Collector};
+use streamson_lib::{error, handler, matcher, path::Path, strategy};
 
 use std::sync::{Arc, Mutex};
 
@@ -33,10 +33,10 @@ impl handler::Handler for UserHandler {
 fn main() {
     let handler = Arc::new(Mutex::new(UserHandler::default()));
     let matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
-    let mut collector = Collector::new();
+    let mut trigger = strategy::Trigger::new();
 
-    collector.add_matcher(Box::new(matcher), &[handler.clone()]);
-    collector.process(br#"{"users": [{"firstname": "Carl", "surname": "Streamson"}, {"firstname": "Stream", "surname": "Carlson"}]}"#).unwrap();
+    trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+    trigger.process(br#"{"users": [{"firstname": "Carl", "surname": "Streamson"}, {"firstname": "Stream", "surname": "Carlson"}]}"#).unwrap();
 
     handler
         .lock()

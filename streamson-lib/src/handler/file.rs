@@ -108,7 +108,7 @@ impl Handler for File {
 
 #[cfg(test)]
 mod tests {
-    use crate::{handler, matcher, Collector};
+    use crate::{handler, matcher, strategy};
     use std::{
         fs, str,
         sync::{Arc, Mutex},
@@ -122,10 +122,10 @@ mod tests {
         input: &[u8],
     ) -> String {
         let handler = Arc::new(Mutex::new(handler));
-        let mut collector = Collector::new();
-        collector.add_matcher(Box::new(matcher), &[handler]);
+        let mut trigger = strategy::Trigger::new();
+        trigger.add_matcher(Box::new(matcher), &[handler]);
 
-        assert!(collector.process(input).unwrap());
+        assert!(trigger.process(input).unwrap());
         fs::read_to_string(path).unwrap()
     }
 

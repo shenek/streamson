@@ -3,23 +3,23 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, Collector};
+//! use streamson_lib::{handler, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let indexer_handler = Arc::new(Mutex::new(handler::Indexer::new().set_use_path(true)));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
-//! let mut collector = Collector::new();
+//! let mut trigger = strategy::Trigger::new();
 //!
-//! // Set the matcher for collector
-//! collector.add_matcher(Box::new(matcher), &[indexer_handler.clone()]);
+//! // Set the matcher for trigger
+//! trigger.add_matcher(Box::new(matcher), &[indexer_handler.clone()]);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),
 //!     br#""id": 2, "name": "second}]}"#.to_vec(),
 //! ] {
-//!     collector.process(&input).unwrap();
+//!     trigger.process(&input).unwrap();
 //!     let mut guard = indexer_handler.lock().unwrap();
 //!     while let Some((path, output)) = guard.pop() {
 //!         // Do something with the data
@@ -125,26 +125,26 @@ impl Indexer {
 #[cfg(test)]
 mod tests {
     use super::Indexer;
-    use crate::{handler::buffer::Buffer, matcher::Simple, streamer::Output, Collector};
+    use crate::{handler::buffer::Buffer, matcher::Simple, strategy::Trigger, streamer::Output};
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn indexer_handler() {
-        let mut collector = Collector::new();
+        let mut trigger = Trigger::new();
 
         let indexer_handler = Arc::new(Mutex::new(Indexer::new()));
         let buffer_handler = Arc::new(Mutex::new(Buffer::default()));
         let matcher_all = Simple::new(r#"{"elements"}"#).unwrap();
         let matcher_elements = Simple::new(r#"{"elements"}[]"#).unwrap();
 
-        collector.add_matcher(Box::new(matcher_all), &[indexer_handler.clone()]);
-        collector.add_matcher(
+        trigger.add_matcher(Box::new(matcher_all), &[indexer_handler.clone()]);
+        trigger.add_matcher(
             Box::new(matcher_elements),
             &[indexer_handler.clone(), buffer_handler.clone()],
         );
 
         assert!(
-            collector.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
+            trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
             true
         );
         // Test indexer handler

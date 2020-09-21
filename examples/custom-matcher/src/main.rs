@@ -1,4 +1,4 @@
-use streamson_lib::{handler, matcher, path::Path, Collector};
+use streamson_lib::{handler, matcher, path::Path, strategy};
 
 use std::sync::{Arc, Mutex};
 
@@ -25,10 +25,10 @@ impl matcher::MatchMaker for Letter {
 fn main() {
     let handler = Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
     let matcher = Letter::new('l');
-    let mut collector = Collector::new();
+    let mut trigger = strategy::Trigger::new();
 
-    collector.add_matcher(Box::new(matcher), &[handler]);
-    collector
+    trigger.add_matcher(Box::new(matcher), &[handler]);
+    trigger
         .process(br#"{"first": {"log": [1,2,3,4]}}"#)
         .unwrap();
 

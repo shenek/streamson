@@ -12,7 +12,7 @@ use futures::{
     task::{Context, Poll},
     Stream,
 };
-use streamson_lib::{error::General as StreamsonError, handler, matcher, Collector};
+use streamson_lib::{error::General as StreamsonError, handler, matcher, strategy};
 
 /// This struct is used to wrap Bytes input stream to
 /// (Path, Bytes) - the matched path and matched bytes in json stream
@@ -23,7 +23,7 @@ use streamson_lib::{error::General as StreamsonError, handler, matcher, Collecto
 /// use bytes::Bytes;
 /// use futures::stream::{self, StreamExt};
 /// use streamson_lib::matcher;
-/// use streamson_futures::stream::CollectorStream;
+/// use streamson_futures::stream::BufferStream;
 ///
 /// let stream = stream::iter(
 ///     vec![r#"{"users": ["#, r#"{"name": "carl", "id": 1}"#, r#"]}"#]
@@ -32,19 +32,19 @@ use streamson_lib::{error::General as StreamsonError, handler, matcher, Collecto
 ///         .collect::<Vec<Bytes>>()
 /// );
 /// let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
-/// let wrapped_stream = CollectorStream::new(stream, Box::new(matcher));
+/// let wrapped_stream = BufferStream::new(stream, Box::new(matcher));
 /// # });
 /// ```
-pub struct CollectorStream<I>
+pub struct BufferStream<I>
 where
     I: Stream<Item = Bytes> + Unpin,
 {
     input: I,
-    collector: Arc<Mutex<Collector>>,
+    trigger: Arc<Mutex<strategy::Trigger>>,
     buffer: Arc<Mutex<handler::Buffer>>,
 }
 
-impl<I> CollectorStream<I>
+impl<I> BufferStream<I>
 where
     I: Stream<Item = Bytes> + Unpin,
 {
@@ -54,21 +54,21 @@ where
     /// * `input` - input stram to be matched
     /// * `matcher` - matcher which will be used for the extraction
     pub fn new(input: I, matcher: Box<dyn matcher::MatchMaker>) -> Self {
-        let collector = Arc::new(Mutex::new(Collector::new()));
+        let trigger = Arc::new(Mutex::new(strategy::Trigger::new()));
         let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-        collector
+        trigger
             .lock()
             .unwrap()
             .add_matcher(matcher, &[buffer.clone()]);
         Self {
             input,
-            collector,
+            trigger,
             buffer,
         }
     }
 }
 
-impl<I> Stream for CollectorStream<I>
+impl<I> Stream for BufferStream<I>
 where
     I: Stream<Item = Bytes> + Unpin,
 {
@@ -79,10 +79,10 @@ where
             if let Some((path, data)) = self.buffer.lock().unwrap().pop() {
                 return Poll::Ready(Some(Ok((path.unwrap(), Bytes::from(data)))));
             }
-            // Try to process new data with the collector
+            // Try to process new data with the trigger
             match Pin::new(&mut self.input).poll_next(ctx) {
                 Poll::Ready(Some(bytes)) => {
-                    self.collector.lock().unwrap().process(&bytes)?;
+                    self.trigger.lock().unwrap().process(&bytes)?;
                 }
                 Poll::Ready(None) => {
                     return Poll::Ready(None);
@@ -99,7 +99,7 @@ mod test {
     use futures::stream::{self, StreamExt};
     use streamson_lib::matcher;
 
-    use super::CollectorStream;
+    use super::BufferStream;
 
     #[tokio::test]
     async fn test_basic() {
@@ -115,7 +115,7 @@ mod test {
             .collect::<Vec<Bytes>>(),
         );
         let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
-        let wrapped_stream = CollectorStream::new(stream, Box::new(matcher));
+        let wrapped_stream = BufferStream::new(stream, Box::new(matcher));
         let mut collected = wrapped_stream
             .collect::<Vec<Result<(String, Bytes), _>>>()
             .await;
@@ -146,7 +146,7 @@ mod test {
             .collect::<Vec<Bytes>>(),
         );
         let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
-        let wrapped_stream = CollectorStream::new(stream, Box::new(matcher));
+        let wrapped_stream = BufferStream::new(stream, Box::new(matcher));
         let collected = wrapped_stream
             .collect::<Vec<Result<(String, Bytes), _>>>()
             .await;
