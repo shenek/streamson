@@ -61,13 +61,14 @@ impl Default for Trigger {
 
 impl Trigger {
     /// Creates a new `Trigger`
+    ///
+    /// It collects matched data and triggers handlers when entire
+    /// data are read.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Returns a `Trigger` with extended matcher and handlers
-    /// It collects matched data and triggers handlers when entire
-    /// data are read.
+    /// Adds a mathcher and a handler to `Trigger`
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
@@ -82,7 +83,6 @@ impl Trigger {
     /// let mut trigger = strategy::Trigger::new();
     /// let handler = handler::PrintLn::new();
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
-    /// let mut trigger = strategy::Trigger::new();
     /// trigger.add_matcher(
     ///     Box::new(matcher),
     ///     &[Arc::new(Mutex::new(handler))]

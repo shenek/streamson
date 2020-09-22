@@ -2,21 +2,24 @@
 
 # Streamson Lib
 
-Rust library to split large JSONs.
+Rust library to handle large JSONs.
+
+Note that it doesn't fully validates whether the input JSON is valid.
+This means that invalid JSONs might pass without an error.
 
 ## Trigger strategy
 
-It doesn't actually perform the parsing. It just splits JSONs. And triggers handlers on matched paths.
-
-Note that it doesn't fully validates whether the JSON is valid.
-This means that invalid JSONs might pass without an error.
+It doesn't actually perform parses json into data. It just splits JSONs. And triggers handlers on matched paths.
 
 
 ## Filter strategy
+
 It actually alters the JSON. If the path is matched the matched part should be removed from output json.
 
-Note that it doesn't fully validates whether the JSON is valid.
-This means that invalid JSONs might pass without an error.
+
+## Extract strategy
+
+Only extracts matched data, nothing else.
 
 
 ## Examples
@@ -41,10 +44,25 @@ use streamson_lib::{strategy, error::GenericError, matcher::Simple};
 
 let mut filter = strategy::Filter::new();
 let matcher = Simple(r#"{"users"}[]"#).unwrap();
+filter.add_matcher(Box::new(matcher), &[handler]);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
 	let (output_data, continue) = filter.process(&buffer[..size])?;
+}
+```
+
+### Extract
+```rust
+use streamson_lib::{strategy, error::GenericError, matcher::Simple};
+
+let mut extract = strategy::Extract::new();
+let matcher = Simple(r#"{"users"}[]"#).unwrap();
+extract.add_matcher(Box::new(matcher), &[handler]);
+
+let mut buffer = [0; 2048];
+while let Ok(size) = input.read(&mut buffer[..]) {
+	let (output_data, continue) = extract.process(&buffer[..size])?;
 }
 ```
 

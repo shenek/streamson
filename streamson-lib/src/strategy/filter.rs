@@ -22,7 +22,7 @@ pub struct Filter {
     streamer: Streamer,
     /// Matchers which will cause filtering
     matchers: Vec<Box<dyn MatchMaker>>,
-    /// Filtering output
+    /// Path which is matched
     matched_path: Option<Path>,
     /// Level of last element which is not filtered
     last_output_level: usize,
@@ -49,6 +49,8 @@ impl Default for Filter {
 
 impl Filter {
     /// Create new filter
+    ///
+    /// It removes matched parts of the input
     pub fn new() -> Self {
         Self::default()
     }
@@ -69,13 +71,27 @@ impl Filter {
     }
 
     /// Adds new matcher into filtering
+    ///
+    /// # Arguments
+    /// * `matcher` - matcher which matches the path
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use streamson_lib::{strategy, matcher};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let mut filter = strategy::Filter::new();
+    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
+    /// filter.add_matcher(
+    ///     Box::new(matcher),
+    /// );
+    /// ```
     pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>) {
         self.matchers.push(matcher);
     }
 
     /// Processes input data
-    /// Note that to actually read the json,
-    /// you need to use `read` method
     ///
     /// # Returns
     /// * `Ok(_, true)` entire json processed

@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use streamson_lib::{matcher, strategy};
 
-const ITEM_COUNT: usize = 100;
+const ITEM_COUNT: usize = 10000;
 const INPUT_BUFFER_SIZE: usize = 1024;
 
 fn gen_input(size: usize) -> Vec<Vec<u8>> {
@@ -24,47 +24,47 @@ fn gen_input(size: usize) -> Vec<Vec<u8>> {
 fn get_benchmark_group(
     c: &mut Criterion,
 ) -> criterion::BenchmarkGroup<'_, criterion::measurement::WallTime> {
-    c.benchmark_group("Filter")
+    c.benchmark_group("Extract")
 }
 
 fn run_group(
     group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
     name: &str,
-    mut filter: strategy::Filter,
+    mut extract: strategy::Extract,
 ) {
     let input = gen_input(INPUT_BUFFER_SIZE);
 
     group.bench_function(name, |b| {
         b.iter(|| {
             for data in &input {
-                filter.process(black_box(data)).unwrap();
+                extract.process(black_box(data)).unwrap();
             }
         })
     });
 }
 
 pub fn combinator(c: &mut Criterion) {
-    let mut filter = strategy::Filter::new();
+    let mut extract = strategy::Extract::new();
 
     let first_matcher = matcher::Combinator::new(matcher::Depth::new(1, Some(1)));
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"logs"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
 
-    filter.add_matcher(Box::new(first_combo.clone()));
-    filter.add_matcher(Box::new(second_combo.clone()));
+    extract.add_matcher(Box::new(first_combo.clone()));
+    extract.add_matcher(Box::new(second_combo.clone()));
 
     let mut group = get_benchmark_group(c);
-    run_group(&mut group, "Combinator", filter);
+    run_group(&mut group, "Combinator", extract);
 
-    let mut filter = strategy::Filter::new();
+    let mut extract = strategy::Extract::new();
     let first_matcher = matcher::Combinator::new(matcher::Depth::new(40, Some(60)));
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"none"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
-    filter.add_matcher(Box::new(first_combo));
-    filter.add_matcher(Box::new(second_combo));
-    run_group(&mut group, "Combinator-NoMatch", filter);
+    extract.add_matcher(Box::new(first_combo));
+    extract.add_matcher(Box::new(second_combo));
+    run_group(&mut group, "Combinator-NoMatch", extract);
 
     group.finish();
 }
@@ -72,8 +72,8 @@ pub fn combinator(c: &mut Criterion) {
 pub fn void(c: &mut Criterion) {
     let mut group = get_benchmark_group(c);
 
-    let filter = strategy::Filter::new();
-    run_group(&mut group, "Void", filter);
+    let extract = strategy::Extract::new();
+    run_group(&mut group, "Void", extract);
 }
 criterion_group!(benches, void, combinator);
 criterion_main!(benches);
