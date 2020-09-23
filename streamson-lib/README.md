@@ -21,6 +21,10 @@ It actually alters the JSON. If the path is matched the matched part should be r
 
 Only extracts matched data, nothing else.
 
+## Convert strategy
+
+Alters the JSON by calling convert functions to matched parts.
+
 
 ## Examples
 ### Trigger
@@ -59,6 +63,24 @@ use streamson_lib::{strategy, error::GenericError, matcher::Simple};
 let mut extract = strategy::Extract::new();
 let matcher = Simple(r#"{"users"}[]"#).unwrap();
 extract.add_matcher(Box::new(matcher), &[handler]);
+
+let mut buffer = [0; 2048];
+while let Ok(size) = input.read(&mut buffer[..]) {
+	let (output_data, continue) = extract.process(&buffer[..size])?;
+}
+```
+
+### Convert
+```rust
+use streamson_lib::{strategy, matcher, handler};
+
+let mut convert = strategy::Convert::new();
+let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
+
+convert.add_matcher(
+	Box::new(matcher),
+	Box::new(|_, _| vec![b'"', b'.', b'.', b'.', b'"'])
+);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
