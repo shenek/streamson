@@ -11,7 +11,11 @@ use crate::{
 };
 use std::mem::swap;
 
+type OptinalPathAndData = (Option<String>, Vec<u8>);
+
 pub struct Extract {
+    /// Export path as well
+    export_path: bool,
     /// Input idx against total idx
     input_start: usize,
     /// Buffer index against total idx
@@ -29,6 +33,7 @@ pub struct Extract {
 impl Default for Extract {
     fn default() -> Self {
         Self {
+            export_path: false,
             input_start: 0,
             buffer_start: 0,
             buffer: vec![],
@@ -45,6 +50,14 @@ impl Extract {
     /// It exracts matched data parts (not nested)
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Sets whether path should be exported with data
+    ///
+    /// if path is not exported extraction can be a bit faster
+    pub fn set_export_path(mut self, export: bool) -> Self {
+        self.export_path = export;
+        self
     }
 
     /// Adds new matcher for data extraction
@@ -72,8 +85,10 @@ impl Extract {
     /// Processes input data
     ///
     /// # Returns
-    /// * `Ok(_, true)` entire json processed
-    /// * `Ok(_, false)` need more input data
+    /// * `Ok((_, true))` entire json processed
+    /// * `Ok((_, false))` need more input data
+    /// * `Ok(Vec<(Some(r#"{"users"}[0]"#), Vec<u8>)>, _)` vector containing path and data
+    /// * `Ok(Vec<(None, Vec<u8>)>, _)` vector data only
     /// * `Err(_)` when input is not correct json
     ///
     /// # Example
@@ -87,7 +102,10 @@ impl Extract {
     /// # Errors
     /// * Error is triggered when incorrect json is detected
     ///   Note that not all json errors are detected
-    pub fn process(&mut self, input: &[u8]) -> Result<(Vec<Vec<u8>>, bool), error::General> {
+    pub fn process(
+        &mut self,
+        input: &[u8],
+    ) -> Result<(Vec<OptinalPathAndData>, bool), error::General> {
         self.streamer.feed(input);
 
         let mut input_idx = 0;
@@ -129,7 +147,14 @@ impl Extract {
                             // Put the buffer to results
                             let mut buffer = vec![];
                             swap(&mut self.buffer, &mut buffer);
-                            result.push(buffer);
+                            result.push((
+                                if self.export_path {
+                                    Some(path.to_string())
+                                } else {
+                                    None
+                                },
+                                buffer,
+                            ));
                             self.matched_path = None
                         }
                     }
@@ -156,18 +181,42 @@ mod tests {
 
     #[test]
     fn flat() {
+        // without path
         let input = get_input();
         let matcher = Simple::new(r#"{}[]{"name"}"#).unwrap();
 
         let mut extract = Extract::new();
-        extract.add_matcher(Box::new(matcher));
+        extract.add_matcher(Box::new(matcher.clone()));
 
         let (mut output, end) = extract.process(&input[0]).unwrap();
         assert_eq!(end, true);
         assert_eq!(output.len(), 3);
-        assert_eq!(String::from_utf8(output.remove(0)).unwrap(), r#""fred""#);
-        assert_eq!(String::from_utf8(output.remove(0)).unwrap(), r#""bob""#);
-        assert_eq!(String::from_utf8(output.remove(0)).unwrap(), r#""admins""#);
+        assert_eq!(output[0].0.clone(), None);
+        assert_eq!(output[1].0.clone(), None);
+        assert_eq!(output[2].0.clone(), None);
+        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""fred""#);
+        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""bob""#);
+        assert_eq!(
+            String::from_utf8(output.remove(0).1).unwrap(),
+            r#""admins""#
+        );
+
+        // with path
+        let input = get_input();
+        let mut extract = Extract::new().set_export_path(true);
+        extract.add_matcher(Box::new(matcher));
+        let (mut output, end) = extract.process(&input[0]).unwrap();
+        assert_eq!(end, true);
+        assert_eq!(output.len(), 3);
+        assert_eq!(output[0].0.clone(), Some(r#"{"users"}[0]{"name"}"#.into()));
+        assert_eq!(output[1].0.clone(), Some(r#"{"users"}[1]{"name"}"#.into()));
+        assert_eq!(output[2].0.clone(), Some(r#"{"groups"}[0]{"name"}"#.into()));
+        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""fred""#);
+        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""bob""#);
+        assert_eq!(
+            String::from_utf8(output.remove(0).1).unwrap(),
+            r#""admins""#
+        );
     }
 
     #[test]
@@ -182,7 +231,7 @@ mod tests {
         assert_eq!(end, true);
         assert_eq!(output.len(), 1);
         assert_eq!(
-            String::from_utf8(output.remove(0)).unwrap(),
+            String::from_utf8(output.remove(0).1).unwrap(),
             r#"{"name": "bob"}"#
         );
     }
