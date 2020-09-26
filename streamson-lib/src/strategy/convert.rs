@@ -215,4 +215,26 @@ mod tests {
         assert_eq!(String::from_utf8(output.remove(0)).unwrap(), r#""***""#);
         assert_eq!(String::from_utf8(output.remove(0)).unwrap(), "}]");
     }
+
+    #[test]
+    fn basic_pending() {
+        let mut convert = Convert::new();
+        let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
+        convert.add_matcher(Box::new(matcher), make_password_convert());
+
+        let mut result = vec![];
+        let (output, end) = convert.process(br#"[{"id": 1, "password": "s"#).unwrap();
+        assert_eq!(end, false);
+        result.extend(output);
+
+        let (output, end) = convert
+            .process(br#"ecret1"}, {"id": 2, "password": "secret2"}]"#)
+            .unwrap();
+        result.extend(output);
+        assert_eq!(end, true);
+        assert_eq!(
+            String::from_utf8(result.into_iter().flatten().collect()).unwrap(),
+            r#"[{"id": 1, "password": "***"}, {"id": 2, "password": "***"}]"#
+        );
+    }
 }

@@ -236,5 +236,28 @@ mod tests {
         );
     }
 
-    // TODO write test were the input is splitted into two parts
+    #[test]
+    fn pending() {
+        let input = get_input();
+        let input1 = &input[0][0..20];
+        let input2 = &input[0][20..];
+
+        let matcher = Simple::new(r#"{}[1]"#).unwrap();
+
+        let mut extract = Extract::new();
+        extract.add_matcher(Box::new(matcher));
+
+        let mut result = vec![];
+        let (output, end) = extract.process(input1).unwrap();
+        assert_eq!(end, false);
+        result.extend(output);
+
+        let (output, end) = extract.process(input2).unwrap();
+        assert_eq!(end, true);
+        result.extend(output);
+        assert_eq!(
+            String::from_utf8(result.into_iter().map(|e| e.1).flatten().collect()).unwrap(),
+            r#"{"name": "bob"}"#
+        );
+    }
 }
