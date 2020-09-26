@@ -51,7 +51,12 @@ impl Default for Buffer {
 }
 
 impl Handler for Buffer {
-    fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
+    fn handle(
+        &mut self,
+        path: &Path,
+        _matcher_idx: usize,
+        data: Option<&[u8]>,
+    ) -> Result<(), error::Handler> {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
         //

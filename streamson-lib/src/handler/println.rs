@@ -76,7 +76,12 @@ impl Handler for PrintLn {
         &self.separator
     }
 
-    fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
+    fn handle(
+        &mut self,
+        path: &Path,
+        _matcher_idx: usize,
+        data: Option<&[u8]>,
+    ) -> Result<(), error::Handler> {
         let str_data =
             str::from_utf8(data.unwrap()).map_err(|err| error::Handler::new(err.to_string()))?;
         if self.use_path() {

@@ -23,7 +23,12 @@ pub struct UserHandler {
 }
 
 impl handler::Handler for UserHandler {
-    fn handle(&mut self, _path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
+    fn handle(
+        &mut self,
+        _path: &Path,
+        _match_idx: usize,
+        data: Option<&[u8]>,
+    ) -> Result<(), error::Handler> {
         let new_user = serde_json::from_slice(data.unwrap()).map_err(error::Handler::new)?;
         self.users.push(new_user);
         Ok(())

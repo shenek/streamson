@@ -52,11 +52,21 @@ impl Default for Indexer {
 }
 
 impl Handler for Indexer {
-    fn handle(&mut self, _path: &Path, _data: Option<&[u8]>) -> Result<(), error::Handler> {
+    fn handle(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        _data: Option<&[u8]>,
+    ) -> Result<(), error::Handler> {
         Ok(())
     }
 
-    fn handle_idx(&mut self, path: &Path, idx: Output) -> Result<(), error::Handler> {
+    fn handle_idx(
+        &mut self,
+        path: &Path,
+        _matcher_idx: usize,
+        idx: Output,
+    ) -> Result<(), error::Handler> {
         self.stored.push_back((
             if self.use_path {
                 Some(path.to_string())

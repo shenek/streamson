@@ -149,7 +149,7 @@ impl Trigger {
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
                                 let mut guard = handler.lock().unwrap();
-                                guard.handle_idx(path, Output::Start(idx))?;
+                                guard.handle_idx(path, match_idx, Output::Start(idx))?;
                                 if guard.buffering_required() {
                                     buffering_required = true
                                 }
@@ -184,10 +184,11 @@ impl Trigger {
                         // run handlers for the matches
                         for handler in &self.matchers[item.match_idx].1 {
                             let mut guard = handler.lock().unwrap();
-                            guard.handle_idx(current_path, Output::End(idx))?;
+                            guard.handle_idx(current_path, item.match_idx, Output::End(idx))?;
                             let buffering_required = guard.buffering_required();
                             guard.handle(
                                 current_path,
+                                item.match_idx,
                                 if buffering_required {
                                     Some(
                                         &self.buffer
@@ -236,7 +237,12 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(&mut self, path: &Path, data: Option<&[u8]>) -> Result<(), error::Handler> {
+        fn handle(
+            &mut self,
+            path: &Path,
+            _matcher_idx: usize,
+            data: Option<&[u8]>,
+        ) -> Result<(), error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(data.unwrap().to_vec());
             Ok(())
