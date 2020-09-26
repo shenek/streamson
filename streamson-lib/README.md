@@ -9,7 +9,7 @@ This means that invalid JSONs might pass without an error.
 
 ## Trigger strategy
 
-It doesn't actually perform parses json into data. It just splits JSONs. And triggers handlers on matched paths.
+It doesn't actually perform parses json into data. It just takes JSON parts and triggers handlers when a path is matched.
 
 
 ## Filter strategy

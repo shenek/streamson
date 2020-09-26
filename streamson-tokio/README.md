@@ -3,7 +3,7 @@
 # Streamson tokio
 
 A library which integrates streamson with tokio.
-So that you can easily split jsons using asynchronous rust.
+So that you can easily process JSONs using asynchronous rust.
 
 ## Examples
 ### Reading a large file

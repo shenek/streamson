@@ -14,7 +14,7 @@ pub use println::PrintLn;
 
 /// Common handler trait
 pub trait Handler: Send {
-    /// Calls handler on splitted data
+    /// Calls handler on matched data
     ///
     /// # Arguments
     /// * `path` - path which was matched

@@ -4,10 +4,10 @@
 
 # Streamson
 
-A memory efficient set of tools to split large JSONs into a smaller parts.
+A memory efficient set of tools to process large JSONs data.
 
 * [streamson-lib](streamson-lib/README.md) - Core Rust library
-* [streamson-bin](streamson-bin/README.md) - Binary to split JSONs
+* [streamson-bin](streamson-bin/README.md) - Binary to process JSONs from stdout.
 * [streamson-tokio](streamson-tokio/README.md) - Helpers to integrates streamson with tokio
 
 ## Motivation

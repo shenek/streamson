@@ -1,6 +1,6 @@
 #![crate_name = "streamson_lib"]
 
-//! This library is able to split JSON into separate parts.
+//! This library is able to process large JSON data.
 //!
 //! It can have various matchers which matches the path (see [matcher](matcher/index.html))
 //!

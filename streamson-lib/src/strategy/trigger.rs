@@ -121,7 +121,7 @@ impl Trigger {
     /// it returns `error::General`.
     ///
     /// Note that streamson assumes that its input is a valid
-    /// JSONs and if not. It still might be splitted without an error.
+    /// JSONs and if not, it still might be processed without an error.
     /// This is caused because streamson does not validate JSON.
     pub fn process(&mut self, input: &[u8]) -> Result<bool, error::General> {
         self.streamer.feed(input);
