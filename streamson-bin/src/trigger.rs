@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{stdin, Read},
+    io::{stdin, stdout, Read, Write},
     sync::{Arc, Mutex},
 };
 
@@ -134,6 +134,7 @@ pub fn process_trigger(matches: &ArgMatches<'static>) -> Result<(), error::Gener
             break;
         }
         trigger.process(&buffer[..size])?;
+        stdout().write_all(&buffer[..size])?;
         buffer.clear();
     }
 
