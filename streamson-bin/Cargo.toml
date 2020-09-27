@@ -15,4 +15,5 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 clap = "2.33"
+lazy_static = "1.4"
 streamson-lib = { version = "4.1.0", path = "../streamson-lib/" }
