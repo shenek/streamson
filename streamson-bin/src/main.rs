@@ -1,3 +1,4 @@
+mod extract;
 mod filter;
 mod trigger;
 mod utils;
@@ -8,6 +9,7 @@ use clap::{crate_authors, crate_description, crate_name, crate_version, App};
 use streamson_lib::error;
 
 use crate::{
+    extract::{prepare_extract_subcommand, process_extract},
     filter::{prepare_filter_subcommand, process_filter},
     trigger::{prepare_trigger_subcommand, process_trigger},
 };
@@ -17,6 +19,7 @@ fn prepare_app() -> App<'static, 'static> {
         .author(crate_authors!())
         .version(crate_version!())
         .about(crate_description!())
+        .subcommand(prepare_extract_subcommand())
         .subcommand(prepare_filter_subcommand())
         .subcommand(prepare_trigger_subcommand())
 }
@@ -26,8 +29,9 @@ fn main() -> Result<(), error::General> {
 
     let arg_matches = app.clone().get_matches();
     match arg_matches.subcommand() {
-        ("trigger", Some(matches)) => process_trigger(matches),
+        ("extract", Some(matches)) => process_extract(matches),
         ("filter", Some(matches)) => process_filter(matches),
+        ("trigger", Some(matches)) => process_trigger(matches),
         _ => {
             app.write_long_help(&mut io::stdout()).unwrap();
             println!();
