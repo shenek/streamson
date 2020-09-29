@@ -116,8 +116,7 @@ where
                 GeneratorState::Yielded(bytes) => {
                     let process_res = self.trigger.lock().unwrap().process(&bytes);
                     match process_res {
-                        Ok(true) => self.exitting = true,
-                        Ok(false) => continue,
+                        Ok(()) => continue,
                         Err(err) => {
                             self.error_occured = true;
                             return GeneratorState::Yielded(Err(err));
@@ -125,11 +124,10 @@ where
                     }
                 }
                 GeneratorState::Complete(_) => {
-                    break;
+                    self.exitting = true;
                 }
             }
         }
-        GeneratorState::Complete(())
     }
 }
 
@@ -140,7 +138,7 @@ where
     type Item = Result<(String, Vec<u8>), StreamsonError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.error_occured || self.exitting {
+        if self.error_occured {
             return None;
         }
 
@@ -211,6 +209,59 @@ mod tests {
             (
                 r#"{"users"}[2]{"name"}"#.to_string(),
                 br#""user3""#.to_vec()
+            )
+        );
+        assert!(wrapped_generator.next().is_none());
+    }
+
+    #[test]
+    fn test_multiple_input() {
+        let input = &[
+            br#"{"users": [{"name": "user1"},{"name": "user2"},{"name": "user3"}]}"#.to_vec(),
+            br#"{"users": [{"name": "user4"},{"name": "user5"}]}"#.to_vec(),
+        ];
+        let input_generator = move || {
+            for line in input {
+                yield line.clone();
+            }
+        };
+
+        let matcher = Box::new(matcher::Simple::from_str(r#"{"users"}[]{"name"}"#).unwrap());
+        let mut wrapped_generator = StreamsonGenerator::new(input_generator, matcher);
+
+        assert_eq!(
+            wrapped_generator.next().unwrap().unwrap(),
+            (
+                r#"{"users"}[0]{"name"}"#.to_string(),
+                br#""user1""#.to_vec()
+            )
+        );
+        assert_eq!(
+            wrapped_generator.next().unwrap().unwrap(),
+            (
+                r#"{"users"}[1]{"name"}"#.to_string(),
+                br#""user2""#.to_vec()
+            )
+        );
+        assert_eq!(
+            wrapped_generator.next().unwrap().unwrap(),
+            (
+                r#"{"users"}[2]{"name"}"#.to_string(),
+                br#""user3""#.to_vec()
+            )
+        );
+        assert_eq!(
+            wrapped_generator.next().unwrap().unwrap(),
+            (
+                r#"{"users"}[0]{"name"}"#.to_string(),
+                br#""user4""#.to_vec()
+            )
+        );
+        assert_eq!(
+            wrapped_generator.next().unwrap().unwrap(),
+            (
+                r#"{"users"}[1]{"name"}"#.to_string(),
+                br#""user5""#.to_vec()
             )
         );
         assert!(wrapped_generator.next().is_none());

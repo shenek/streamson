@@ -160,4 +160,53 @@ mod tests {
 
         assert!(output.next().await.is_none());
     }
+
+    #[tokio::test]
+    async fn multiple_json_input() {
+        let cursor = Cursor::new(
+            br#"{"users": ["user1","user2", "user3"]} {"users": ["user4","user5"]}"#.to_vec(),
+        );
+        let matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
+        let extractor = Extractor::new(matcher, true);
+
+        let mut output = FramedRead::new(cursor, extractor);
+
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (
+                Some(r#"{"users"}[0]"#.to_string()),
+                Bytes::from_static(br#""user1""#)
+            )
+        );
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (
+                Some(r#"{"users"}[1]"#.to_string()),
+                Bytes::from_static(br#""user2""#)
+            )
+        );
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (
+                Some(r#"{"users"}[2]"#.to_string()),
+                Bytes::from_static(br#""user3""#)
+            )
+        );
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (
+                Some(r#"{"users"}[0]"#.to_string()),
+                Bytes::from_static(br#""user4""#)
+            )
+        );
+        assert_eq!(
+            output.next().await.unwrap().unwrap(),
+            (
+                Some(r#"{"users"}[1]"#.to_string()),
+                Bytes::from_static(br#""user5""#)
+            )
+        );
+
+        assert!(output.next().await.is_none());
+    }
 }

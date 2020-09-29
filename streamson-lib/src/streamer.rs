@@ -496,72 +496,75 @@ impl Streamer {
     /// If invalid JSON is passed and error may be emitted.
     /// Note that validity of input JSON is not checked.
     pub fn read(&mut self) -> Result<Output, error::General> {
-        while let Some(state) = self.states.pop() {
-            if self.pop_path {
-                self.path.pop();
-                self.pop_path = false;
-            }
+        loop {
+            while let Some(state) = self.states.pop() {
+                if self.pop_path {
+                    self.path.pop();
+                    self.pop_path = false;
+                }
 
-            match state {
-                States::RemoveWhitespaces => {
-                    if let Some(output) = self.process_remove_whitespace()? {
-                        return Ok(output);
+                match state {
+                    States::RemoveWhitespaces => {
+                        if let Some(output) = self.process_remove_whitespace()? {
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Value(element) => {
-                    if let Some(output) = self.process_value(element)? {
-                        return Ok(output);
+                    States::Value(element) => {
+                        if let Some(output) = self.process_value(element)? {
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Str(state) => {
-                    if let Some(output) = self.process_str(state)? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Str(state) => {
+                        if let Some(output) = self.process_str(state)? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Number => {
-                    if let Some(output) = self.process_number()? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Number => {
+                        if let Some(output) = self.process_number()? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Bool => {
-                    if let Some(output) = self.process_bool()? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Bool => {
+                        if let Some(output) = self.process_bool()? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Null => {
-                    if let Some(output) = self.process_null()? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Null => {
+                        if let Some(output) = self.process_null()? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Array(idx) => {
-                    if let Some(output) = self.process_array(idx)? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Array(idx) => {
+                        if let Some(output) = self.process_array(idx)? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Object => {
-                    if let Some(output) = self.process_object()? {
-                        self.pop_path = output.is_end();
-                        return Ok(output);
+                    States::Object => {
+                        if let Some(output) = self.process_object()? {
+                            self.pop_path = output.is_end();
+                            return Ok(output);
+                        }
                     }
-                }
-                States::ObjectKey(state) => {
-                    if let Some(output) = self.process_object_key(state)? {
-                        return Ok(output);
+                    States::ObjectKey(state) => {
+                        if let Some(output) = self.process_object_key(state)? {
+                            return Ok(output);
+                        }
                     }
-                }
-                States::Colon => {
-                    if let Some(output) = self.process_colon()? {
-                        return Ok(output);
+                    States::Colon => {
+                        if let Some(output) = self.process_colon()? {
+                            return Ok(output);
+                        }
                     }
                 }
             }
+            self.states.push(States::Value(None));
+            self.states.push(States::RemoveWhitespaces);
         }
-        Ok(Output::Pending)
     }
 }
 
@@ -940,5 +943,24 @@ mod test {
             assert_eq!(get_item(Some("")), Output::End(41));
             assert_eq!(get_item(None), Output::Pending);
         }
+    }
+
+    #[test]
+    fn test_multiple_input_flat() {
+        let mut streamer = Streamer::new();
+        streamer.feed(br#""first" "second""third""#);
+        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::End(7));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::Start(8));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::End(16));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::Start(16));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::End(23));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 }

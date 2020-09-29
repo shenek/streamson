@@ -32,8 +32,8 @@ impl Path {
     }
 
     /// Removes last path element
-    pub fn pop(&mut self) {
-        self.path.pop().unwrap();
+    pub fn pop(&mut self) -> Option<Element> {
+        self.path.pop()
     }
 
     /// Appends path element
