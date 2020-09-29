@@ -123,14 +123,9 @@ pub fn process_convert(matches: &ArgMatches<'static>) -> Result<(), error::Gener
         if size == 0 {
             break;
         }
-        let (output, end) = convert.process(&buffer[..size])?;
+        let output = convert.process(&buffer[..size])?;
         for data in output {
             stdout().write_all(&data)?;
-        }
-
-        // No more output
-        if end {
-            break;
         }
     }
 

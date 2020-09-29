@@ -130,7 +130,7 @@ mod tests {
         let mut trigger = strategy::Trigger::new();
         trigger.add_matcher(Box::new(matcher), &[handler]);
 
-        assert!(trigger.process(input).unwrap());
+        trigger.process(input).unwrap();
         fs::read_to_string(path).unwrap()
     }
 

@@ -102,8 +102,7 @@ impl Trigger {
     /// * `input` - input data
     ///
     /// # Returns
-    /// * `Ok(true)` - All data successfully processed
-    /// * `Ok(false)` - Data were processed, but another input is required
+    /// * `Ok(()) processing passed, more data might be needed
     /// * `Err(_)` - error occured during processing
     ///
     /// # Example
@@ -123,14 +122,11 @@ impl Trigger {
     /// Note that streamson assumes that its input is a valid
     /// JSONs and if not, it still might be processed without an error.
     /// This is caused because streamson does not validate JSON.
-    pub fn process(&mut self, input: &[u8]) -> Result<bool, error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<(), error::General> {
         self.streamer.feed(input);
         let mut inner_idx = 0;
         loop {
             match self.streamer.read()? {
-                Output::Finished => {
-                    return Ok(true);
-                }
                 Output::Start(idx) => {
                     // extend the input
                     let to = idx - self.input_start;
@@ -216,7 +212,7 @@ impl Trigger {
                     if self.collecting {
                         self.buffer.extend(&input[inner_idx..]);
                     }
-                    return Ok(false);
+                    return Ok(());
                 }
                 Output::Separator(_) => {}
             }
@@ -255,11 +251,8 @@ mod tests {
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
         trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap();
 
-        assert!(
-            trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
-            true
-        );
         let guard = handler.lock().unwrap();
         assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
         assert_eq!(guard.data[0], br#"1"#.to_vec());
@@ -281,8 +274,8 @@ mod tests {
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
         trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
 
-        assert_eq!(trigger.process(br#"{"elem"#).unwrap(), false);
-        assert_eq!(trigger.process(br#"ents": [1, 2, 3, 4]}"#).unwrap(), true);
+        trigger.process(br#"{"elem"#).unwrap();
+        trigger.process(br#"ents": [1, 2, 3, 4]}"#).unwrap();
 
         let guard = handler.lock().unwrap();
         assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);

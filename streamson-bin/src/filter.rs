@@ -91,13 +91,8 @@ pub fn process_filter(matches: &ArgMatches<'static>) -> Result<(), error::Genera
         if size == 0 {
             break;
         }
-        let (output, end) = filter.process(&buffer[..size])?;
+        let output = filter.process(&buffer[..size])?;
         stdout().write_all(&output)?;
-
-        // No more output
-        if end {
-            break;
-        }
     }
 
     Ok(())

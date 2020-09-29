@@ -153,10 +153,8 @@ mod tests {
             &[indexer_handler.clone(), buffer_handler.clone()],
         );
 
-        assert!(
-            trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap(),
-            true
-        );
+        trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap();
+
         // Test indexer handler
         let mut guard = indexer_handler.lock().unwrap();
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(13)));

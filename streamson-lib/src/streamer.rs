@@ -20,8 +20,6 @@ pub enum Output {
     Separator(usize),
     /// Needs more data
     Pending,
-    /// No data left in json
-    Finished,
 }
 
 impl Output {
@@ -90,7 +88,6 @@ enum States {
 /// End(  14)
 /// End(  15)
 /// End(  16)
-/// Finished
 /// ```
 #[derive(Debug)]
 pub struct Streamer {
@@ -564,7 +561,7 @@ impl Streamer {
                 }
             }
         }
-        Ok(Output::Finished)
+        Ok(Output::Pending)
     }
 }
 
@@ -593,7 +590,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(36));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
 
         let mut streamer = Streamer::new();
         streamer.feed(br#"" another one " "#);
@@ -601,7 +598,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(15));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -612,7 +609,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(5));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -623,7 +620,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(6));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -641,7 +638,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(4));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -666,7 +663,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::End(22));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -697,7 +694,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::End(22));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -708,7 +705,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(2));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -747,7 +744,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("[3]"));
         assert_eq!(streamer.read().unwrap(), Output::End(32));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -777,7 +774,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
         assert_eq!(streamer.read().unwrap(), Output::End(53));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -788,7 +785,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(2));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -817,7 +814,7 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(37));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Finished);
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
 
     #[test]
@@ -833,11 +830,17 @@ mod test {
             // feed the first part
             streamer.feed(start_data);
 
+            let mut terminate = false;
             // Gets next item and feed the rest of the data when pending
             let mut get_item = |path: Option<&str>| loop {
                 match streamer.read() {
                     Ok(Output::Pending) => {
-                        streamer.feed(end_data);
+                        if terminate {
+                            break Output::Pending;
+                        } else {
+                            terminate = true;
+                            streamer.feed(end_data);
+                        }
                         continue;
                     }
                     Ok(e) => {
@@ -887,7 +890,7 @@ mod test {
             assert_eq!(get_item(Some("[3][0]")), Output::End(85));
             assert_eq!(get_item(Some("[3]")), Output::End(87));
             assert_eq!(get_item(Some("")), Output::End(89));
-            assert_eq!(get_item(None), Output::Finished);
+            assert_eq!(get_item(None), Output::Pending);
         }
     }
 
@@ -903,11 +906,17 @@ mod test {
             // feed the first part
             streamer.feed(start_data);
 
+            let mut terminate = false;
             // Gets next item and feed the rest of the data when pending
             let mut get_item = |path: Option<&str>| loop {
                 match streamer.read() {
                     Ok(Output::Pending) => {
-                        streamer.feed(end_data);
+                        if terminate {
+                            break Output::Pending;
+                        } else {
+                            terminate = true;
+                            streamer.feed(end_data);
+                        }
                         continue;
                     }
                     Ok(e) => {
@@ -929,7 +938,7 @@ mod test {
             assert_eq!(get_item(Some("[1]")), Output::Start(29));
             assert_eq!(get_item(Some("[1]")), Output::End(40));
             assert_eq!(get_item(Some("")), Output::End(41));
-            assert_eq!(get_item(None), Output::Finished);
+            assert_eq!(get_item(None), Output::Pending);
         }
     }
 }

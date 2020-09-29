@@ -91,14 +91,9 @@ pub fn process_extract(matches: &ArgMatches<'static>) -> Result<(), error::Gener
         if size == 0 {
             break;
         }
-        let (output, end) = extract.process(&buffer[..size])?;
+        let output = extract.process(&buffer[..size])?;
         for (_, data) in output {
             stdout().write_all(&data)?;
-        }
-
-        // No more output
-        if end {
-            break;
         }
     }
 

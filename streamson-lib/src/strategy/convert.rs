@@ -86,8 +86,7 @@ impl Convert {
     /// * `input` - input data
     ///
     /// # Returns
-    /// * `Ok(_, true)` entire json processed
-    /// * `Ok(_, false)` need more input data
+    /// * `Ok(_) processing passed, more data might be needed
     /// * `Err(_)` when input is not correct json
     ///
     /// # Example
@@ -102,7 +101,7 @@ impl Convert {
     ///     Box::new(|_, _| vec![b'"', b'*', b'*', b'*', b'"'])
     /// );
     ///
-    /// let (data, _) = convert.process(br#"{"password": "secret"}"#).unwrap();
+    /// let data = convert.process(br#"{"password": "secret"}"#).unwrap();
     /// for part in data {
     ///     // Do something with converted data
     /// }
@@ -112,18 +111,13 @@ impl Convert {
     ///
     /// If parsing logic finds that JSON is not valid,
     /// it returns `error::General`.
-    pub fn process(&mut self, input: &[u8]) -> Result<(Vec<Vec<u8>>, bool), error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<Vec<Vec<u8>>, error::General> {
         self.streamer.feed(input);
         let mut inner_idx = 0;
 
         let mut result: Vec<Vec<u8>> = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Finished => {
-                    // the rest of the input
-                    result.push(input[inner_idx..].to_vec());
-                    return Ok((result, true));
-                }
                 Output::Start(idx) => {
                     if self.matched.is_none() {
                         // try to check whether it matches
@@ -174,7 +168,7 @@ impl Convert {
                     } else {
                         result.push(input[inner_idx..].to_vec())
                     }
-                    return Ok((result, false));
+                    return Ok(result);
                 }
                 Output::Separator(_) => {}
             }
@@ -197,11 +191,10 @@ mod tests {
         let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
         convert.add_matcher(Box::new(matcher), make_password_convert());
 
-        let (mut output, end) = convert
+        let mut output = convert
             .process(br#"[{"id": 1, "password": "secret1"}, {"id": 2, "password": "secret2"}]"#)
             .unwrap();
 
-        assert_eq!(end, true);
         assert_eq!(output.len(), 5);
         assert_eq!(
             String::from_utf8(output.remove(0)).unwrap(),
@@ -223,15 +216,13 @@ mod tests {
         convert.add_matcher(Box::new(matcher), make_password_convert());
 
         let mut result = vec![];
-        let (output, end) = convert.process(br#"[{"id": 1, "password": "s"#).unwrap();
-        assert_eq!(end, false);
+        let output = convert.process(br#"[{"id": 1, "password": "s"#).unwrap();
         result.extend(output);
 
-        let (output, end) = convert
+        let output = convert
             .process(br#"ecret1"}, {"id": 2, "password": "secret2"}]"#)
             .unwrap();
         result.extend(output);
-        assert_eq!(end, true);
         assert_eq!(
             String::from_utf8(result.into_iter().flatten().collect()).unwrap(),
             r#"[{"id": 1, "password": "***"}, {"id": 2, "password": "***"}]"#

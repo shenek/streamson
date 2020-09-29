@@ -85,10 +85,8 @@ impl Extract {
     /// Processes input data
     ///
     /// # Returns
-    /// * `Ok((_, true))` entire json processed
-    /// * `Ok((_, false))` need more input data
-    /// * `Ok(Vec<(Some(r#"{"users"}[0]"#), Vec<u8>)>, _)` vector containing path and data
-    /// * `Ok(Vec<(None, Vec<u8>)>, _)` vector data only
+    /// * `Ok(Vec<(Some(r#"{"users"}[0]"#), Vec<u8>)>)` vector containing path and data
+    /// * `Ok(Vec<(None, Vec<u8>)>)` vector data only
     /// * `Err(_)` when input is not correct json
     ///
     /// # Example
@@ -102,10 +100,7 @@ impl Extract {
     /// # Errors
     /// * Error is triggered when incorrect json is detected
     ///   Note that not all json errors are detected
-    pub fn process(
-        &mut self,
-        input: &[u8],
-    ) -> Result<(Vec<OptinalPathAndData>, bool), error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<Vec<OptinalPathAndData>, error::General> {
         self.streamer.feed(input);
 
         let mut input_idx = 0;
@@ -113,9 +108,6 @@ impl Extract {
         let mut result = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Finished => {
-                    return Ok((result, true));
-                }
                 Output::Start(idx) if self.matched_path.is_none() => {
                     let path = self.streamer.current_path();
 
@@ -134,7 +126,7 @@ impl Extract {
                     if self.matched_path.is_some() {
                         self.buffer.extend(&input[input_idx..]);
                     }
-                    return Ok((result, false));
+                    return Ok(result);
                 }
                 Output::End(idx) if self.matched_path.is_some() => {
                     if let Some(path) = self.matched_path.as_ref() {
@@ -188,8 +180,7 @@ mod tests {
         let mut extract = Extract::new();
         extract.add_matcher(Box::new(matcher.clone()));
 
-        let (mut output, end) = extract.process(&input[0]).unwrap();
-        assert_eq!(end, true);
+        let mut output = extract.process(&input[0]).unwrap();
         assert_eq!(output.len(), 3);
         assert_eq!(output[0].0.clone(), None);
         assert_eq!(output[1].0.clone(), None);
@@ -205,8 +196,7 @@ mod tests {
         let input = get_input();
         let mut extract = Extract::new().set_export_path(true);
         extract.add_matcher(Box::new(matcher));
-        let (mut output, end) = extract.process(&input[0]).unwrap();
-        assert_eq!(end, true);
+        let mut output = extract.process(&input[0]).unwrap();
         assert_eq!(output.len(), 3);
         assert_eq!(output[0].0.clone(), Some(r#"{"users"}[0]{"name"}"#.into()));
         assert_eq!(output[1].0.clone(), Some(r#"{"users"}[1]{"name"}"#.into()));
@@ -227,8 +217,7 @@ mod tests {
         let mut extract = Extract::new();
         extract.add_matcher(Box::new(matcher));
 
-        let (mut output, end) = extract.process(&input[0]).unwrap();
-        assert_eq!(end, true);
+        let mut output = extract.process(&input[0]).unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(
             String::from_utf8(output.remove(0).1).unwrap(),
@@ -248,12 +237,10 @@ mod tests {
         extract.add_matcher(Box::new(matcher));
 
         let mut result = vec![];
-        let (output, end) = extract.process(input1).unwrap();
-        assert_eq!(end, false);
+        let output = extract.process(input1).unwrap();
         result.extend(output);
 
-        let (output, end) = extract.process(input2).unwrap();
-        assert_eq!(end, true);
+        let output = extract.process(input2).unwrap();
         result.extend(output);
         assert_eq!(
             String::from_utf8(result.into_iter().map(|e| e.1).flatten().collect()).unwrap(),

@@ -94,14 +94,13 @@ impl Filter {
     /// Processes input data
     ///
     /// # Returns
-    /// * `Ok(_, true)` entire json processed
-    /// * `Ok(_, false)` need more input data
+    /// * `Ok(_) processing passed, more data might be needed
     /// * `Err(_)` when input is not correct json
     ///
     /// # Errors
     /// * Error is triggered when incorrect json is detected
     ///   Note that not all json errors are detected
-    pub fn process(&mut self, input: &[u8]) -> Result<(Vec<u8>, bool), error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<Vec<u8>, error::General> {
         // Feed the streamer
         self.streamer.feed(input);
 
@@ -112,18 +111,13 @@ impl Filter {
         let mut result = Vec::new();
         loop {
             match self.streamer.read()? {
-                Output::Finished => {
+                Output::Pending => {
                     if self.matched_path.is_none() {
                         if let Some(final_idx) = self.last_output_idx {
                             result.extend(self.move_forward(final_idx));
                         }
                     }
-                    // we are done
-                    return Ok((result, true));
-                }
-                Output::Pending => {
-                    // need more data
-                    return Ok((result, false));
+                    return Ok(result);
                 }
                 Output::Start(idx) => {
                     // The path is not matched yet
@@ -219,7 +213,7 @@ mod tests {
         let mut filter = Filter::new();
         filter.add_matcher(Box::new(matcher));
 
-        assert_eq!(filter.process(&input[0]).unwrap(), (input[0].clone(), true));
+        assert_eq!(filter.process(&input[0]).unwrap(), input[0].clone());
     }
 
     #[test]
@@ -231,7 +225,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [ {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -245,7 +239,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -259,7 +253,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -273,7 +267,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -287,7 +281,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{ "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -301,7 +295,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}]}"#
         );
     }
@@ -315,7 +309,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "void": {}}"#
         );
     }
@@ -329,7 +323,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher));
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap().0).unwrap(),
+            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
             r#"{}"#
         );
     }
@@ -346,8 +340,8 @@ mod tests {
             filter.add_matcher(Box::new(matcher));
             let mut result: Vec<u8> = Vec::new();
 
-            result.extend(filter.process(&start_input).unwrap().0);
-            result.extend(filter.process(&end_input).unwrap().0);
+            result.extend(filter.process(&start_input).unwrap());
+            result.extend(filter.process(&end_input).unwrap());
             assert_eq!(
                 String::from_utf8(result).unwrap(),
                 r#"{ "groups": [{"gid": 1}, {"gid": 2}]}"#
