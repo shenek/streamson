@@ -40,8 +40,12 @@ impl FromStr for Depth {
     type Err = error::Matcher;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let splitted: Vec<&str> = s.splitn(2, '-').collect();
-        if splitted.len() == 2 {
-            match (splitted[0].parse(), splitted[1].parse()) {
+        match splitted.len() {
+            1 => match splitted[0].parse() {
+                Ok(start) => Ok(Self::new(start, Some(start))),
+                Err(_) => Err(error::Matcher::Parse(s.into())),
+            },
+            2 => match (splitted[0].parse(), splitted[1].parse()) {
                 (Ok(start), Ok(end)) => {
                     if start > end {
                         Err(error::Matcher::Parse(s.into()))
@@ -51,9 +55,8 @@ impl FromStr for Depth {
                 }
                 (Ok(start), _) if splitted[1].is_empty() => Ok(Self::new(start, None)),
                 _ => Err(error::Matcher::Parse(s.into())),
-            }
-        } else {
-            Err(error::Matcher::Parse(s.into()))
+            },
+            _ => Err(error::Matcher::Parse(s.into())),
         }
     }
 }
@@ -84,12 +87,22 @@ mod tests {
         assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
         assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
         assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+
+        let depth: Depth = "2".parse().unwrap();
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
+        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
     }
 
     #[test]
     fn depth_parse() {
         assert!(Depth::from_str("").is_err());
         assert!(Depth::from_str("-").is_err());
+        assert!(Depth::from_str("4").is_ok());
         assert!(Depth::from_str("4-").is_ok());
         assert!(Depth::from_str("4-5").is_ok());
         assert!(Depth::from_str("4-4").is_ok());
