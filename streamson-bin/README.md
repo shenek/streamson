@@ -8,58 +8,66 @@ It is supposed to be memory efficient and fast to process.
 Consider following context of `input.json` file:
 ```json
 {
-	"books": [
-		{"title": "title 1", "authors": ["author1@exmaple.com"]},
-		{"title": "title 2", "authors": ["author2@example.com", "author3@example.com"]}
+	"users": [
+		{"name": "user1", "groups": ["admins", "staff"], "password": "secret1"},
+		{"name": "user2", "groups": ["staff"], "password": "secret2"}
 	]
 }
 
 ```
 
-### Extract to stdout
+### Split each user into separate JSON
 ```
-cat input.json | streamson-bin -P '{"books"}[]'
-```
-
-Output:
-```
-{"books"}[0]: {"title": "title 1", "authors": ["author1@exmaple.com"]}
-{"books"}[1]: {"title": "title 2", "authors": ["author2@example.com", "author3@example.com"]}
-```
-
-### Extract to stdout without header
-```
-cat input.json | streamson-bin -p '{"books"}[]{"authors"}'
+cat input.json | streamson-bin extract --depth 2
 ```
 
 Output:
 ```
-["author1@exmaple.com"]
-["author2@example.com", "author3@example.com"]
+{"name": "user1", "authors": ["admins", "staff"], "password": "secret1"}{"name": "user2", "authors": ["staff"], "password": "secret2"}
 ```
 
-### Extract to file
+### Mask password
 ```
-cat input.json | streamson-bin -f '{"books"}[0]{}:/tmp/output.out'
-cat /tmp/output.out
-```
-
-Output:
-```
-"title 1"
-["author1@exmaple.com"]
-```
-
-### Several matchers can be used
-```
-cat input.json | streamson-bin -p '{"books"}[]{"authors"}[]' -p '{"books"}[]{"title"}'
+cat input.json | \
+	streamson-bin extract --depth 2 | \
+	streamson-bin convert --replace '"***"' --simple '{"password"}'
 ```
 
 Output:
 ```
-"title 1"
-"author1@exmaple.com"
-"title 2"
-"author2@exmaple.com"
-"author3@exmaple.com"
+{"name": "user1", "groups": ["admins", "staff"], "password": "***"}{"name": "user2", "groups": ["staff"], "password": "***"}
+```
+
+### Remove groups
+```
+cat input.json | \
+	streamson-bin extract --depth 2 | \
+	streamson-bin convert --replace '"***"' --simple '{"password"}' | \
+	streamson-bin filter --simple '{"groups"}'
+```
+
+Output:
+```
+{"name": "user1", "password": "***"}{"name": "user2", "password": "***"}
+```
+
+
+### Store names of users into a separate files
+```
+cat input.json | \
+	streamson-bin extract --depth 2 | \
+	streamson-bin convert --replace '"***"' --simple '{"password"}' | \
+	streamson-bin filter --simple '{"groups"}' | \
+	streamson-bin trigger --file '{"name"}:names.out'
+```
+
+Output:
+```
+{"name": "user1", "password": "***"}{"name": "user2", "password": "***"}
+```
+
+names.out:
+```
+"user1"
+"user2"
 ```
