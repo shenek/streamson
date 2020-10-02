@@ -58,7 +58,7 @@ cat input.json | \
 	streamson-bin extract --depth 2 | \
 	streamson-bin convert --replace '"***"' --simple '{"password"}' | \
 	streamson-bin filter --simple '{"groups"}' | \
-	streamson-bin trigger --file '{"name"}:names.out'
+	streamson-bin trigger --file simple '{"name"}' names.out
 ```
 
 Output:
