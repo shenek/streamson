@@ -1,19 +1,12 @@
 use std::{
     collections::HashMap,
+    error::Error,
     io::{stdin, stdout, Read, Write},
     sync::{Arc, Mutex},
 };
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use lazy_static::lazy_static;
-use streamson_lib::{error, handler, matcher, strategy};
-
-use crate::utils::usize_validator;
-
-const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB
-lazy_static! {
-    static ref DEFAULT_BUFFER_SIZE_STRING: String = DEFAULT_BUFFER_SIZE.to_string();
-}
+use streamson_lib::{handler, matcher, strategy};
 
 fn write_file_validator(input: String) -> Result<(), String> {
     if input.contains(':') {
@@ -71,20 +64,12 @@ pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
                 .value_name("SIMPLE_MATCH:PATH_TO_FILE")
                 .required(false),
         )
-        .arg(
-            Arg::with_name("buffer_size")
-                .help("Sets internal buffer size")
-                .short("b")
-                .long("buffer-size")
-                .takes_value(true)
-                .validator(usize_validator)
-                .value_name("BUFFER_SIZE")
-                .default_value(&DEFAULT_BUFFER_SIZE_STRING)
-                .required(false),
-        )
 }
 
-pub fn process_trigger(matches: &ArgMatches<'static>) -> Result<(), error::General> {
+pub fn process_trigger(
+    matches: &ArgMatches<'static>,
+    buffer_size: usize,
+) -> Result<(), Box<dyn Error>> {
     let mut trigger = strategy::Trigger::new();
     let print_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
     let print_with_header_handler =
@@ -104,8 +89,6 @@ pub fn process_trigger(matches: &ArgMatches<'static>) -> Result<(), error::Gener
             trigger.add_matcher(Box::new(matcher), &[print_with_header_handler]);
         }
     }
-
-    let buffer_size: usize = matches.value_of("buffer_size").unwrap().parse().unwrap();
 
     if let Some(file_matches) = matches.values_of("file") {
         for file in file_matches {

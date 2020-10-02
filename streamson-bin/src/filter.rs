@@ -1,18 +1,11 @@
 use std::{
+    error::Error,
     io::{stdin, stdout, Read, Write},
     str::FromStr,
 };
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use lazy_static::lazy_static;
-use streamson_lib::{error, matcher, strategy};
-
-use crate::utils::usize_validator;
-
-const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB
-lazy_static! {
-    static ref DEFAULT_BUFFER_SIZE_STRING: String = DEFAULT_BUFFER_SIZE.to_string();
-}
+use streamson_lib::{matcher, strategy};
 
 pub fn prepare_filter_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("filter")
@@ -37,20 +30,12 @@ pub fn prepare_filter_subcommand() -> App<'static, 'static> {
                 .value_name("DEPTH_MATCH")
                 .required(false),
         )
-        .arg(
-            Arg::with_name("buffer_size")
-                .help("Sets internal buffer size")
-                .short("b")
-                .long("buffer-size")
-                .takes_value(true)
-                .validator(usize_validator)
-                .value_name("BUFFER_SIZE")
-                .default_value(&DEFAULT_BUFFER_SIZE_STRING)
-                .required(false),
-        )
 }
 
-pub fn process_filter(matches: &ArgMatches<'static>) -> Result<(), error::General> {
+pub fn process_filter(
+    matches: &ArgMatches<'static>,
+    buffer_size: usize,
+) -> Result<(), Box<dyn Error>> {
     let mut filter = strategy::Filter::new();
 
     let mut matcher: Option<matcher::Combinator> = None;
@@ -85,7 +70,6 @@ pub fn process_filter(matches: &ArgMatches<'static>) -> Result<(), error::Genera
         filter.add_matcher(Box::new(matcher_to_add));
     }
 
-    let buffer_size: usize = matches.value_of("buffer_size").unwrap().parse().unwrap();
     let mut buffer = vec![];
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {

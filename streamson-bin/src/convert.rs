@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     io::{stdin, stdout, Read, Write},
     str::FromStr,
     sync::{Arc, Mutex},
@@ -6,13 +7,9 @@ use std::{
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use lazy_static::lazy_static;
-use streamson_lib::{error, matcher, strategy, Path};
+use streamson_lib::{matcher, strategy, Path};
 
-use crate::utils::usize_validator;
-
-const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB
 lazy_static! {
-    static ref DEFAULT_BUFFER_SIZE_STRING: String = DEFAULT_BUFFER_SIZE.to_string();
     static ref STORED_REPLACE: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 }
 
@@ -40,17 +37,6 @@ pub fn prepare_convert_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("buffer_size")
-                .help("Sets internal buffer size")
-                .short("b")
-                .long("buffer-size")
-                .takes_value(true)
-                .validator(usize_validator)
-                .value_name("BUFFER_SIZE")
-                .default_value(&DEFAULT_BUFFER_SIZE_STRING)
-                .required(false),
-        )
-        .arg(
             Arg::with_name("replace")
                 .help("Replaces matched part by given string")
                 .short("r")
@@ -61,7 +47,10 @@ pub fn prepare_convert_subcommand() -> App<'static, 'static> {
         )
 }
 
-pub fn process_convert(matches: &ArgMatches<'static>) -> Result<(), error::General> {
+pub fn process_convert(
+    matches: &ArgMatches<'static>,
+    buffer_size: usize,
+) -> Result<(), Box<dyn Error>> {
     let mut convert = strategy::Convert::new();
 
     let mut matcher: Option<matcher::Combinator> = None;
@@ -117,7 +106,6 @@ pub fn process_convert(matches: &ArgMatches<'static>) -> Result<(), error::Gener
         convert.add_matcher(Box::new(matcher_to_add), Box::new(closure));
     }
 
-    let buffer_size: usize = matches.value_of("buffer_size").unwrap().parse().unwrap();
     let mut buffer = vec![];
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
