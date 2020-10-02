@@ -38,7 +38,7 @@ trigger.add_matcher(Box::new(matcher), &[handler]);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
-	let (output_data, continue) = filter.process(&buffer[..size])?;
+	filter.process(&buffer[..size])?;
 }
 ```
 
@@ -52,7 +52,7 @@ filter.add_matcher(Box::new(matcher), &[handler]);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
-	let (output_data, continue) = filter.process(&buffer[..size])?;
+	let output_data = filter.process(&buffer[..size])?;
 }
 ```
 
@@ -66,7 +66,7 @@ extract.add_matcher(Box::new(matcher), &[handler]);
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
-	let (output_data, continue) = extract.process(&buffer[..size])?;
+	let output_data = extract.process(&buffer[..size])?;
 }
 ```
 
@@ -84,7 +84,7 @@ convert.add_matcher(
 
 let mut buffer = [0; 2048];
 while let Ok(size) = input.read(&mut buffer[..]) {
-	let (output_data, continue) = extract.process(&buffer[..size])?;
+	let output_data = extract.process(&buffer[..size])?;
 }
 ```
 
