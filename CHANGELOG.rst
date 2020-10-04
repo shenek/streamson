@@ -1,3 +1,15 @@
+5.0.0 (2020-10-05)
+------------------
+
+* modify streamson-bin to use strategies as subcommands
+* export matcher_idx to handlers
+* convert strategy added
+* extract strategy added
+* filter strategy added
+* rename existing strategy to trigger
+* refactoring to strategies module
+* new indexer handler added
+
 4.1.0 (2020-08-29)
 ------------------
 * new streamson-generato subcrate (unstable)
