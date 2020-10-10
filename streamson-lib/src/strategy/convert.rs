@@ -11,10 +11,13 @@ use crate::{
     path::Path,
     streamer::{Output, Streamer},
 };
-use std::mem;
+use std::{
+    mem,
+    sync::{Arc, Mutex},
+};
 
 /// Convert function type
-type ConvertFunction = Box<dyn Fn(&Path, &[u8]) -> Vec<u8>>;
+type ConvertFunction = Arc<Mutex<dyn Fn(&Path, &[u8]) -> Vec<u8>>>;
 
 /// Item in matcher list
 type MatcherItem = (Box<dyn MatchMaker>, ConvertFunction);
@@ -66,14 +69,15 @@ impl Convert {
     /// # Example
     ///
     /// ```
-    /// use streamson_lib::{strategy, matcher, handler};
+    /// use streamson_lib::{strategy, matcher, handler, path::Path};
+    /// use std::sync::{Arc, Mutex};
     ///
     /// let mut convert = strategy::Convert::new();
     ///
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// convert.add_matcher(
     ///     Box::new(matcher),
-    ///     Box::new(|_, _| vec![b'"', b'.', b'.', b'.', b'"'])
+    ///     Arc::new(Mutex::new(|_: &Path, _: &[u8]| vec![b'"', b'*', b'*', b'*', b'"'])),
     /// );
     /// ```
     pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>, convert_function: ConvertFunction) {
@@ -92,13 +96,14 @@ impl Convert {
     /// # Example
     ///
     /// ```
-    /// use streamson_lib::{strategy, matcher};
+    /// use streamson_lib::{strategy, matcher, path::Path};
+    /// use std::sync::{Arc, Mutex};
     ///
     /// let mut convert = strategy::Convert::new();
     /// let matcher = matcher::Simple::new(r#"{"password"}"#).unwrap();
     /// convert.add_matcher(
     ///     Box::new(matcher),
-    ///     Box::new(|_, _| vec![b'"', b'*', b'*', b'*', b'"'])
+    ///     Arc::new(Mutex::new(|_: &Path, _: &[u8]| vec![b'"', b'*', b'*', b'*', b'"'])),
     /// );
     ///
     /// let data = convert.process(br#"{"password": "secret"}"#).unwrap();
@@ -154,7 +159,10 @@ impl Convert {
                             let mut buffer = vec![];
                             mem::swap(&mut buffer, &mut self.buffer);
 
-                            result.push(self.matchers[*matcher_idx].1(current_path, &buffer));
+                            result.push(self.matchers[*matcher_idx].1.lock().unwrap()(
+                                current_path,
+                                &buffer,
+                            ));
                         }
                     }
                     if clear {
@@ -178,11 +186,14 @@ impl Convert {
 
 #[cfg(test)]
 mod tests {
-    use super::{Convert, ConvertFunction};
+    use super::{Convert, ConvertFunction, Path};
     use crate::matcher::Simple;
+    use std::sync::{Arc, Mutex};
 
     fn make_password_convert() -> ConvertFunction {
-        return Box::new(|_, _| vec![b'"', b'*', b'*', b'*', b'"']);
+        return Arc::new(Mutex::new(|_: &Path, _: &[u8]| {
+            vec![b'"', b'*', b'*', b'*', b'"']
+        }));
     }
 
     #[test]

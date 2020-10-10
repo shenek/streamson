@@ -103,7 +103,7 @@ pub fn process_convert(
     };
 
     if let Some(matcher_to_add) = matcher {
-        convert.add_matcher(Box::new(matcher_to_add), Box::new(closure));
+        convert.add_matcher(Box::new(matcher_to_add), Arc::new(Mutex::new(closure)));
     }
 
     let mut buffer = vec![];
