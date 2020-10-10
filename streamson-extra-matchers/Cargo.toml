@@ -1,6 +1,6 @@
 [package]
 name = "streamson-extra-matchers"
-version = "5.0.0"
+version = "5.0.1"
 authors = ["Stepan Henek"]
 edition = "2018"
 description = "Extra matchers for streamson library"
@@ -19,4 +19,4 @@ with_regex = ["regex"]
 
 [dependencies]
 regex = { version = "1", optional = true }
-streamson-lib = { version = "5.0.0", path = "../streamson-lib/" }
+streamson-lib = { version = "5.0.1", path = "../streamson-lib/" }

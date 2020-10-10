@@ -1,3 +1,7 @@
+5.0.1 (2020-10-10)
+------------------
+* fix convert strategy so it can be safely passed between the threads
+
 5.0.0 (2020-10-05)
 ------------------
 
