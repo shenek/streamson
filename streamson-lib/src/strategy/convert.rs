@@ -17,7 +17,7 @@ use std::{
 };
 
 /// Convert function type
-type ConvertFunction = Arc<Mutex<dyn Fn(&Path, &[u8]) -> Vec<u8>>>;
+type ConvertFunction = Arc<Mutex<dyn Fn(&Path, &[u8]) -> Vec<u8> + Sync + Send>>;
 
 /// Item in matcher list
 type MatcherItem = (Box<dyn MatchMaker>, ConvertFunction);
