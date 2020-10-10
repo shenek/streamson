@@ -1,6 +1,6 @@
 [package]
 name = "streamson-generator"
-version = "5.0.1"
+version = "5.0.2"
 authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
 description = "A library which integrates streamson with generators"
@@ -14,4 +14,4 @@ categories = ["parsing"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-streamson-lib = { version = "5.0.1", path = "../streamson-lib/" }
+streamson-lib = { version = "5.0.2", path = "../streamson-lib/" }
