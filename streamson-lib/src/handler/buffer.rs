@@ -56,7 +56,7 @@ impl Handler for Buffer {
         path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
-    ) -> Result<(), error::Handler> {
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
         // TODO we may limit the max VecDeque size and raise
         // an error when reached
         //
@@ -67,7 +67,7 @@ impl Handler for Buffer {
         };
 
         self.stored.push_back((path_opt, data.unwrap().to_vec()));
-        Ok(())
+        Ok(None)
     }
 
     fn use_path(&self) -> bool {
@@ -80,7 +80,7 @@ impl Buffer {
     pub fn new() -> Self {
         Self::default()
     }
-    ///
+
     /// Set whether to show path
     ///
     /// # Arguments

@@ -238,10 +238,10 @@ mod tests {
             path: &Path,
             _matcher_idx: usize,
             data: Option<&[u8]>,
-        ) -> Result<(), error::Handler> {
+        ) -> Result<Option<Vec<u8>>, error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(data.unwrap().to_vec());
-            Ok(())
+            Ok(None)
         }
     }
 

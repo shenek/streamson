@@ -57,8 +57,8 @@ impl Handler for Indexer {
         _path: &Path,
         _matcher_idx: usize,
         _data: Option<&[u8]>,
-    ) -> Result<(), error::Handler> {
-        Ok(())
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        Ok(None)
     }
 
     fn handle_idx(

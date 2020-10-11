@@ -94,7 +94,7 @@ impl Handler for File {
         path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
-    ) -> Result<(), error::Handler> {
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.use_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())
@@ -107,7 +107,7 @@ impl Handler for File {
         self.file
             .write(separator.as_bytes())
             .map_err(|err| error::Handler::new(err.to_string()))?;
-        Ok(())
+        Ok(None)
     }
 }
 

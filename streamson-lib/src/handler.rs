@@ -6,11 +6,13 @@ pub mod buffer;
 pub mod file;
 pub mod indexer;
 pub mod println;
+pub mod replace;
 
 pub use buffer::Buffer;
 pub use file::File;
 pub use indexer::Indexer;
 pub use println::PrintLn;
+pub use replace::Replace;
 
 /// Common handler trait
 pub trait Handler: Send {
@@ -22,7 +24,8 @@ pub trait Handler: Send {
     /// * `data` - matched data
     ///
     /// # Returns
-    /// * `Ok(())` - Handler was successfully executed
+    /// * `Ok(None)` - All went well, no data conversion needed
+    /// * `Ok(Some(data))` - Alll went well, data converted
     /// * `Err(_)` - Failed to execute handler
     ///
     /// # Errors
@@ -33,7 +36,7 @@ pub trait Handler: Send {
         path: &Path,
         matcher_idx: usize,
         data: Option<&[u8]>,
-    ) -> Result<(), error::Handler>;
+    ) -> Result<Option<Vec<u8>>, error::Handler>;
 
     /// Calls when an index occured
     ///
@@ -66,7 +69,7 @@ pub trait Handler: Send {
     ///
     /// Required for most of the handlers,
     /// but there can be situations where,
-    /// it can be avioded
+    /// it can be avoided
     fn buffering_required(&self) -> bool {
         true
     }

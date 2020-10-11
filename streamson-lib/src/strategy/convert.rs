@@ -7,6 +7,7 @@
 
 use crate::{
     error,
+    handler::Handler,
     matcher::MatchMaker,
     path::Path,
     streamer::{Output, Streamer},
@@ -16,11 +17,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-/// Convert function type
-type ConvertFunction = Arc<Mutex<dyn Fn(&Path, &[u8]) -> Vec<u8> + Sync + Send>>;
-
 /// Item in matcher list
-type MatcherItem = (Box<dyn MatchMaker>, ConvertFunction);
+type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and triggers handlers
 pub struct Convert {
@@ -64,7 +62,7 @@ impl Convert {
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
-    /// * `convert_function` - funtions which performs the conversion
+    /// * `handlers` - funtions which should be run to convert the data
     ///
     /// # Example
     ///
@@ -77,11 +75,15 @@ impl Convert {
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// convert.add_matcher(
     ///     Box::new(matcher),
-    ///     Arc::new(Mutex::new(|_: &Path, _: &[u8]| vec![b'"', b'*', b'*', b'*', b'"'])),
+    ///     vec![Arc::new(Mutex::new(handler::Replace::new(vec![b'"', b'*', b'*', b'*', b'"'])))],
     /// );
     /// ```
-    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>, convert_function: ConvertFunction) {
-        self.matchers.push((matcher, convert_function));
+    pub fn add_matcher(
+        &mut self,
+        matcher: Box<dyn MatchMaker>,
+        handlers: Vec<Arc<Mutex<dyn Handler>>>,
+    ) {
+        self.matchers.push((matcher, handlers));
     }
 
     /// Processes input data
@@ -96,14 +98,14 @@ impl Convert {
     /// # Example
     ///
     /// ```
-    /// use streamson_lib::{strategy, matcher, path::Path};
+    /// use streamson_lib::{strategy, handler, matcher, path::Path};
     /// use std::sync::{Arc, Mutex};
     ///
     /// let mut convert = strategy::Convert::new();
     /// let matcher = matcher::Simple::new(r#"{"password"}"#).unwrap();
     /// convert.add_matcher(
     ///     Box::new(matcher),
-    ///     Arc::new(Mutex::new(|_: &Path, _: &[u8]| vec![b'"', b'*', b'*', b'*', b'"'])),
+    ///     vec![Arc::new(Mutex::new(handler::Replace::new(vec![b'"', b'*', b'*', b'*', b'"'])))],
     /// );
     ///
     /// let data = convert.process(br#"{"password": "secret"}"#).unwrap();
@@ -159,10 +161,21 @@ impl Convert {
                             let mut buffer = vec![];
                             mem::swap(&mut buffer, &mut self.buffer);
 
-                            result.push(self.matchers[*matcher_idx].1.lock().unwrap()(
-                                current_path,
-                                &buffer,
-                            ));
+                            let start_idx = idx - buffer.len();
+
+                            for handler in self.matchers[*matcher_idx].1.iter() {
+                                let mut guard = handler.lock().unwrap();
+                                // trigger idx handler
+                                guard.handle_idx(current_path, start_idx, Output::End(idx))?;
+
+                                // Chain the handlers conversion
+                                if let Some(converted) =
+                                    guard.handle(current_path, *matcher_idx, Some(&buffer))?
+                                {
+                                    buffer = converted;
+                                }
+                            }
+                            result.push(buffer);
                         }
                     }
                     if clear {
@@ -186,21 +199,19 @@ impl Convert {
 
 #[cfg(test)]
 mod tests {
-    use super::{Convert, ConvertFunction, Path};
-    use crate::matcher::Simple;
+    use super::Convert;
+    use crate::{handler::Replace, matcher::Simple};
     use std::sync::{Arc, Mutex};
 
-    fn make_password_convert() -> ConvertFunction {
-        return Arc::new(Mutex::new(|_: &Path, _: &[u8]| {
-            vec![b'"', b'*', b'*', b'*', b'"']
-        }));
+    fn make_replace_handler() -> Arc<Mutex<Replace>> {
+        return Arc::new(Mutex::new(Replace::new(vec![b'"', b'*', b'*', b'*', b'"'])));
     }
 
     #[test]
     fn basic() {
         let mut convert = Convert::new();
         let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
-        convert.add_matcher(Box::new(matcher), make_password_convert());
+        convert.add_matcher(Box::new(matcher), vec![make_replace_handler()]);
 
         let mut output = convert
             .process(br#"[{"id": 1, "password": "secret1"}, {"id": 2, "password": "secret2"}]"#)
@@ -224,7 +235,7 @@ mod tests {
     fn basic_pending() {
         let mut convert = Convert::new();
         let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
-        convert.add_matcher(Box::new(matcher), make_password_convert());
+        convert.add_matcher(Box::new(matcher), vec![make_replace_handler()]);
 
         let mut result = vec![];
         let output = convert.process(br#"[{"id": 1, "password": "s"#).unwrap();

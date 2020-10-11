@@ -81,7 +81,7 @@ impl Handler for PrintLn {
         path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
-    ) -> Result<(), error::Handler> {
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
         let str_data =
             str::from_utf8(data.unwrap()).map_err(|err| error::Handler::new(err.to_string()))?;
         if self.use_path() {
@@ -90,6 +90,6 @@ impl Handler for PrintLn {
             print!("{}{}", str_data, self.separator());
         }
 
-        Ok(())
+        Ok(None)
     }
 }

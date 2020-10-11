@@ -93,7 +93,7 @@ impl fmt::Display for Path {
     }
 }
 
-/// Handler related errors
+/// General error
 #[derive(Debug)]
 pub enum General {
     Path(Path),

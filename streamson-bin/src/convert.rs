@@ -6,12 +6,7 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches, SubCommand};
-use lazy_static::lazy_static;
-use streamson_lib::{matcher, strategy, Path};
-
-lazy_static! {
-    static ref STORED_REPLACE: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-}
+use streamson_lib::{handler, matcher, strategy};
 
 pub fn prepare_convert_subcommand() -> App<'static, 'static> {
     SubCommand::with_name("convert")
@@ -83,27 +78,13 @@ pub fn process_convert(
 
     let replace_string = matches.value_of("replace").unwrap();
 
-    // Writing to static
-    {
-        let mut guard = STORED_REPLACE.lock().unwrap();
-        *guard = Some(replace_string.to_string());
-    }
-
-    let closure = |_: &Path, _: &[u8]| {
-        // Reading from shared static
-        STORED_REPLACE
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap()
-            .as_bytes()
-            .iter()
-            .copied()
-            .collect::<Vec<u8>>()
-    };
+    let converter = handler::Replace::new(replace_string.as_bytes().to_vec());
 
     if let Some(matcher_to_add) = matcher {
-        convert.add_matcher(Box::new(matcher_to_add), Arc::new(Mutex::new(closure)));
+        convert.add_matcher(
+            Box::new(matcher_to_add),
+            vec![Arc::new(Mutex::new(converter))],
+        );
     }
 
     let mut buffer = vec![];
