@@ -1,3 +1,7 @@
+6.0.0 (2020-10-12)
+------------------
+* alter handlers and use it in convert strategy
+
 5.0.2 (2020-10-11)
 ------------------
 * fix convert strategy so it can be safely passed between the threads (second try)
