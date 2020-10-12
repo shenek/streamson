@@ -24,10 +24,7 @@ pub enum Output {
 
 impl Output {
     pub fn is_end(&self) -> bool {
-        match self {
-            Self::End(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::End(_))
     }
 }
 
