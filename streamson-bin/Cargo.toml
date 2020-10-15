@@ -8,7 +8,11 @@ license = "MIT"
 readme = "README.md"
 keywords = ["json"]
 repository = "https://github.com/shenek/streamson"
-categories = ["parsing"]
+categories = ["parsing", "command-line-utilities", "json"]
+
+[features]
+default = []
+test = ["assert_cmd"]
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -17,3 +21,9 @@ maintenance = { status = "actively-developed" }
 clap = "2.33"
 lazy_static = "1.4"
 streamson-lib = { version = "6.0.0", path = "../streamson-lib/" }
+assert_cmd = { version = "~1.0.1", optional = true }
+
+
+[[bin]]
+name = "streamson-bin-test"
+required-features = ["test"]
