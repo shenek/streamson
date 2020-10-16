@@ -93,6 +93,7 @@ pub fn process_convert(
             break;
         }
         let output = convert.process(&buffer[..size])?;
+        buffer.clear();
         for data in output {
             stdout().write_all(&data)?;
         }

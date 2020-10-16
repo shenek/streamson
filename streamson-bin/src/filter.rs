@@ -76,6 +76,7 @@ pub fn process_filter(
             break;
         }
         let output = filter.process(&buffer[..size])?;
+        buffer.clear();
         stdout().write_all(&output)?;
     }
 

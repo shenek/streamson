@@ -75,6 +75,7 @@ pub fn process_extract(
             break;
         }
         let output = extract.process(&buffer[..size])?;
+        buffer.clear();
         for (_, data) in output {
             stdout().write_all(&data)?;
         }

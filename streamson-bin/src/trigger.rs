@@ -135,6 +135,7 @@ pub fn process_trigger(
             break;
         }
         trigger.process(&buffer[..size])?;
+        buffer.clear();
         // forward input from stdin to stderr
         // only if trigger doesn't print to stdout
         if !printing {
