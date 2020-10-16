@@ -960,4 +960,41 @@ mod test {
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::Pending);
     }
+
+    #[test]
+    fn test_newlines() {
+        let mut streamer = Streamer::new();
+        streamer.feed(
+            br#" {
+                "u": {},
+                "j": {
+                    "x": {  } ,
+                    "y":10
+                }
+            } "#,
+        );
+        assert_eq!(streamer.read().unwrap(), Output::Start(1));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::Start(24));
+        assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::End(26));
+        assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(26));
+        assert_eq!(streamer.read().unwrap(), Output::Start(49));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Start(76));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::End(80));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::Separator(81));
+        assert_eq!(streamer.read().unwrap(), Output::Start(107));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::End(109));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::End(127));
+        assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
+        assert_eq!(streamer.read().unwrap(), Output::End(141));
+        assert_eq!(streamer.current_path(), &make_path(""));
+        assert_eq!(streamer.read().unwrap(), Output::Pending);
+    }
 }
