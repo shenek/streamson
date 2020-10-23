@@ -1,6 +1,6 @@
 [package]
 name = "streamson-lib"
-version = "6.0.0"
+version = "6.1.0"
 authors = ["Stepan Henek"]
 edition = "2018"
 description = "Library for processing large JSONs"

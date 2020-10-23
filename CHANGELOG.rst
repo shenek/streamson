@@ -1,3 +1,8 @@
+6.1.0 (2020-10-23)
+------------------
+* added test for streamson-bin
+* fix streamson-bin and insufficient buffer size
+
 6.0.0 (2020-10-12)
 ------------------
 * alter handlers and use it in convert strategy
