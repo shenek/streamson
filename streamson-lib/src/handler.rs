@@ -2,12 +2,14 @@
 
 use crate::{error, path::Path, streamer::Output};
 
+pub mod analyser;
 pub mod buffer;
 pub mod file;
 pub mod indexer;
 pub mod println;
 pub mod replace;
 
+pub use analyser::Analyser;
 pub use buffer::Buffer;
 pub use file::File;
 pub use indexer::Indexer;

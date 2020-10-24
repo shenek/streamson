@@ -1,13 +1,30 @@
 //! Structs to handle abstraction over a path in JSON
 
 use crate::error;
-use std::{convert::TryFrom, fmt};
+use std::{cmp::Ordering, convert::TryFrom, fmt, hash::Hash};
 
 /// An element of the path
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Element {
     Key(String),
     Index(usize),
+}
+
+impl PartialOrd for Element {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Element {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Element::Key(this_key), Element::Key(other_key)) => this_key.cmp(other_key),
+            (Element::Index(this_idx), Element::Index(other_idx)) => this_idx.cmp(other_idx),
+            (Element::Key(_), Element::Index(_)) => Ordering::Less,
+            (Element::Index(_), Element::Key(_)) => Ordering::Greater,
+        }
+    }
 }
 
 impl fmt::Display for Element {
@@ -21,7 +38,7 @@ impl fmt::Display for Element {
 
 /// Represents the path in a json
 /// e.g. {"users"}[0]
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Path {
     path: Vec<Element>,
 }
@@ -138,6 +155,29 @@ impl fmt::Display for Path {
             write!(f, "{}", element)?;
         }
         Ok(())
+    }
+}
+
+impl Ord for Path {
+    fn cmp(&self, other: &Self) -> Ordering {
+        for (a, b) in self.path.iter().zip(other.path.iter()) {
+            let res = a.cmp(b);
+            if res != Ordering::Equal {
+                return res;
+            }
+        }
+        match (self.path.len(), other.path.len()) {
+            (a_len, b_len) if a_len < b_len => Ordering::Less,
+            (a_len, b_len) if a_len == b_len => Ordering::Equal,
+            (a_len, b_len) if a_len > b_len => Ordering::Greater,
+            (_, _) => unreachable!(),
+        }
+    }
+}
+
+impl PartialOrd for Path {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
