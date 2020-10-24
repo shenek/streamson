@@ -2,10 +2,12 @@
 
 use std::fmt;
 
+pub mod all;
 pub mod combinator;
 pub mod depth;
 pub mod simple;
 
+pub use all::All;
 pub use combinator::Combinator;
 pub use depth::Depth;
 pub use simple::Simple;
