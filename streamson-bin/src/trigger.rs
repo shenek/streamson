@@ -63,6 +63,14 @@ pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
                 .value_names(&["MATCHER_NAME", "MATCH", "FILE"])
                 .required(false),
         )
+        .arg(
+            Arg::with_name("struct")
+                .help("Goes through a json and prints JSON structure at the end of processing.")
+                .short("s")
+                .long("struct")
+                .takes_value(false)
+                .required(false),
+        )
 }
 
 fn prepare_matcher_from_list(input: Vec<String>) -> Result<matcher::Combinator, Box<dyn Error>> {
@@ -129,19 +137,39 @@ pub fn process_trigger(
         }
     }
 
+    let analyser_handler = if matches.is_present("struct") {
+        let matcher = matcher::All::default();
+        let handler = Arc::new(Mutex::new(handler::Analyser::new()));
+        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+
+        Some(handler)
+    } else {
+        None
+    };
+
     let mut buffer = vec![];
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
         trigger.process(&buffer[..size])?;
-        buffer.clear();
         // forward input from stdin to stderr
         // only if trigger doesn't print to stdout
         if !printing {
             stdout().write_all(&buffer[..size])?;
         }
         buffer.clear();
+    }
+
+    if let Some(analyser_handler) = analyser_handler {
+        println!("JSON structure:");
+        for (path, count) in analyser_handler.lock().unwrap().results() {
+            println!(
+                "  {}: {}",
+                if path.is_empty() { "<root>" } else { &path },
+                count
+            );
+        }
     }
 
     Ok(())

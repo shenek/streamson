@@ -94,6 +94,7 @@ fn trigger(cmd_str: &str) {
         .arg("--print-with-header")
         .arg("depth")
         .arg("2")
+        .arg("-s")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
@@ -109,6 +110,18 @@ fn trigger(cmd_str: &str) {
 "bbb"
 {"logs"}[2]: "ccc"
 "ccc"
+JSON structure:
+  <root>: 1
+  {"groups"}: 1
+  {"groups"}[]: 2
+  {"groups"}[]{"gid"}: 2
+  {"groups"}[]{"name"}: 2
+  {"logs"}: 1
+  {"logs"}[]: 3
+  {"users"}: 1
+  {"users"}[]: 2
+  {"users"}[]{"id"}: 2
+  {"users"}[]{"name"}: 2
 "#,
         );
     println!("OK");
