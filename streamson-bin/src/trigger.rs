@@ -138,6 +138,7 @@ pub fn process_trigger(
     }
 
     let analyser_handler = if matches.is_present("struct") {
+        printing = true;
         let matcher = matcher::All::default();
         let handler = Arc::new(Mutex::new(handler::Analyser::new()));
         trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
@@ -153,7 +154,7 @@ pub fn process_trigger(
             break;
         }
         trigger.process(&buffer[..size])?;
-        // forward input from stdin to stderr
+        // forward input from stdin to stdout
         // only if trigger doesn't print to stdout
         if !printing {
             stdout().write_all(&buffer[..size])?;
