@@ -9,6 +9,8 @@ A memory efficient set of tools to process large JSONs data.
 * [streamson-lib](streamson-lib/README.md) - Core Rust library
 * [streamson-bin](streamson-bin/README.md) - Binary to process JSONs from stdout.
 * [streamson-tokio](streamson-tokio/README.md) - Helpers to integrates streamson with tokio
+* [streamson-futures](streamson-futures/README.md) - Integration with futures (async rust)
+* [streamson-generator](streamson-generator/README.md) - Integration with rust's generators (nightly only)
 
 ## Motivation
 Imagine a situation when you get a very large JSON input.
