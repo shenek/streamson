@@ -16,7 +16,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 bytes = "0.5"
 streamson-lib = { version = "6.1.0", path = "../streamson-lib/" }
-tokio-util = { version = "0.3", features = ["codec"] }
+tokio-util = { version = "0.4", features = ["codec"] }
 
 [dev-dependencies]
-tokio = { version = "0.2", features = ["full"]  }
+tokio = { version = "0.3", features = ["full"]  }
