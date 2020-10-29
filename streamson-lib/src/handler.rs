@@ -8,6 +8,7 @@ pub mod file;
 pub mod indexer;
 pub mod println;
 pub mod replace;
+pub mod shorten;
 
 pub use analyser::Analyser;
 pub use buffer::Buffer;
@@ -15,6 +16,7 @@ pub use file::File;
 pub use indexer::Indexer;
 pub use println::PrintLn;
 pub use replace::Replace;
+pub use shorten::Shorten;
 
 /// Common handler trait
 pub trait Handler: Send {

@@ -1,6 +1,6 @@
 //! Handler which replaces output by fixed data
-//! it can be used a.g. to clear the sensitive data
-//! e.g. `"secred_password"` -> `"***"
+//! it can be used e.g. to clear the sensitive data
+//! `"secred_password"` -> `"***"
 //!
 //! # Example
 //! ```
