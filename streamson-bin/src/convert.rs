@@ -35,10 +35,22 @@ pub fn prepare_convert_subcommand() -> App<'static, 'static> {
             Arg::with_name("replace")
                 .help("Replaces matched part by given string")
                 .short("r")
+                .group("handler")
                 .long("replace")
                 .takes_value(true)
                 .value_name("JSON")
-                .required(true),
+                .required_unless_one(&["shorten"]),
+        )
+        .arg(
+            Arg::with_name("shorten")
+                .help("Shortens matched data")
+                .short("o")
+                .group("handler")
+                .long("shorten")
+                .takes_value(true)
+                .value_names(&["LENGTH", "TERMINATOR"])
+                .number_of_values(2)
+                .required_unless_one(&["replace"]),
         )
 }
 
@@ -76,16 +88,25 @@ pub fn process_convert(
         }
     }
 
-    let replace_string = matches.value_of("replace").unwrap();
-
-    let converter = handler::Replace::new(replace_string.as_bytes().to_vec());
-
-    if let Some(matcher_to_add) = matcher {
-        convert.add_matcher(
-            Box::new(matcher_to_add),
-            vec![Arc::new(Mutex::new(converter))],
-        );
-    }
+    if let Some(replace_string) = matches.value_of("replace") {
+        let converter = Arc::new(Mutex::new(handler::Replace::new(
+            replace_string.as_bytes().to_vec(),
+        )));
+        if let Some(matcher_to_add) = matcher {
+            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+        }
+    } else if let Some(shorten_args) = matches.values_of("shorten") {
+        let args: Vec<String> = shorten_args.map(String::from).collect();
+        let converter = Arc::new(Mutex::new(handler::Shorten::new(
+            args[0].parse::<usize>()?,
+            args[1].clone(),
+        )));
+        if let Some(matcher_to_add) = matcher {
+            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+        }
+    } else {
+        unreachable!();
+    };
 
     let mut buffer = vec![];
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {

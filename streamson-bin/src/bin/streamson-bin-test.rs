@@ -52,7 +52,7 @@ fn extract(cmd_str: &str) {
 }
 
 fn convert(cmd_str: &str) {
-    print!("CONVERT ");
+    print!("CONVERT REPLACE ");
     Command::new(cmd_str)
         .arg("-b")
         .arg("10")
@@ -73,6 +73,28 @@ fn convert(cmd_str: &str) {
     "users": "...",
     "groups": ["...", "..."],
     "logs": "..."
+}"#,
+        );
+    println!("OK");
+
+    print!("CONVERT SHORTEN ");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("convert")
+        .arg("--simple")
+        .arg(r#"{"users"}[]{"name"}"#)
+        .arg("--shorten")
+        .arg(r#"1"#)
+        .arg(r#"..""#)
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stdout(
+            r#"{
+    "users": [{"name": "c..", "id": 1}, {"name": "p..", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": ["aaa", "bbb", "ccc"]
 }"#,
         );
     println!("OK");
