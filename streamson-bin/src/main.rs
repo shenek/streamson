@@ -7,6 +7,8 @@ mod utils;
 use std::{error::Error, io, process};
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use clap_generate::generators::{Bash, Elvish, Fish, PowerShell, Zsh};
+use clap_generate::{generate, Generator};
 use lazy_static::lazy_static;
 
 use crate::{
@@ -42,6 +44,20 @@ fn prepare_app() -> App<'static> {
         .subcommand(prepare_filter_subcommand())
         .subcommand(prepare_trigger_subcommand())
         .subcommand(prepare_convert_subcommand())
+        .subcommand(
+            App::new("completion").about("completions generator").arg(
+                Arg::new("shell")
+                    .short('s')
+                    .long("shell")
+                    .about("For which shell the completion is supposed to be generated")
+                    .possible_values(&["bash", "fish", "elvish", "powershell", "zsh"])
+                    .required(true),
+            ),
+        )
+}
+
+fn print_completions<G: Generator>(app: &mut App) {
+    generate::<G, _>(app, app.get_name().to_string(), &mut io::stdout());
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -54,6 +70,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(("extract", matches)) => process_extract(matches, buffer_size),
         Some(("filter", matches)) => process_filter(matches, buffer_size),
         Some(("trigger", matches)) => process_trigger(matches, buffer_size),
+        Some(("completion", matches)) => match matches.value_of("shell") {
+            Some("bash") => {
+                print_completions::<Bash>(&mut app);
+                Ok(())
+            }
+            Some("elvish") => {
+                print_completions::<Elvish>(&mut app);
+                Ok(())
+            }
+            Some("fish") => {
+                print_completions::<Fish>(&mut app);
+                Ok(())
+            }
+            Some("powershell") => {
+                print_completions::<PowerShell>(&mut app);
+                Ok(())
+            }
+            Some("zsh") => {
+                print_completions::<Zsh>(&mut app);
+                Ok(())
+            }
+            _ => unreachable!(),
+        },
         _ => {
             app.write_long_help(&mut io::stdout()).unwrap();
             println!();
