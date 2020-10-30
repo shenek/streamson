@@ -18,7 +18,7 @@ test = ["assert_cmd"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-clap = "2.33"
+clap = "3.0.0-beta"
 lazy_static = "1.4"
 streamson-lib = { version = "6.1.0", path = "../streamson-lib/" }
 assert_cmd = { version = "~1.0.1", optional = true }

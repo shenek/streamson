@@ -4,16 +4,16 @@ use std::{
     str::FromStr,
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches};
 use streamson_lib::{matcher, strategy};
 
-pub fn prepare_extract_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("extract")
+pub fn prepare_extract_subcommand() -> App<'static> {
+    App::new("extract")
         .about("Passes only matched parts of JSON")
         .arg(
-            Arg::with_name("simple")
-                .help("Match by simple match")
-                .short("s")
+            Arg::new("simple")
+                .about("Match by simple match")
+                .short('s')
                 .long("simple")
                 .multiple(true)
                 .takes_value(true)
@@ -21,9 +21,9 @@ pub fn prepare_extract_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("depth")
-                .help("Match by depth")
-                .short("d")
+            Arg::new("depth")
+                .about("Match by depth")
+                .short('d')
                 .long("depth")
                 .multiple(true)
                 .takes_value(true)
@@ -32,10 +32,7 @@ pub fn prepare_extract_subcommand() -> App<'static, 'static> {
         )
 }
 
-pub fn process_extract(
-    matches: &ArgMatches<'static>,
-    buffer_size: usize,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut extract = strategy::Extract::new();
 
     let mut matcher: Option<matcher::Combinator> = None;

@@ -5,16 +5,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches};
 use streamson_lib::{handler, matcher, strategy};
 
-pub fn prepare_convert_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("convert")
+pub fn prepare_convert_subcommand() -> App<'static> {
+    App::new("convert")
         .about("Converts parts of JSON")
         .arg(
-            Arg::with_name("simple")
-                .help("Match by simple match")
-                .short("s")
+            Arg::new("simple")
+                .about("Match by simple match")
+                .short('s')
                 .long("simple")
                 .multiple(true)
                 .takes_value(true)
@@ -22,9 +22,9 @@ pub fn prepare_convert_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("depth")
-                .help("Match by depth")
-                .short("d")
+            Arg::new("depth")
+                .about("Match by depth")
+                .short('d')
                 .long("depth")
                 .multiple(true)
                 .takes_value(true)
@@ -32,32 +32,29 @@ pub fn prepare_convert_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("replace")
-                .help("Replaces matched part by given string")
-                .short("r")
+            Arg::new("replace")
+                .about("Replaces matched part by given string")
+                .short('r')
                 .group("handler")
                 .long("replace")
                 .takes_value(true)
                 .value_name("JSON")
-                .required_unless_one(&["shorten"]),
+                .required_unless_present_any(&["shorten"]),
         )
         .arg(
-            Arg::with_name("shorten")
-                .help("Shortens matched data")
-                .short("o")
+            Arg::new("shorten")
+                .about("Shortens matched data")
+                .short('o')
                 .group("handler")
                 .long("shorten")
                 .takes_value(true)
                 .value_names(&["LENGTH", "TERMINATOR"])
                 .number_of_values(2)
-                .required_unless_one(&["replace"]),
+                .required_unless_present_any(&["replace"]),
         )
 }
 
-pub fn process_convert(
-    matches: &ArgMatches<'static>,
-    buffer_size: usize,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut convert = strategy::Convert::new();
 
     let mut matcher: Option<matcher::Combinator> = None;

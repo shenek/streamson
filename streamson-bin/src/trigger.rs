@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches};
 use streamson_lib::{error, handler, matcher, strategy};
 
 fn make_matcher(
@@ -27,13 +27,13 @@ fn make_matcher(
     }
 }
 
-pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("trigger")
+pub fn prepare_trigger_subcommand() -> App<'static> {
+    App::new("trigger")
         .about("Triggers command on matched input")
         .arg(
-            Arg::with_name("print")
-                .help("Prints matches to stdout separating records by a newline")
-                .short("p")
+            Arg::new("print")
+                .about("Prints matches to stdout separating records by a newline")
+                .short('p')
                 .long("print")
                 .multiple(true)
                 .takes_value(true)
@@ -42,9 +42,9 @@ pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("print_with_header")
-                .help("Prints matches to with header to stdout separating records by a newline")
-                .short("P")
+            Arg::new("print_with_header")
+                .about("Prints matches to with header to stdout separating records by a newline")
+                .short('P')
                 .long("print-with-header")
                 .multiple(true)
                 .takes_value(true)
@@ -53,9 +53,9 @@ pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("file")
-                .help("Writes matches to file separating records by newline")
-                .short("f")
+            Arg::new("file")
+                .about("Writes matches to file separating records by newline")
+                .short('f')
                 .long("file")
                 .multiple(true)
                 .takes_value(true)
@@ -64,9 +64,9 @@ pub fn prepare_trigger_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("struct")
-                .help("Goes through a json and prints JSON structure at the end of processing.")
-                .short("s")
+            Arg::new("struct")
+                .about("Goes through a json and prints JSON structure at the end of processing.")
+                .short('s')
                 .long("struct")
                 .takes_value(false)
                 .required(false),
@@ -89,10 +89,7 @@ fn prepare_matcher_from_list(input: Vec<String>) -> Result<matcher::Combinator, 
         .unwrap())
 }
 
-pub fn process_trigger(
-    matches: &ArgMatches<'static>,
-    buffer_size: usize,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut trigger = strategy::Trigger::new();
     let print_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
     let print_with_header_handler =

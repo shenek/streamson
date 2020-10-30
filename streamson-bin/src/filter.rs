@@ -4,16 +4,16 @@ use std::{
     str::FromStr,
 };
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches};
 use streamson_lib::{matcher, strategy};
 
-pub fn prepare_filter_subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("filter")
+pub fn prepare_filter_subcommand() -> App<'static> {
+    App::new("filter")
         .about("Removes matched parts of JSON")
         .arg(
-            Arg::with_name("simple")
-                .help("Match by simple match")
-                .short("s")
+            Arg::new("simple")
+                .about("Match by simple match")
+                .short('s')
                 .long("simple")
                 .multiple(true)
                 .takes_value(true)
@@ -21,9 +21,9 @@ pub fn prepare_filter_subcommand() -> App<'static, 'static> {
                 .required(false),
         )
         .arg(
-            Arg::with_name("depth")
-                .help("Match by depth")
-                .short("d")
+            Arg::new("depth")
+                .about("Match by depth")
+                .short('d')
                 .long("depth")
                 .multiple(true)
                 .takes_value(true)
@@ -32,10 +32,7 @@ pub fn prepare_filter_subcommand() -> App<'static, 'static> {
         )
 }
 
-pub fn process_filter(
-    matches: &ArgMatches<'static>,
-    buffer_size: usize,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut filter = strategy::Filter::new();
 
     let mut matcher: Option<matcher::Combinator> = None;
