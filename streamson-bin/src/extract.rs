@@ -30,12 +30,23 @@ pub fn prepare_extract_subcommand() -> App<'static> {
                 .value_name("DEPTH_MATCH")
                 .required(false),
         )
+        .arg(
+            Arg::new("separator")
+                .about("Separator which will be inserted between matched parts")
+                .short('S')
+                .long("separator")
+                .takes_value(true)
+                .value_name("SEP"),
+        )
 }
 
 pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut extract = strategy::Extract::new();
 
     let mut matcher: Option<matcher::Combinator> = None;
+
+    let separator = matches.value_of("separator").unwrap_or("");
+    let separator_bytes: Vec<u8> = separator.as_bytes().iter().copied().collect();
 
     if let Some(matches) = matches.values_of("simple") {
         for matcher_str in matches {
@@ -67,6 +78,8 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         extract.add_matcher(Box::new(matcher_to_add));
     }
     let mut buffer = vec![];
+    let mut first = true;
+    let mut out = stdout();
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
@@ -74,7 +87,12 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         let output = extract.process(&buffer[..size])?;
         buffer.clear();
         for (_, data) in output {
-            stdout().write_all(&data)?;
+            if !first && !data.is_empty() {
+                out.write_all(&separator_bytes)?;
+            }
+            out.write_all(&data)?;
+
+            first = false;
         }
     }
 
