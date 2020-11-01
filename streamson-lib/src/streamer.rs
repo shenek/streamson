@@ -510,6 +510,9 @@ impl Streamer {
                         if let Some(output) = self.process_value(element)? {
                             return Ok(output);
                         }
+                        if self.states.is_empty() {
+                            return Ok(Output::Pending);
+                        }
                     }
                     States::Str(state) => {
                         if let Some(output) = self.process_str(state)? {
