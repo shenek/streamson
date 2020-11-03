@@ -71,6 +71,7 @@ impl FromStr for IndexMatch {
 enum SimplePathElement {
     Key(StringMatch),
     Index(IndexMatch),
+    WildCardSingle,
 }
 
 /// Based on orignal path format {"People"}[0]{"Height"}
@@ -124,6 +125,7 @@ impl MatchMaker for Simple {
                     }
                     _ => return false,
                 },
+                SimplePathElement::WildCardSingle => {} // single wildcard matches any element
             }
         }
         true
@@ -143,7 +145,12 @@ impl FromStr for Simple {
                 SimpleMatcherStates::ElementStart => match chr {
                     '[' => SimpleMatcherStates::Array,
                     '{' => SimpleMatcherStates::ObjectStart,
+                    '?' => {
+                        result.push(SimplePathElement::WildCardSingle);
+                        SimpleMatcherStates::ElementStart
+                    }
                     _ => {
+                        dbg!("HASDFASFDSAF");
                         return Err(error::Matcher::Parse(path.to_string()));
                     }
                 },
@@ -309,6 +316,9 @@ mod tests {
         assert!(Simple::from_str(r#"{"š𐍈€"}"#).is_ok());
         assert!(Simple::from_str(r#"{"\""}"#).is_ok());
         assert!(Simple::from_str(r#"[1,2,8,3-,-2,2-3]"#).is_ok());
+        assert!(Simple::from_str(r#"?"#).is_ok());
+        assert!(Simple::from_str(r#"????"#).is_ok());
+        assert!(Simple::from_str(r#"?{}[1]?{"xx"}"#).is_ok());
     }
 
     #[test]
@@ -321,5 +331,17 @@ mod tests {
         assert!(Simple::from_str(r#"[3-3]"#).is_err());
         assert!(Simple::from_str(r#"[,2,8]"#).is_err());
         assert!(Simple::from_str(r#"[2,8,]"#).is_err());
+    }
+
+    #[test]
+    fn single_wild() {
+        let simple = Simple::from_str(r#"?[0]{"range"}?"#).unwrap();
+
+        assert!(simple.match_path(&Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"range"}[1]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"[0]{"range"}{"from_home"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"range"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"range"}[1]"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"[1][0]{"other"}{"from_home"}"#).unwrap()));
     }
 }
