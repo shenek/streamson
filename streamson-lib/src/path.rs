@@ -10,6 +10,16 @@ pub enum Element {
     Index(usize),
 }
 
+impl Element {
+    pub fn is_key(&self) -> bool {
+        matches!(self, Element::Key(_))
+    }
+
+    pub fn is_index(&self) -> bool {
+        matches!(self, Element::Index(_))
+    }
+}
+
 impl PartialOrd for Element {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))

@@ -72,6 +72,47 @@ enum SimplePathElement {
     Key(StringMatch),
     Index(IndexMatch),
     WildCardSingle,
+    WildCardAny,
+}
+
+impl PartialEq<Element> for SimplePathElement {
+    fn eq(&self, other: &Element) -> bool {
+        match &self {
+            SimplePathElement::Key(None) => other.is_key(),
+            SimplePathElement::Key(Some(key)) => {
+                if let Element::Key(pkey) = other {
+                    key == pkey
+                } else {
+                    false
+                }
+            }
+            SimplePathElement::Index(idx_matches) => {
+                if let Element::Index(idx) = other {
+                    if idx_matches.0.is_empty() {
+                        true
+                    } else {
+                        idx_matches.0.iter().any(|(min_opt, max_opt)| {
+                            if let Some(max) = max_opt {
+                                if idx >= max {
+                                    return false;
+                                }
+                            }
+                            if let Some(min) = min_opt {
+                                if idx < min {
+                                    return false;
+                                }
+                            }
+                            true
+                        })
+                    }
+                } else {
+                    false
+                }
+            }
+            SimplePathElement::WildCardAny => true,
+            SimplePathElement::WildCardSingle => true,
+        }
+    }
 }
 
 /// Based on orignal path format {"People"}[0]{"Height"}
@@ -95,40 +136,57 @@ enum SimpleMatcherStates {
 
 impl MatchMaker for Simple {
     fn match_path(&self, path: &Path) -> bool {
-        if path.depth() != self.path.len() {
+        // If no AnyWildcard present and length differs
+        // return false right away
+        if !self
+            .path
+            .iter()
+            .any(|e| matches!(e, SimplePathElement::WildCardAny))
+            && path.depth() != self.path.len()
+        {
             return false;
         }
 
-        for (element, selement) in path.get_path().iter().zip(self.path.iter()) {
-            match selement {
-                SimplePathElement::Key(Some(key)) => match element {
-                    Element::Key(k) if k == key => {}
-                    _ => return false,
-                },
-                SimplePathElement::Key(None) => match element {
-                    Element::Key(_) => {}
-                    _ => return false,
-                },
-                SimplePathElement::Index(idx_matches) => match element {
-                    Element::Index(idx) => {
-                        //  if all are not matching return false
-                        if !idx_matches.0.is_empty()
-                            && idx_matches.0.iter().all(|idx_match| !match idx_match {
-                                (Some(start), Some(end)) => (start <= idx) && (idx < end),
-                                (None, Some(end)) => idx < end,
-                                (Some(start), None) => start <= idx,
-                                (None, None) => unreachable!(),
-                            })
-                        {
-                            return false;
-                        }
+        let path = path.get_path();
+
+        // first is element idx, second path index
+        // starting at the beginning
+        let mut indexes = vec![(0, 0)];
+
+        while !indexes.is_empty() {
+            let (spath_idx, path_idx) = indexes.pop().unwrap();
+
+            if spath_idx == self.path.len() && path_idx == path.len() {
+                // all matched
+                return true;
+            }
+
+            if spath_idx >= self.path.len() {
+                // matcher lenght reached => fallback
+                continue;
+            }
+
+            // match indexes
+            match self.path[spath_idx] {
+                SimplePathElement::WildCardAny => {
+                    indexes.push((spath_idx + 1, path_idx)); // wildcard over
+                    if path_idx < path.len() {
+                        indexes.push((spath_idx, path_idx + 1)); // wildcard matched
                     }
-                    _ => return false,
-                },
-                SimplePathElement::WildCardSingle => {} // single wildcard matches any element
+                }
+                _ => {
+                    if path_idx >= path.len() {
+                        continue;
+                    } else if self.path[spath_idx] == path[path_idx] {
+                        indexes.push((spath_idx + 1, path_idx + 1));
+                    } else {
+                        continue;
+                    }
+                }
             }
         }
-        true
+
+        false
     }
 }
 
@@ -149,8 +207,11 @@ impl FromStr for Simple {
                         result.push(SimplePathElement::WildCardSingle);
                         SimpleMatcherStates::ElementStart
                     }
+                    '*' => {
+                        result.push(SimplePathElement::WildCardAny);
+                        SimpleMatcherStates::ElementStart
+                    }
                     _ => {
-                        dbg!("HASDFASFDSAF");
                         return Err(error::Matcher::Parse(path.to_string()));
                     }
                 },
@@ -319,6 +380,9 @@ mod tests {
         assert!(Simple::from_str(r#"?"#).is_ok());
         assert!(Simple::from_str(r#"????"#).is_ok());
         assert!(Simple::from_str(r#"?{}[1]?{"xx"}"#).is_ok());
+        assert!(Simple::from_str(r#"*"#).is_ok());
+        assert!(Simple::from_str(r#"****"#).is_ok());
+        assert!(Simple::from_str(r#"*{}[1]**{"xx"}*"#).is_ok());
     }
 
     #[test]
@@ -343,5 +407,19 @@ mod tests {
         assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"range"}"#).unwrap()));
         assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"range"}[1]"#).unwrap()));
         assert!(!simple.match_path(&Path::try_from(r#"[1][0]{"other"}{"from_home"}"#).unwrap()));
+    }
+
+    #[test]
+    fn any_wild() {
+        let simple = Simple::from_str(r#"*[0]*{"range"}**"#).unwrap();
+
+        assert!(simple.match_path(&Path::try_from(r#"[0]{"range"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap()));
+        assert!(simple
+            .match_path(&Path::try_from(r#"{"another"}[1][0]{"range"}{"from_home"}[2]"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"[0][2]{"range"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"[0]{"middle"}{"range"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"[1]{"range"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"[0]{"other"}"#).unwrap()));
     }
 }
