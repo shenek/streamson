@@ -37,6 +37,52 @@ Only extracts matched data, nothing else.
 Alters the JSON by calling convert functions to matched parts.
 
 
+## Matchers
+
+Structures which are used to match a part of JSON.
+
+### Simple
+
+It matches path in JSON. For example:
+```json
+{
+	"users": [
+		{"name": "carl"},
+		{"name": "bob"}
+	],
+	"groups": [
+		{"name": "admins"},
+		{"name": "staff"}
+	]
+}
+```
+Simple path `{"users"}[0]{"name"}` would match `"carl"`.
+
+Simple path `{"users"}[]{"name"}` would match `"carl"` and `"bob"`.
+
+Simple path `{}[0]{"name"}` would match `"carl"` and `"admins"`.
+
+Simple path `??{"name"}` would match `"carl"`, `"bob"`, `"admins"` and `"staff"`.
+
+Simple path `*{"name"}` would match `"carl"`, `"bob"`, `"admins"` and `"staff"`.
+
+
+### Depth
+
+Matches depth in JSON path. It has min length and max length ranges (max is optional).
+
+
+### All
+
+It matches any JSON element.
+It is used only for some specific purpuses (such as JSON analysis).
+
+
+### Combinator
+
+Wraps one or two matchers. It implements basic logic operators (`NOT`, `OR` and `AND`).
+
+
 ## Examples
 ### Trigger
 ```rust
