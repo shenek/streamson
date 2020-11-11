@@ -7,21 +7,32 @@ Rust library to handle large JSONs.
 Note that it doesn't fully validates whether the input JSON is valid.
 This means that invalid JSONs might pass without an error.
 
-## Trigger strategy
+## Strategies
+
+| Strategy | Processes data | Buffers matched data | Nested matches | Uses handlers |
+| -------- | -------------- | -------------------- | -------------- | ------------- |
+| Trigger  | No             | Yes                  | Yes            | Yes           |
+| Filter   | Yes            | No                   | No             | No            |
+| Extract  | Yes            | Yes                  | No             | No            |
+| Convert  | Yes            | Yes                  | No             | Yes           |
+
+
+### Trigger strategy
 
 It doesn't actually perform parses json into data. It just takes JSON parts and triggers handlers when a path is matched.
 
 
-## Filter strategy
+### Filter strategy
 
 It actually alters the JSON. If the path is matched the matched part should be removed from output json.
 
 
-## Extract strategy
+### Extract strategy
 
 Only extracts matched data, nothing else.
 
-## Convert strategy
+
+### Convert strategy
 
 Alters the JSON by calling convert functions to matched parts.
 
