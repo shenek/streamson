@@ -1,6 +1,6 @@
 [package]
 name = "streamson-bin"
-version = "6.1.0"
+version = "6.2.0"
 authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
 description = "A program which processes large JSON data."
@@ -21,7 +21,7 @@ maintenance = { status = "actively-developed" }
 clap = "3.0.0-beta"
 clap_generate = "3.0.0-beta"
 lazy_static = "1.4"
-streamson-lib = { version = "6.1.0", path = "../streamson-lib/" }
+streamson-lib = { version = "6.2.0", path = "../streamson-lib/" }
 assert_cmd = { version = "~1.0.1", optional = true }
 
 

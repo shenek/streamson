@@ -1,18 +1,36 @@
+6.2.0 (2020-11-12)
+------------------
+
+* docs updates
+* added matcher which match all paths
+* added analyser handler
+* streamson-bin displays JSON structure in trigger strategy
+* added shorten handler for convert strategy
+* added shell completions for streamson-bin
+* added separator to streamson-bin extrat subcommand
+* added convert benchmark
+* benchmarks are not triggered in github actions anymore
+* wildcards '?' and '*' can be used inside simple matcher
+
 6.1.0 (2020-10-23)
 ------------------
+
 * added test for streamson-bin
 * fix streamson-bin and insufficient buffer size
 
 6.0.0 (2020-10-12)
 ------------------
+
 * alter handlers and use it in convert strategy
 
 5.0.2 (2020-10-11)
 ------------------
+
 * fix convert strategy so it can be safely passed between the threads (second try)
 
 5.0.1 (2020-10-10)
 ------------------
+
 * fix convert strategy so it can be safely passed between the threads
 
 5.0.0 (2020-10-05)
@@ -29,6 +47,7 @@
 
 4.1.0 (2020-08-29)
 ------------------
+
 * new streamson-generato subcrate (unstable)
 * new streamson-futures subcrate
 * new streamson-extra-matchers subcrate
