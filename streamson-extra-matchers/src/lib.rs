@@ -6,7 +6,11 @@
 //!
 
 #[cfg(feature = "with_regex")]
+pub mod regex_converter;
+#[cfg(feature = "with_regex")]
 pub mod regex_matcher;
 
+#[cfg(feature = "with_regex")]
+pub use regex_converter::RegexConverter;
 #[cfg(feature = "with_regex")]
 pub use regex_matcher::Regex;

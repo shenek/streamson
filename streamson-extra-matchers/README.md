@@ -34,3 +34,30 @@ for input in vec![
     trigger.process(&input).unwrap();
 }
 ```
+
+##  Converters
+
+### RegexConverter
+Converts data based on regex.
+
+#### Example
+```rust
+use streamson_lib::{matcher, strategy};
+use std::sync::{Arc, Mutex};
+use regex;
+use streamson_extra_matchers::RegexConverter;
+let converter =
+Arc::new(Mutex::new(RegexConverter::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
+let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
+let mut convert = strategy::Convert::new();
+// Set the matcher for convert strategy
+convert.add_matcher(Box::new(matcher), vec![converter]);
+for input in vec![
+    br#"{"users": [{"password": "1234", "name": "User1"}, {"#.to_vec(),
+    br#""password": "0000", "name": "user2}]}"#.to_vec(),
+] {
+    for converted_data in convert.process(&input).unwrap() {
+        println!("{:?} (len {})", converted_data, converted_data.len());
+    }
+}
+```
