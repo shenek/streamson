@@ -38,6 +38,26 @@ pub fn prepare_extract_subcommand() -> App<'static> {
                 .takes_value(true)
                 .value_name("SEP"),
         )
+        .arg(
+            Arg::new("before")
+                .about("Will be print to stdout before first match")
+                .short('b')
+                .long("before")
+                .takes_value(true)
+                .value_name("START"),
+        )
+        .arg(
+            Arg::new("after")
+                .about("Will be print to stdout after last match")
+                .short('a')
+                .long("after")
+                .takes_value(true)
+                .value_name("END"),
+        )
+}
+
+fn str_to_vec(input: &str) -> Vec<u8> {
+    input.as_bytes().iter().copied().collect()
 }
 
 pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
@@ -45,8 +65,9 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
 
     let mut matcher: Option<matcher::Combinator> = None;
 
-    let separator = matches.value_of("separator").unwrap_or("");
-    let separator_bytes: Vec<u8> = separator.as_bytes().iter().copied().collect();
+    let separator = str_to_vec(matches.value_of("separator").unwrap_or(""));
+    let before = str_to_vec(matches.value_of("before").unwrap_or(""));
+    let after = str_to_vec(matches.value_of("after").unwrap_or(""));
 
     if let Some(matches) = matches.values_of("simple") {
         for matcher_str in matches {
@@ -80,6 +101,8 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     let mut buffer = vec![];
     let mut first = true;
     let mut out = stdout();
+
+    out.write_all(&before)?;
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
@@ -88,13 +111,14 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         buffer.clear();
         for (_, data) in output {
             if !first && !data.is_empty() {
-                out.write_all(&separator_bytes)?;
+                out.write_all(&separator)?;
             }
             out.write_all(&data)?;
 
             first = false;
         }
     }
+    out.write_all(&after)?;
 
     Ok(())
 }

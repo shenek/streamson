@@ -50,7 +50,7 @@ fn extract(cmd_str: &str) {
         );
     println!("OK");
 
-    print!("EXTRACT WITH SEPARATOR ");
+    print!("EXTRACT TO JSON ");
     Command::new(cmd_str)
         .arg("-b")
         .arg("10")
@@ -62,15 +62,19 @@ fn extract(cmd_str: &str) {
         .arg("--simple")
         .arg(r#"{"users"}"#)
         .arg("--separator")
-        .arg("\n")
+        .arg(",\n")
+        .arg("--before")
+        .arg("[")
+        .arg("--after")
+        .arg("]")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
         .stdout(
-            r#"[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]
-{"name": "admin", "gid": 1}
-{"name": "staff", "gid": 2}
-["aaa", "bbb", "ccc"]"#,
+            r#"[[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
+{"name": "admin", "gid": 1},
+{"name": "staff", "gid": 2},
+["aaa", "bbb", "ccc"]]"#,
         );
     println!("OK");
 }
