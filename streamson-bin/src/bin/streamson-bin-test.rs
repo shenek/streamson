@@ -4,7 +4,7 @@ use std::env;
 const INPUT_DATA: &str = r#"{
     "users": [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
     "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
-    "logs": ["aaa", "bbb", "ccc"]
+    "logs": ["null", "{}", "[]"]
 }"#;
 
 fn filter(cmd_str: &str) {
@@ -46,7 +46,7 @@ fn extract(cmd_str: &str) {
         .assert()
         .success()
         .stdout(
-            r#"[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]{"name": "admin", "gid": 1}{"name": "staff", "gid": 2}["aaa", "bbb", "ccc"]"#,
+            r#"[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]{"name": "admin", "gid": 1}{"name": "staff", "gid": 2}["null", "{}", "[]"]"#,
         );
     println!("OK");
 
@@ -74,7 +74,7 @@ fn extract(cmd_str: &str) {
             r#"[[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
 {"name": "admin", "gid": 1},
 {"name": "staff", "gid": 2},
-["aaa", "bbb", "ccc"]]"#,
+["null", "{}", "[]"]]"#,
         );
     println!("OK");
 }
@@ -122,7 +122,27 @@ fn convert(cmd_str: &str) {
             r#"{
     "users": [{"name": "c..", "id": 1}, {"name": "p..", "id": 2}],
     "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
-    "logs": ["aaa", "bbb", "ccc"]
+    "logs": ["null", "{}", "[]"]
+}"#,
+        );
+    println!("OK");
+
+    print!("CONVERT UNSTRINGIFY ");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("convert")
+        .arg("--simple")
+        .arg(r#"{"logs"}[]"#)
+        .arg("--unstringify")
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stdout(
+            r#"{
+    "users": [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": [null, {}, []]
 }"#,
         );
     println!("OK");
@@ -154,12 +174,12 @@ fn trigger(cmd_str: &str) {
 [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]
 {"groups"}[0]: {"name": "admin", "gid": 1}
 {"groups"}[1]: {"name": "staff", "gid": 2}
-{"logs"}[0]: "aaa"
-"aaa"
-{"logs"}[1]: "bbb"
-"bbb"
-{"logs"}[2]: "ccc"
-"ccc"
+{"logs"}[0]: "null"
+"null"
+{"logs"}[1]: "{}"
+"{}"
+{"logs"}[2]: "[]"
+"[]"
 JSON structure:
   <root>: 1
   {"groups"}: 1
