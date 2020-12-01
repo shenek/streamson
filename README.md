@@ -19,7 +19,7 @@ And you're not able to parse it because it can't fit into the memory.
 E.g. someone thought that it might be a good idea to dump entire database into
 a single json file.
 
-```
+```json
 {
 	"access_logs": [...],  # millions of records
 	"users": [{"name": "Example User", ...}, ...],
