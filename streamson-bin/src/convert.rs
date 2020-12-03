@@ -6,6 +6,7 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
+use streamson_extra_matchers::Regex;
 use streamson_lib::{handler, matcher, strategy};
 
 pub fn prepare_convert_subcommand() -> App<'static> {
@@ -29,6 +30,16 @@ pub fn prepare_convert_subcommand() -> App<'static> {
                 .multiple(true)
                 .takes_value(true)
                 .value_name("DEPTH_MATCH")
+                .required(false),
+        )
+        .arg(
+            Arg::new("regex")
+                .about("Match by regex")
+                .short('x')
+                .long("regex")
+                .multiple(true)
+                .takes_value(true)
+                .value_name("REGEX")
                 .required(false),
         )
         .arg(
@@ -90,6 +101,17 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
                 matcher = Some(matcher::Combinator::new(matcher::Depth::from_str(
                     matcher_str,
                 )?));
+            }
+        }
+    }
+
+    if let Some(matches) = matches.values_of("regex") {
+        for matcher_str in matches {
+            if let Some(old_matcher) = matcher {
+                matcher =
+                    Some(old_matcher | matcher::Combinator::new(Regex::from_str(matcher_str)?));
+            } else {
+                matcher = Some(matcher::Combinator::new(Regex::from_str(matcher_str)?));
             }
         }
     }

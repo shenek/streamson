@@ -22,6 +22,7 @@ clap = "3.0.0-beta"
 clap_generate = "3.0.0-beta"
 lazy_static = "1.4"
 streamson-lib = { version = "6.2.0", path = "../streamson-lib/" }
+streamson-extra-matchers = { version = "6.2.0", path = "../streamson-extra-matchers/" }
 assert_cmd = { version = "~1.0.1", optional = true }
 
 

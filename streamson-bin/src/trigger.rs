@@ -7,6 +7,7 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
+use streamson_extra_matchers::Regex;
 use streamson_lib::{error, handler, matcher, strategy};
 
 fn make_matcher(
@@ -20,6 +21,7 @@ fn make_matcher(
         "simple" => Ok(matcher::Combinator::new(matcher::Simple::from_str(
             matcher_string,
         )?)),
+        "regex" => Ok(matcher::Combinator::new(Regex::from_str(matcher_string)?)),
         _ => Err(Box::new(error::Matcher::Parse(format!(
             "Unknown type {}",
             matcher_name
