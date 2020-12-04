@@ -39,6 +39,12 @@ pub struct Buffer {
 
     /// Not to show path will spare some allocation
     use_path: bool,
+
+    /// Current buffer size (in bytes)
+    current_buffer_size: usize,
+
+    /// Max buffer size
+    max_buffer_size: Option<usize>,
 }
 
 impl Default for Buffer {
@@ -46,6 +52,8 @@ impl Default for Buffer {
         Self {
             stored: VecDeque::new(),
             use_path: false,
+            current_buffer_size: 0,
+            max_buffer_size: None,
         }
     }
 }
@@ -66,7 +74,21 @@ impl Handler for Buffer {
             None
         };
 
-        self.stored.push_back((path_opt, data.unwrap().to_vec()));
+        let data = data.unwrap(); // data will be buffered
+
+        // check whether buffer capacity hasn't been reached
+        if let Some(limit) = self.max_buffer_size {
+            if self.current_buffer_size + data.len() > limit {
+                return Err(error::Handler::new(format!(
+                    "Max buffer size {} was reached",
+                    limit
+                )));
+            }
+        }
+
+        self.current_buffer_size += data.len();
+        self.stored.push_back((path_opt, data.to_vec()));
+
         Ok(None)
     }
 
@@ -114,6 +136,67 @@ impl Buffer {
     ///
     /// ```
     pub fn pop(&mut self) -> Option<(Option<String>, Vec<u8>)> {
-        self.stored.pop_front()
+        let popped = self.stored.pop_front();
+        if let Some((_, buffer)) = popped.as_ref() {
+            self.current_buffer_size -= buffer.len();
+        }
+        popped
+    }
+
+    /// Sets max buffer size
+    ///
+    /// # Arguments
+    /// * `use_path` - should path be store with data
+    pub fn set_max_buffer_size(mut self, max_size: Option<usize>) -> Self {
+        self.max_buffer_size = max_size;
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Buffer;
+    use crate::{matcher::Simple, strategy::Trigger};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn max_buffer_size_error() {
+        let mut trigger = Trigger::new();
+        let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
+        let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
+
+        trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+
+        // Fits into the buffer
+        assert!(trigger.process(br#"[{"description": "short"}, "#).is_ok());
+        // Doesn't fit into the buffer
+        assert!(trigger
+            .process(br#"{"description": "too long description"}]"#)
+            .is_err());
+    }
+
+    #[test]
+    fn max_buffer_size_consumed() {
+        let mut trigger = Trigger::new();
+        let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
+        let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
+
+        trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+
+        // Fits into the buffer
+        assert!(trigger.process(br#"[{"description": "short"}, "#).is_ok());
+        // Make the buffer shorter
+        assert_eq!(
+            buffer_handler.lock().unwrap().pop().unwrap(),
+            (None, br#""short""#.to_vec())
+        );
+        assert!(trigger
+            .process(br#"{"description": "too long description"}]"#)
+            .is_ok());
+        // Make the buffer shorter
+        assert_eq!(
+            buffer_handler.lock().unwrap().pop().unwrap(),
+            (None, br#""too long description""#.to_vec())
+        );
     }
 }
