@@ -48,7 +48,7 @@ impl File {
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::File::new("/tmp/output.txt")
+    /// let file = handler::File::new("output.txt")
     ///     .unwrap()
     ///     .set_use_path(true);
     /// ```
@@ -67,7 +67,7 @@ impl File {
     /// # Example
     /// ```
     /// use streamson_lib::handler;
-    /// let file = handler::File::new("/tmp/output.txt")
+    /// let file = handler::File::new("output.txt")
     ///     .unwrap()
     ///     .set_separator("######\n");
     /// ```

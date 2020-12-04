@@ -12,7 +12,7 @@
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("/tmp/out.txt").unwrap())
+//!     Mutex::new(handler::File::new("out.txt").unwrap())
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
@@ -21,7 +21,7 @@
 //!
 //! let mut trigger = strategy::Trigger::new();
 //!
-//! // exports users to stdout and /tmp/out.txt
+//! // exports users to stdout and out.txt
 //! trigger.add_matcher(
 //!     Box::new(first_matcher),
 //!     &[stdout_handler.clone(), file_handler],
@@ -46,7 +46,7 @@
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("/tmp/out.txt").unwrap())
+//!     Mutex::new(handler::File::new("out.txt").unwrap())
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
@@ -57,7 +57,7 @@
 //!
 //! let mut trigger = strategy::Trigger::new();
 //!
-//! // Paths with depths 1, 2 are exported to tmp.txt
+//! // Paths with depths 1, 2 are exported to out.txt
 //! trigger.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
@@ -76,7 +76,7 @@
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("/tmp/out.txt").unwrap())
+//!     Mutex::new(handler::File::new("out.txt").unwrap())
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
 //!
@@ -84,7 +84,7 @@
 //!
 //! let mut trigger = strategy::Trigger::new();
 //!
-//! // Paths with depths 1, 2 are exported to tmp.txt
+//! // Paths with depths 1, 2 are exported to out.txt
 //! trigger.add_matcher(
 //!     Box::new(matcher),
 //!     &[stdout_handler.clone(), file_handler],
