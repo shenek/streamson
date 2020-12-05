@@ -1,3 +1,14 @@
+6.3.0 (2020-12-05)
+------------------
+
+* Buffer handler can limit its buffer size
+* CI tests for macos and windows
+* added regex matcher for streamson-bin
+* added tests for streamson-bin README.md
+* added unstringify handler for convert strategy
+* added regex converter to streamson-extra-matchers
+* added '--before' and '--after' to streamson-bin extract subcommand
+
 6.2.0 (2020-11-12)
 ------------------
 
@@ -7,7 +18,7 @@
 * streamson-bin displays JSON structure in trigger strategy
 * added shorten handler for convert strategy
 * added shell completions for streamson-bin
-* added separator to streamson-bin extrat subcommand
+* added separator to streamson-bin extract subcommand
 * added convert benchmark
 * benchmarks are not triggered in github actions anymore
 * wildcards '?' and '*' can be used inside simple matcher
