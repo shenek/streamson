@@ -1,7 +1,7 @@
 use regex::{self, Error as RegexError};
 use std::str::FromStr;
 
-use streamson_lib::{matcher::MatchMaker, path::Path};
+use streamson_lib::{error, matcher::MatchMaker, path::Path};
 
 /// Regex path matcher
 ///
@@ -56,9 +56,10 @@ impl MatchMaker for Regex {
 }
 
 impl FromStr for Regex {
-    type Err = RegexError;
+    type Err = error::Matcher;
     fn from_str(path: &str) -> Result<Self, Self::Err> {
-        let regex = regex::Regex::from_str(path)?;
+        let regex = regex::Regex::from_str(path)
+            .map_err(|e: RegexError| Self::Err::Parse(e.to_string()))?;
         Ok(Self::new(regex))
     }
 }
