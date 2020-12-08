@@ -1,3 +1,8 @@
+6.3.1 (2020-12-08)
+------------------
+
+* Fix wrong Error types in streamson-extra-matchers
+
 6.3.0 (2020-12-05)
 ------------------
 
