@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_extra_matchers::Regex;
+use streamson_extra_matchers::{Regex, RegexConverter};
 use streamson_lib::{handler, matcher, strategy};
 
 pub fn prepare_convert_subcommand() -> App<'static> {
@@ -50,7 +50,7 @@ pub fn prepare_convert_subcommand() -> App<'static> {
                 .long("replace")
                 .takes_value(true)
                 .value_name("JSON")
-                .required_unless_present_any(&["shorten", "unstringify"]),
+                .required_unless_present_any(&["shorten", "unstringify", "regex_convert"]),
         )
         .arg(
             Arg::new("shorten")
@@ -61,7 +61,7 @@ pub fn prepare_convert_subcommand() -> App<'static> {
                 .takes_value(true)
                 .value_names(&["LENGTH", "TERMINATOR"])
                 .number_of_values(2)
-                .required_unless_present_any(&["replace", "unstringify"]),
+                .required_unless_present_any(&["replace", "unstringify", "regex_convert"]),
         )
         .arg(
             Arg::new("unstringify")
@@ -70,7 +70,18 @@ pub fn prepare_convert_subcommand() -> App<'static> {
                 .group("handler")
                 .long("unstringify")
                 .takes_value(false)
-                .required_unless_present_any(&["replace", "shorten"]),
+                .required_unless_present_any(&["replace", "shorten", "regex_convert"]),
+        )
+        .arg(
+            Arg::new("regex_convert")
+                .about("Converts using regex")
+                .short('X')
+                .group("handler")
+                .long("regex-convert")
+                .takes_value(true)
+                .value_names(&["MATCH", "INTO"])
+                .number_of_values(2)
+                .required_unless_present_any(&["replace", "shorten", "unstringify"]),
         )
 }
 
@@ -134,6 +145,16 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         }
     } else if matches.is_present("unstringify") {
         let converter = Arc::new(Mutex::new(handler::Unstringify::new()));
+        if let Some(matcher_to_add) = matcher {
+            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+        }
+    } else if let Some(regex_convert_args) = matches.values_of("regex_convert") {
+        let args: Vec<String> = regex_convert_args.map(String::from).collect();
+        let converter = Arc::new(Mutex::new(RegexConverter::new().add_regex(
+            regex::Regex::new(&args[0])?,
+            args[1].clone(),
+            1,
+        )));
         if let Some(matcher_to_add) = matcher {
             convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
         }

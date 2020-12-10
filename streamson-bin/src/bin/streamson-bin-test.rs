@@ -146,6 +146,28 @@ fn convert(cmd_str: &str) {
 }"#,
         );
     println!("OK");
+
+    print!("CONVERT REGEX ");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("convert")
+        .arg("--simple")
+        .arg(r#"{"users"}[]{"name"}"#)
+        .arg("--regex-convert")
+        .arg(r#"([a-z]+)"#)
+        .arg(r#"USER_$1"#)
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stdout(
+            r#"{
+    "users": [{"name": "USER_carl", "id": 1}, {"name": "USER_paul", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": ["null", "{}", "[]"]
+}"#,
+        );
+    println!("OK");
 }
 
 fn trigger(cmd_str: &str) {
