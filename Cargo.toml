@@ -3,7 +3,6 @@
 members = [
 	"streamson-bin",
 	"streamson-futures",
-	"streamson-extra-matchers",
 	"streamson-lib",
 	"streamson-generator",
 	"streamson-tokio",
@@ -14,7 +13,6 @@ members = [
 default-members = [
 	"streamson-bin",
 	"streamson-futures",
-	"streamson-extra-matchers",
 	"streamson-lib",
 	"streamson-tokio",
 	"examples/custom-matcher",

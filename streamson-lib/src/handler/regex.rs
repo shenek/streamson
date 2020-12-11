@@ -2,13 +2,12 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{matcher, strategy};
+//! use streamson_lib::{matcher, strategy, handler};
 //! use std::sync::{Arc, Mutex};
 //! use regex;
-//! use streamson_extra_matchers::RegexConverter;
 //!
 //! let converter =
-//! Arc::new(Mutex::new(RegexConverter::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
+//! Arc::new(Mutex::new(handler::Regex::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
 //! let mut convert = strategy::Convert::new();
@@ -26,22 +25,21 @@
 //! }
 //! ```
 
-use regex::Regex;
+use super::Handler;
+use crate::{error, path::Path};
 use std::str;
-use streamson_lib::Handler;
-use streamson_lib::{error, path::Path};
 
 /// Regex to match and string to convert to
-type Replacement = (Regex, String, usize);
+type Replacement = (regex::Regex, String, usize);
 
 /// Converts data using regex
 #[derive(Debug, Default)]
-pub struct RegexConverter {
+pub struct Regex {
     /// All replacements which will be triggered
     replacements: Vec<Replacement>,
 }
 
-impl Handler for RegexConverter {
+impl Handler for Regex {
     fn handle(
         &mut self,
         _path: &Path,
@@ -68,7 +66,7 @@ impl Handler for RegexConverter {
     }
 }
 
-impl RegexConverter {
+impl Regex {
     /// Creates a new regex converter
     pub fn new() -> Self {
         Self::default()
@@ -79,7 +77,7 @@ impl RegexConverter {
     /// # Arguments
     /// * `regex` - regex which will be used
     /// * `into` - regex replacement
-    pub fn add_regex(mut self, regex: Regex, into: String, limit: usize) -> Self {
+    pub fn add_regex(mut self, regex: regex::Regex, into: String, limit: usize) -> Self {
         self.replacements.push((regex, into, limit));
         self
     }
@@ -87,16 +85,15 @@ impl RegexConverter {
 
 #[cfg(test)]
 mod tests {
-    use super::RegexConverter;
+    use crate::{handler, matcher::Simple, strategy::Convert};
     use regex::Regex;
     use std::sync::{Arc, Mutex};
-    use streamson_lib::{matcher::Simple, strategy::Convert};
 
     #[test]
     fn regex_converter() {
         let mut convert = Convert::new();
 
-        let regex_converter = RegexConverter::new().add_regex(
+        let regex_converter = handler::Regex::new().add_regex(
             Regex::new("[Uu]ser([0-9]+)").unwrap(),
             "user$1".to_string(),
             1,

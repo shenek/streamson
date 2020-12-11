@@ -7,18 +7,22 @@ pub mod buffer;
 pub mod file;
 pub mod indexer;
 pub mod println;
+#[cfg(feature = "with_regex")]
+pub mod regex;
 pub mod replace;
 pub mod shorten;
 pub mod unstringify;
 
-pub use analyser::Analyser;
-pub use buffer::Buffer;
-pub use file::File;
-pub use indexer::Indexer;
-pub use println::PrintLn;
-pub use replace::Replace;
-pub use shorten::Shorten;
-pub use unstringify::Unstringify;
+pub use self::analyser::Analyser;
+pub use self::buffer::Buffer;
+pub use self::file::File;
+pub use self::indexer::Indexer;
+pub use self::println::PrintLn;
+#[cfg(feature = "with_regex")]
+pub use self::regex::Regex;
+pub use self::replace::Replace;
+pub use self::shorten::Shorten;
+pub use self::unstringify::Unstringify;
 
 /// Common handler trait
 pub trait Handler: Send {

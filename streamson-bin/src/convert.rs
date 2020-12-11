@@ -6,7 +6,6 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_extra_matchers::{Regex, RegexConverter};
 use streamson_lib::{handler, matcher, strategy};
 
 pub fn prepare_convert_subcommand() -> App<'static> {
@@ -119,10 +118,13 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     if let Some(matches) = matches.values_of("regex") {
         for matcher_str in matches {
             if let Some(old_matcher) = matcher {
-                matcher =
-                    Some(old_matcher | matcher::Combinator::new(Regex::from_str(matcher_str)?));
+                matcher = Some(
+                    old_matcher | matcher::Combinator::new(matcher::Regex::from_str(matcher_str)?),
+                );
             } else {
-                matcher = Some(matcher::Combinator::new(Regex::from_str(matcher_str)?));
+                matcher = Some(matcher::Combinator::new(matcher::Regex::from_str(
+                    matcher_str,
+                )?));
             }
         }
     }
@@ -150,7 +152,7 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         }
     } else if let Some(regex_convert_args) = matches.values_of("regex_convert") {
         let args: Vec<String> = regex_convert_args.map(String::from).collect();
-        let converter = Arc::new(Mutex::new(RegexConverter::new().add_regex(
+        let converter = Arc::new(Mutex::new(handler::Regex::new().add_regex(
             regex::Regex::new(&args[0])?,
             args[1].clone(),
             1,

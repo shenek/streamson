@@ -78,10 +78,88 @@ It matches any JSON element.
 It is used only for some specific purpuses (such as JSON analysis).
 
 
+### Regex
+Matches path based on regex.
+
+#### Example
+```rust
+use streamson_lib::{handler, strategy, matcher};
+
+use std::{str::FromStr, sync::{Arc, Mutex}};
+
+let handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+let matcher = matcher::Regex::from_str(r#"\{"[Uu]ser"\}\[\]"#).unwrap();
+
+let mut trigger = strategy::Trigger::new();
+
+trigger.add_matcher(
+    Box::new(matcher),
+    &[handler],
+);
+
+for input in vec![
+    br#"{"Users": [1,2]"#.to_vec(),
+    br#", "users": [3, 4]}"#.to_vec(),
+] {
+    trigger.process(&input).unwrap();
+}
+```
+
+
 ### Combinator
 
 Wraps one or two matchers. It implements basic logic operators (`NOT`, `OR` and `AND`).
 
+## Handlers
+
+### Analyzer
+Stores matched paths to analyze JSON structure
+
+### Buffer
+Buffers matched data which can be manually extracted later
+
+### File
+Stores matched data into a file
+
+### Indexer
+Store indexes of the matched data
+
+### PrintLn
+Prints matched data to stdout
+
+### Regex
+Converts data based on regex.
+
+#### Example
+```rust
+use streamson_lib::{matcher, strategy, handler};
+use std::sync::{Arc, Mutex};
+use regex;
+
+let converter =
+Arc::new(Mutex::new(handler::Regex::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
+let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
+let mut convert = strategy::Convert::new();
+// Set the matcher for convert strategy
+convert.add_matcher(Box::new(matcher), vec![converter]);
+for input in vec![
+    br#"{"users": [{"password": "1234", "name": "User1"}, {"#.to_vec(),
+    br#""password": "0000", "name": "user2}]}"#.to_vec(),
+] {
+    for converted_data in convert.process(&input).unwrap() {
+        println!("{:?} (len {})", converted_data, converted_data.len());
+    }
+}
+```
+
+### Replace
+Replaces matched output by fixed data
+
+### Shorten
+Shortens matched data
+
+### Unstringify
+Unstringifies matched data
 
 ## Examples
 ### Trigger

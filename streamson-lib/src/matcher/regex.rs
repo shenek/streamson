@@ -1,7 +1,7 @@
 use regex::{self, Error as RegexError};
 use std::str::FromStr;
 
-use streamson_lib::{error, matcher::MatchMaker, path::Path};
+use crate::{error, matcher::MatchMaker, path::Path};
 
 /// Regex path matcher
 ///
@@ -9,13 +9,12 @@ use streamson_lib::{error, matcher::MatchMaker, path::Path};
 ///
 /// # Examples
 /// ```
-/// use streamson_lib::{handler, strategy};
-/// use streamson_extra_matchers::Regex;
+/// use streamson_lib::{handler, strategy, matcher};
 ///
 /// use std::{str::FromStr, sync::{Arc, Mutex}};
 ///
 /// let handler = Arc::new(Mutex::new(handler::PrintLn::new()));
-/// let matcher = Regex::from_str(r#"\{"[Uu]ser"\}\[\]"#).unwrap();
+/// let matcher = matcher::Regex::from_str(r#"\{"[Uu]ser"\}\[\]"#).unwrap();
 ///
 /// let mut trigger = strategy::Trigger::new();
 ///

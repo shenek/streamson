@@ -5,12 +5,16 @@ use std::fmt;
 pub mod all;
 pub mod combinator;
 pub mod depth;
+#[cfg(feature = "with_regex")]
+pub mod regex;
 pub mod simple;
 
-pub use all::All;
-pub use combinator::Combinator;
-pub use depth::Depth;
-pub use simple::Simple;
+pub use self::all::All;
+pub use self::combinator::Combinator;
+pub use self::depth::Depth;
+#[cfg(feature = "with_regex")]
+pub use self::regex::Regex;
+pub use self::simple::Simple;
 
 use crate::path::Path;
 
