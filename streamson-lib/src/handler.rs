@@ -23,6 +23,7 @@ pub use self::regex::Regex;
 pub use self::replace::Replace;
 pub use self::shorten::Shorten;
 pub use self::unstringify::Unstringify;
+pub use crate::streamer::ParsedKind;
 
 /// Common handler trait
 pub trait Handler: Send {
@@ -46,6 +47,7 @@ pub trait Handler: Send {
         path: &Path,
         matcher_idx: usize,
         data: Option<&[u8]>,
+        kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler>;
 
     /// Calls when an index occured

@@ -152,7 +152,7 @@ impl Filter {
                         }
                     }
                 }
-                Output::End(idx) => {
+                Output::End(idx, _) => {
                     if let Some(path) = self.matched_path.as_ref() {
                         if path == self.streamer.current_path() {
                             self.matched_path = None;

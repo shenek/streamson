@@ -145,7 +145,7 @@ impl Convert {
                         }
                     }
                 }
-                Output::End(idx) => {
+                Output::End(idx, kind) => {
                     let current_path = self.streamer.current_path();
                     let mut clear = false;
                     if let Some((matched_path, matcher_idx)) = self.matched.as_ref() {
@@ -166,11 +166,15 @@ impl Convert {
                             for handler in self.matchers[*matcher_idx].1.iter() {
                                 let mut guard = handler.lock().unwrap();
                                 // trigger idx handler
-                                guard.handle_idx(current_path, start_idx, Output::End(idx))?;
+                                guard.handle_idx(
+                                    current_path,
+                                    start_idx,
+                                    Output::End(idx, kind),
+                                )?;
 
                                 // Chain the handlers conversion
                                 if let Some(converted) =
-                                    guard.handle(current_path, *matcher_idx, Some(&buffer))?
+                                    guard.handle(current_path, *matcher_idx, Some(&buffer), kind)?
                                 {
                                     buffer = converted;
                                 }

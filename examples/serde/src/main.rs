@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use streamson_lib::{error, handler, matcher, path::Path, strategy};
+use streamson_lib::{error, handler, matcher, path::Path, strategy, streamer::ParsedKind};
 
 use std::sync::{Arc, Mutex};
 
@@ -28,6 +28,7 @@ impl handler::Handler for UserHandler {
         _path: &Path,
         _match_idx: usize,
         data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let new_user = serde_json::from_slice(data.unwrap()).map_err(error::Handler::new)?;
         self.users.push(new_user);

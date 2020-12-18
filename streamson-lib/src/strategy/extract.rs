@@ -128,7 +128,7 @@ impl Extract {
                     }
                     return Ok(result);
                 }
-                Output::End(idx) if self.matched_path.is_some() => {
+                Output::End(idx, _) if self.matched_path.is_some() => {
                     if let Some(path) = self.matched_path.as_ref() {
                         if path == self.streamer.current_path() {
                             // extend buffer and update indexes

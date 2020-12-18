@@ -25,7 +25,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, Path};
+use crate::{error, streamer::ParsedKind, Path};
 
 /// Handler which unstringifies the matched data
 ///
@@ -45,9 +45,10 @@ impl Handler for Unstringify {
         _path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
+        kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let data = data.unwrap(); // buffering is required -> data should not be None
-        if data[0] != b'"' || data[data.len() - 1] != b'"' {
+        if !matches!(kind, ParsedKind::Str) {
             return Err(error::Handler::new(
                 "Unstringified data is supposed to be a string.",
             ));

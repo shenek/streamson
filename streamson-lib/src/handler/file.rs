@@ -1,7 +1,7 @@
 //! Handler which puts output into a file
 
 use super::Handler;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::ParsedKind};
 use std::{fs, io::Write};
 
 /// File handler responsible for storing data to a file.
@@ -94,6 +94,7 @@ impl Handler for File {
         path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.use_path {
             self.file

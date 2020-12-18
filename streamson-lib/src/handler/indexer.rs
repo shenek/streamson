@@ -29,7 +29,11 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{
+    error,
+    path::Path,
+    streamer::{Output, ParsedKind},
+};
 use std::collections::VecDeque;
 
 /// Indexer handler responsible for storing index of the matches
@@ -57,6 +61,7 @@ impl Handler for Indexer {
         _path: &Path,
         _matcher_idx: usize,
         _data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(None)
     }
@@ -135,7 +140,12 @@ impl Indexer {
 #[cfg(test)]
 mod tests {
     use super::Indexer;
-    use crate::{handler::buffer::Buffer, matcher::Simple, strategy::Trigger, streamer::Output};
+    use crate::{
+        handler::buffer::Buffer,
+        matcher::Simple,
+        strategy::Trigger,
+        streamer::{Output, ParsedKind},
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -159,14 +169,29 @@ mod tests {
         let mut guard = indexer_handler.lock().unwrap();
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(13)));
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(14)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::End(15)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::End(15, ParsedKind::Num))
+        );
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(17)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::End(18)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::End(18, ParsedKind::Num))
+        );
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(20)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::End(21)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::End(21, ParsedKind::Num))
+        );
         assert_eq!(guard.pop().unwrap(), (None, Output::Start(23)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::End(24)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::End(25)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::End(24, ParsedKind::Num))
+        );
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::End(25, ParsedKind::Arr))
+        );
 
         // Test whether buffer handler contains the right data
         let mut guard = buffer_handler.lock().unwrap();

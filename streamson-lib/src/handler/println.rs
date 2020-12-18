@@ -1,7 +1,7 @@
 //! Handler which puts output into stdout
 //!
 use super::Handler;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::ParsedKind};
 use std::str;
 
 /// Handler responsible for sending data to stdout.
@@ -81,6 +81,7 @@ impl Handler for PrintLn {
         path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let str_data =
             str::from_utf8(data.unwrap()).map_err(|err| error::Handler::new(err.to_string()))?;

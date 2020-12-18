@@ -167,7 +167,7 @@ impl Trigger {
 
                     self.matched_stack.push(matched);
                 }
-                Output::End(idx) => {
+                Output::End(idx, kind) => {
                     let current_path = self.streamer.current_path();
                     let to = idx - self.input_start;
                     if self.collecting {
@@ -180,7 +180,11 @@ impl Trigger {
                         // run handlers for the matches
                         for handler in &self.matchers[item.match_idx].1 {
                             let mut guard = handler.lock().unwrap();
-                            guard.handle_idx(current_path, item.match_idx, Output::End(idx))?;
+                            guard.handle_idx(
+                                current_path,
+                                item.match_idx,
+                                Output::End(idx, kind),
+                            )?;
                             let buffering_required = guard.buffering_required();
                             guard.handle(
                                 current_path,
@@ -193,6 +197,7 @@ impl Trigger {
                                 } else {
                                     None
                                 },
+                                kind,
                             )?;
                         }
                     }
@@ -223,7 +228,7 @@ impl Trigger {
 #[cfg(test)]
 mod tests {
     use super::Trigger;
-    use crate::{error, handler::Handler, matcher::Simple, path::Path};
+    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::ParsedKind};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -238,6 +243,7 @@ mod tests {
             path: &Path,
             _matcher_idx: usize,
             data: Option<&[u8]>,
+            _kind: ParsedKind,
         ) -> Result<Option<Vec<u8>>, error::Handler> {
             self.paths.push(path.to_string());
             self.data.push(data.unwrap().to_vec());

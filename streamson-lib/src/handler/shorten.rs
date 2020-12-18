@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, Path};
+use crate::{error, streamer::ParsedKind, Path};
 
 /// Handler which shortens the matched data
 ///
@@ -56,6 +56,7 @@ impl Handler for Shorten {
         _path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let data = data.unwrap(); // buffering is required -> data should not be None
         if data.len() <= self.max_length {

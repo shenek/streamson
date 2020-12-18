@@ -6,6 +6,7 @@ use super::Handler;
 use crate::{
     error,
     path::{Element, Path},
+    streamer::ParsedKind,
 };
 
 #[derive(Debug, Default)]
@@ -32,6 +33,7 @@ impl Handler for Analyser {
         path: &Path,
         _matcher_idx: usize,
         _data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         *self.paths.entry(to_recuded_array_str(path)).or_insert(0) += 1;
         Ok(None)

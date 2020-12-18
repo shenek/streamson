@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::ParsedKind};
 use std::str;
 
 /// Regex to match and string to convert to
@@ -45,6 +45,7 @@ impl Handler for Regex {
         _path: &Path,
         _matcher_idx: usize,
         data: Option<&[u8]>,
+        _kind: ParsedKind,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let mut output: String = str::from_utf8(data.unwrap())
             .map_err(|e| error::Handler::new(e.to_string()))?
