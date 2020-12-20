@@ -268,12 +268,12 @@ impl handler::Handler for CustomHandler {
 ### Custom Matchers
 You can define custom matchers as well.
 ```rust
-use streamson_lib::matcher;
+use streamson_lib::{matcher, Path, streamer::ParsedKind};
 
 #[derive(Debug)]
 struct CustomMatcher;
 
 impl matcher::MatchMaker for CustomMatcher {
-	fn match_path(&self, _: &streamson_lib::Path) -> bool { todo!() }
+	fn match_path(&self, _: &Path, _: ParsedKind) -> bool { todo!() }
 }
 ```

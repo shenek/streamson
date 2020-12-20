@@ -3,7 +3,7 @@
 use std::{ops, sync::Arc};
 
 use super::MatchMaker;
-use crate::path::Path;
+use crate::{path::Path, streamer::ParsedKind};
 
 #[derive(Debug, Clone)]
 /// Combines several matches together
@@ -24,12 +24,16 @@ pub enum Combinator {
 }
 
 impl MatchMaker for Combinator {
-    fn match_path(&self, path: &Path) -> bool {
+    fn match_path(&self, path: &Path, kind: ParsedKind) -> bool {
         match self {
-            Self::Matcher(matcher) => matcher.match_path(path),
-            Self::Not(combinator) => !combinator.match_path(path),
-            Self::Or(first, second) => first.match_path(path) || second.match_path(path),
-            Self::And(first, second) => first.match_path(path) && second.match_path(path),
+            Self::Matcher(matcher) => matcher.match_path(path, kind),
+            Self::Not(combinator) => !combinator.match_path(path, kind),
+            Self::Or(first, second) => {
+                first.match_path(path, kind) || second.match_path(path, kind)
+            }
+            Self::And(first, second) => {
+                first.match_path(path, kind) && second.match_path(path, kind)
+            }
         }
     }
 }
@@ -72,44 +76,57 @@ mod tests {
     use crate::{
         matcher::{Depth, Simple},
         path::Path,
+        streamer::ParsedKind,
     };
     use std::convert::TryFrom;
 
     #[test]
     fn wrapper() {
         let comb = Combinator::new(Depth::new(1, Some(1)));
-        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(comb.match_path(&Path::try_from(r#"[0]"#).unwrap()));
+        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(comb.match_path(&Path::try_from(r#"[0]"#).unwrap(), ParsedKind::Obj));
     }
 
     #[test]
     fn not() {
         let comb = !Combinator::new(Depth::new(1, None));
-        assert!(!comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#"[0]"#).unwrap()));
-        assert!(comb.match_path(&Path::try_from(r#""#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(!comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!comb.match_path(&Path::try_from(r#"[0]"#).unwrap(), ParsedKind::Obj));
+        assert!(comb.match_path(&Path::try_from(r#""#).unwrap(), ParsedKind::Obj));
+        assert!(!comb.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
     }
 
     #[test]
     fn and() {
         let comb = Combinator::new(Depth::new(1, Some(1)))
             & Combinator::new(Simple::new(r#"{}"#).unwrap());
-        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#"[0]"#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#""#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
+        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!comb.match_path(&Path::try_from(r#"[0]"#).unwrap(), ParsedKind::Obj));
+        assert!(!comb.match_path(&Path::try_from(r#""#).unwrap(), ParsedKind::Obj));
+        assert!(!comb.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
     }
 
     #[test]
     fn or() {
         let comb = Combinator::new(Depth::new(1, Some(1)))
             | Combinator::new(Simple::new(r#"{}[0]"#).unwrap());
-        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(comb.match_path(&Path::try_from(r#"[0]"#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#""#).unwrap()));
-        assert!(comb.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(!comb.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(comb.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(comb.match_path(&Path::try_from(r#"[0]"#).unwrap(), ParsedKind::Obj));
+        assert!(!comb.match_path(&Path::try_from(r#""#).unwrap(), ParsedKind::Obj));
+        assert!(comb.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!comb.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
     }
 
     #[test]
@@ -120,10 +137,16 @@ mod tests {
             | Combinator::new(Simple::new(r#"{}"#).unwrap());
         let comb3 = !comb1 & comb2;
 
-        assert!(!comb3.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!comb3.match_path(&Path::try_from(r#"[0]"#).unwrap()));
-        assert!(!comb3.match_path(&Path::try_from(r#""#).unwrap()));
-        assert!(!comb3.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(comb3.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
+        assert!(!comb3.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!comb3.match_path(&Path::try_from(r#"[0]"#).unwrap(), ParsedKind::Obj));
+        assert!(!comb3.match_path(&Path::try_from(r#""#).unwrap(), ParsedKind::Obj));
+        assert!(!comb3.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(comb3.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
     }
 }

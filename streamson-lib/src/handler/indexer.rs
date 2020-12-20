@@ -167,23 +167,38 @@ mod tests {
 
         // Test indexer handler
         let mut guard = indexer_handler.lock().unwrap();
-        assert_eq!(guard.pop().unwrap(), (None, Output::Start(13)));
-        assert_eq!(guard.pop().unwrap(), (None, Output::Start(14)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::Start(13, ParsedKind::Arr))
+        );
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::Start(14, ParsedKind::Num))
+        );
         assert_eq!(
             guard.pop().unwrap(),
             (None, Output::End(15, ParsedKind::Num))
         );
-        assert_eq!(guard.pop().unwrap(), (None, Output::Start(17)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::Start(17, ParsedKind::Num))
+        );
         assert_eq!(
             guard.pop().unwrap(),
             (None, Output::End(18, ParsedKind::Num))
         );
-        assert_eq!(guard.pop().unwrap(), (None, Output::Start(20)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::Start(20, ParsedKind::Num))
+        );
         assert_eq!(
             guard.pop().unwrap(),
             (None, Output::End(21, ParsedKind::Num))
         );
-        assert_eq!(guard.pop().unwrap(), (None, Output::Start(23)));
+        assert_eq!(
+            guard.pop().unwrap(),
+            (None, Output::Start(23, ParsedKind::Num))
+        );
         assert_eq!(
             guard.pop().unwrap(),
             (None, Output::End(24, ParsedKind::Num))

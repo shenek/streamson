@@ -1,7 +1,7 @@
 use regex::{self, Error as RegexError};
 use std::str::FromStr;
 
-use crate::{error, matcher::MatchMaker, path::Path};
+use crate::{error, matcher::MatchMaker, path::Path, streamer::ParsedKind};
 
 /// Regex path matcher
 ///
@@ -48,7 +48,7 @@ impl Regex {
 }
 
 impl MatchMaker for Regex {
-    fn match_path(&self, path: &Path) -> bool {
+    fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         let str_path: String = path.to_string();
         self.regex.is_match(&str_path)
     }

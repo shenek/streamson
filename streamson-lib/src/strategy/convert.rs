@@ -125,12 +125,12 @@ impl Convert {
         let mut result: Vec<Vec<u8>> = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Start(idx) => {
+                Output::Start(idx, kind) => {
                     if self.matched.is_none() {
                         // try to check whether it matches
                         let path = self.streamer.current_path();
                         for (matcher_idx, (matcher, _)) in self.matchers.iter().enumerate() {
-                            if matcher.match_path(path) {
+                            if matcher.match_path(path, kind) {
                                 // start collecting
                                 self.buffer_start = idx;
                                 self.matched = Some((path.clone(), matcher_idx));

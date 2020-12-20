@@ -108,12 +108,12 @@ impl Extract {
         let mut result = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Start(idx) if self.matched_path.is_none() => {
+                Output::Start(idx, kind) if self.matched_path.is_none() => {
                     let path = self.streamer.current_path();
 
                     // try to check whether it matches
                     for matcher in self.matchers.iter() {
-                        if matcher.match_path(path) {
+                        if matcher.match_path(path, kind) {
                             // start the buffer
                             self.buffer_start = idx;
                             self.matched_path = Some(path.clone());

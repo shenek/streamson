@@ -119,7 +119,7 @@ impl Filter {
                     }
                     return Ok(result);
                 }
-                Output::Start(idx) => {
+                Output::Start(idx, kind) => {
                     // The path is not matched yet
                     if self.matched_path.is_none() {
                         // Discard first
@@ -131,7 +131,11 @@ impl Filter {
                         let current_path = self.streamer.current_path().clone();
 
                         // check whether matches
-                        if self.matchers.iter().any(|e| e.match_path(&current_path)) {
+                        if self
+                            .matchers
+                            .iter()
+                            .any(|e| e.match_path(&current_path, kind))
+                        {
                             self.matched_path = Some(current_path);
 
                             // We can move idx forward (export last data which can be exported

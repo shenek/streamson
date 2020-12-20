@@ -4,6 +4,7 @@ use super::MatchMaker;
 use crate::{
     error,
     path::{Element, Path},
+    streamer::ParsedKind,
 };
 use std::str::FromStr;
 
@@ -135,7 +136,7 @@ enum SimpleMatcherStates {
 }
 
 impl MatchMaker for Simple {
-    fn match_path(&self, path: &Path) -> bool {
+    fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         // If no AnyWildcard present and length differs
         // return false right away
         if !self
@@ -296,75 +297,168 @@ impl Simple {
 #[cfg(test)]
 mod tests {
     use super::{MatchMaker, Simple};
-    use crate::path::Path;
+    use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 
     #[test]
     fn exact() {
         let simple = Simple::from_str(r#"{"People"}[0]{"Height"}"#).unwrap();
 
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn wild_array() {
         let simple = Simple::from_str(r#"{"People"}[]{"Height"}"#).unwrap();
 
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn ranges_array() {
         let simple = Simple::from_str(r#"{"People"}[3,4-5,5,-3,6-]{"Height"}"#).unwrap();
 
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[2]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[3]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[4]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[5]{"Height"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[6]{"Height"}"#).unwrap()));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[2]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[3]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[4]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[5]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[6]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn wild_object() {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
 
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!simple.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn object_escapes() {
         let simple = Simple::from_str(r#"{"People"}[0]{"\""}"#).unwrap();
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"\""}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{""}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"\"x"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"y\""}"#).unwrap()));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"\""}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{""}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"\"x"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"y\""}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn wild_object_escapes() {
         let simple = Simple::from_str(r#"{"People"}[0]{}"#).unwrap();
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"O\"ll"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"O\\\"ll"}"#).unwrap()));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"O\"ll"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"O\\\"ll"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
@@ -401,25 +495,54 @@ mod tests {
     fn single_wild() {
         let simple = Simple::from_str(r#"?[0]{"range"}?"#).unwrap();
 
-        assert!(simple.match_path(&Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"{"People"}[0]{"range"}[1]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"[0]{"range"}{"from_home"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[0]{"range"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"{"People"}[1]{"range"}[1]"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"[1][0]{"other"}{"from_home"}"#).unwrap()));
+        assert!(simple.match_path(
+            &Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"range"}[1]"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"[0]{"range"}{"from_home"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[0]{"range"}"#).unwrap(),
+            ParsedKind::Arr
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"{"People"}[1]{"range"}[1]"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!simple.match_path(
+            &Path::try_from(r#"[1][0]{"other"}{"from_home"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]
     fn any_wild() {
         let simple = Simple::from_str(r#"*[0]*{"range"}**"#).unwrap();
 
-        assert!(simple.match_path(&Path::try_from(r#"[0]{"range"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap()));
-        assert!(simple
-            .match_path(&Path::try_from(r#"{"another"}[1][0]{"range"}{"from_home"}[2]"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"[0][2]{"range"}"#).unwrap()));
-        assert!(simple.match_path(&Path::try_from(r#"[0]{"middle"}{"range"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"[1]{"range"}"#).unwrap()));
-        assert!(!simple.match_path(&Path::try_from(r#"[0]{"other"}"#).unwrap()));
+        assert!(simple.match_path(&Path::try_from(r#"[0]{"range"}"#).unwrap(), ParsedKind::Obj));
+        assert!(simple.match_path(
+            &Path::try_from(r#"[1][0]{"range"}{"from_home"}"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"{"another"}[1][0]{"range"}{"from_home"}[2]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"[0][2]{"range"}"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(simple.match_path(
+            &Path::try_from(r#"[0]{"middle"}{"range"}"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!simple.match_path(&Path::try_from(r#"[1]{"range"}"#).unwrap(), ParsedKind::Obj));
+        assert!(!simple.match_path(&Path::try_from(r#"[0]{"other"}"#).unwrap(), ParsedKind::Obj));
     }
 }

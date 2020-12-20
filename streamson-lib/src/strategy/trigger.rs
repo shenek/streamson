@@ -127,7 +127,7 @@ impl Trigger {
         let mut inner_idx = 0;
         loop {
             match self.streamer.read()? {
-                Output::Start(idx) => {
+                Output::Start(idx, kind) => {
                     // extend the input
                     let to = idx - self.input_start;
                     if self.collecting {
@@ -140,12 +140,12 @@ impl Trigger {
 
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
-                        if matcher.match_path(path) {
+                        if matcher.match_path(path, kind) {
                             let mut buffering_required = false;
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
                                 let mut guard = handler.lock().unwrap();
-                                guard.handle_idx(path, match_idx, Output::Start(idx))?;
+                                guard.handle_idx(path, match_idx, Output::Start(idx, kind))?;
                                 if guard.buffering_required() {
                                     buffering_required = true
                                 }

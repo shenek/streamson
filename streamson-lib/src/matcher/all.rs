@@ -5,7 +5,7 @@
 use std::str::FromStr;
 
 use super::MatchMaker;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::ParsedKind};
 
 /// AllMatch to match array elements
 #[derive(Debug, Clone, PartialEq)]
@@ -25,7 +25,7 @@ impl FromStr for All {
 }
 
 impl MatchMaker for All {
-    fn match_path(&self, _: &Path) -> bool {
+    fn match_path(&self, _: &Path, _: ParsedKind) -> bool {
         true
     }
 }
@@ -33,16 +33,19 @@ impl MatchMaker for All {
 #[cfg(test)]
 mod tests {
     use super::{All, MatchMaker};
-    use crate::path::Path;
+    use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 
     #[test]
     fn match_path() {
         let all = All::default();
 
-        assert!(all.match_path(&Path::try_from(r#""#).unwrap()));
-        assert!(all.match_path(&Path::try_from(r#"{"Any"}"#).unwrap()));
-        assert!(all.match_path(&Path::try_from(r#"{"Any"}[0]{"Any"}"#).unwrap()));
+        assert!(all.match_path(&Path::try_from(r#""#).unwrap(), ParsedKind::Obj));
+        assert!(all.match_path(&Path::try_from(r#"{"Any"}"#).unwrap(), ParsedKind::Arr));
+        assert!(all.match_path(
+            &Path::try_from(r#"{"Any"}[0]{"Any"}"#).unwrap(),
+            ParsedKind::Obj
+        ));
     }
 
     #[test]

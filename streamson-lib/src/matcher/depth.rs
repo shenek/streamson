@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use super::MatchMaker;
-use crate::{error, path::Path};
+use crate::{error, path::Path, streamer::ParsedKind};
 
 /// Based on actual path depth
 ///
@@ -26,7 +26,7 @@ impl Depth {
 }
 
 impl MatchMaker for Depth {
-    fn match_path(&self, path: &Path) -> bool {
+    fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         let depth = path.depth();
         if let Some(max) = self.max {
             self.min <= depth && depth <= max
@@ -64,38 +64,92 @@ impl FromStr for Depth {
 #[cfg(test)]
 mod tests {
     use super::{Depth, MatchMaker};
-    use crate::path::Path;
+    use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 
     #[test]
     fn match_path() {
         let depth = Depth::from_str("2-").unwrap();
 
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
 
         let depth: Depth = "2-2".parse().unwrap();
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
 
         let depth: Depth = "2".parse().unwrap();
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[0]"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap()));
-        assert!(depth.match_path(&Path::try_from(r#"{"People"}[1]"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap()));
-        assert!(!depth.match_path(&Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap()));
+        assert!(!depth.match_path(&Path::try_from(r#"{"People"}"#).unwrap(), ParsedKind::Arr));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[0]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[0]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(depth.match_path(
+            &Path::try_from(r#"{"People"}[1]"#).unwrap(),
+            ParsedKind::Obj
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Age"}"#).unwrap(),
+            ParsedKind::Num
+        ));
+        assert!(!depth.match_path(
+            &Path::try_from(r#"{"People"}[1]{"Height"}"#).unwrap(),
+            ParsedKind::Num
+        ));
     }
 
     #[test]

@@ -30,7 +30,7 @@ pub enum ParsedKind {
 #[derive(Debug, PartialEq)]
 pub enum Output {
     /// Path starts here
-    Start(usize),
+    Start(usize, ParsedKind),
     /// Path ends here
     End(usize, ParsedKind),
     /// Element separator idx (idx of `,` between array/object elements)
@@ -86,18 +86,18 @@ enum States {
 /// ```
 /// should emit (index and path)
 /// ```text
-/// Start( 0) // Streamer.path == ""
-/// Start( 1) // Streamer.path == "{\"People\"}"
-/// Start( 3) // Streamer.path == "{\"People\"}[0]"
-/// Start( 4) // Streamer.path == "{\"People\"}[0]{\"Height\"}"
+/// Start( 0, ParsedKind::Obj) // Streamer.path == ""
+/// Start( 1, ParsedKind::Arr) // Streamer.path == "{\"People\"}"
+/// Start( 3, ParsedKind::Obj) // Streamer.path == "{\"People\"}[0]"
+/// Start( 4, ParsedKind::Num) // Streamer.path == "{\"People\"}[0]{\"Height\"}"
 /// End(   5, ParsedKind::Num)
-/// Start( 6) // Streamer.path == "{\"People\"}[0]{\"Age\"}"
+/// Start( 6, ParsedKind::Num) // Streamer.path == "{\"People\"}[0]{\"Age\"}"
 /// End(   7, ParsedKind::Num)
 /// End(   8, ParsedKind::Obj)
-/// Start( 9) // Streamer.path == "{\"People\"}[1]"
-/// Start(10) // Streamer.path == "{\"People\"}[1]{\"Height\"}"
+/// Start( 9, ParsedKind::Obj) // Streamer.path == "{\"People\"}[1]"
+/// Start(10, ParsedKind::Num) // Streamer.path == "{\"People\"}[1]{\"Height\"}"
 /// End(  11, ParsedKind::Num)
-/// Start(12) // Streamer.path == "{\"People\"}[1]{\"Age\"}"
+/// Start(12, ParsedKind::Num) // Streamer.path == "{\"People\"}[1]{\"Age\"}"
 /// End(  13, ParsedKind::Num)
 /// End(  14, ParsedKind::Obj)
 /// End(  15, ParsedKind::Arr)
@@ -207,7 +207,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Str)))
                 }
                 b'0'..=b'9' => {
                     self.states.push(States::Number);
@@ -215,7 +215,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Num)))
                 }
                 b't' | b'f' => {
                     self.states.push(States::Bool);
@@ -223,7 +223,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Bool)))
                 }
                 b'n' => {
                     self.states.push(States::Null);
@@ -231,7 +231,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Null)))
                 }
                 b'[' => {
                     self.states.push(States::Array(0));
@@ -243,7 +243,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Arr)))
                 }
                 b'{' => {
                     self.states.push(States::Object);
@@ -255,7 +255,7 @@ impl Streamer {
                     if let Some(element) = element {
                         self.path.push(element);
                     }
-                    Ok(Some(Output::Start(self.total_idx)))
+                    Ok(Some(Output::Start(self.total_idx, ParsedKind::Obj)))
                 }
                 b']' | b'}' => {
                     // End of an array or object -> no value matched
@@ -606,7 +606,7 @@ mod test {
     fn test_string() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"  "test string \" \\\" [ ] {} , :\\""#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(2));
+        assert_eq!(streamer.read().unwrap(), Output::Start(2, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(36, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -614,7 +614,7 @@ mod test {
 
         let mut streamer = Streamer::new();
         streamer.feed(br#"" another one " "#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(15, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -625,7 +625,7 @@ mod test {
     fn test_number() {
         let mut streamer = Streamer::new();
         streamer.feed(br#" 3.24 "#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(1));
+        assert_eq!(streamer.read().unwrap(), Output::Start(1, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(5, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -636,7 +636,7 @@ mod test {
     fn test_bool() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"  true  "#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(2));
+        assert_eq!(streamer.read().unwrap(), Output::Start(2, ParsedKind::Bool));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(6, ParsedKind::Bool));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -648,13 +648,13 @@ mod test {
         let mut streamer = Streamer::new();
         // TODO think of some better way to terminate the nulls/bools/numbers
         streamer.feed(br#"null"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::Pending);
 
         let mut streamer = Streamer::new();
         streamer.feed(br#"null  "#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(4, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -665,19 +665,19 @@ mod test {
     fn test_array() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"[ null, 33, "string" ]"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(2));
+        assert_eq!(streamer.read().unwrap(), Output::Start(2, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(6, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(6));
-        assert_eq!(streamer.read().unwrap(), Output::Start(8));
+        assert_eq!(streamer.read().unwrap(), Output::Start(8, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(10, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(10));
-        assert_eq!(streamer.read().unwrap(), Output::Start(12));
+        assert_eq!(streamer.read().unwrap(), Output::Start(12, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::End(20, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
@@ -690,14 +690,14 @@ mod test {
     fn test_array_pending() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"[ null, 3"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(2));
+        assert_eq!(streamer.read().unwrap(), Output::Start(2, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(6, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(6));
-        assert_eq!(streamer.read().unwrap(), Output::Start(8));
+        assert_eq!(streamer.read().unwrap(), Output::Start(8, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::Pending);
         assert_eq!(streamer.current_path(), &make_path("[1]"));
@@ -708,7 +708,7 @@ mod test {
         assert_eq!(streamer.read().unwrap(), Output::Pending);
         assert_eq!(streamer.current_path(), &make_path(""));
         streamer.feed(br#" "string" ]"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(12));
+        assert_eq!(streamer.read().unwrap(), Output::Start(12, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::End(20, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
@@ -721,7 +721,7 @@ mod test {
     fn test_empty_array() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"[]"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(2, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -732,33 +732,33 @@ mod test {
     fn test_array_in_array() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"[ [], 33, ["string" , 44], [  ]]"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(2));
+        assert_eq!(streamer.read().unwrap(), Output::Start(2, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(4, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[0]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(4));
-        assert_eq!(streamer.read().unwrap(), Output::Start(6));
+        assert_eq!(streamer.read().unwrap(), Output::Start(6, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(8, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[1]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(8));
-        assert_eq!(streamer.read().unwrap(), Output::Start(10));
+        assert_eq!(streamer.read().unwrap(), Output::Start(10, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
-        assert_eq!(streamer.read().unwrap(), Output::Start(11));
+        assert_eq!(streamer.read().unwrap(), Output::Start(11, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2][0]"));
         assert_eq!(streamer.read().unwrap(), Output::End(19, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("[2][0]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(20));
-        assert_eq!(streamer.read().unwrap(), Output::Start(22));
+        assert_eq!(streamer.read().unwrap(), Output::Start(22, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[2][1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(24, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("[2][1]"));
         assert_eq!(streamer.read().unwrap(), Output::End(25, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[2]"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(25));
-        assert_eq!(streamer.read().unwrap(), Output::Start(27));
+        assert_eq!(streamer.read().unwrap(), Output::Start(27, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[3]"));
         assert_eq!(streamer.read().unwrap(), Output::End(31, ParsedKind::Arr));
         assert_eq!(streamer.current_path(), &make_path("[3]"));
@@ -771,24 +771,30 @@ mod test {
     fn test_object() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"{"a":"a", "b" :  true , "c": null, " \" \\\" \\": 33}"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(5));
+        assert_eq!(streamer.read().unwrap(), Output::Start(5, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("{\"a\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(8, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path("{\"a\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(8));
-        assert_eq!(streamer.read().unwrap(), Output::Start(17));
+        assert_eq!(
+            streamer.read().unwrap(),
+            Output::Start(17, ParsedKind::Bool)
+        );
         assert_eq!(streamer.current_path(), &make_path("{\"b\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(21, ParsedKind::Bool));
         assert_eq!(streamer.current_path(), &make_path("{\"b\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(22));
-        assert_eq!(streamer.read().unwrap(), Output::Start(29));
+        assert_eq!(
+            streamer.read().unwrap(),
+            Output::Start(29, ParsedKind::Null)
+        );
         assert_eq!(streamer.current_path(), &make_path("{\"c\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(33, ParsedKind::Null));
         assert_eq!(streamer.current_path(), &make_path("{\"c\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(33));
-        assert_eq!(streamer.read().unwrap(), Output::Start(50));
+        assert_eq!(streamer.read().unwrap(), Output::Start(50, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
         assert_eq!(streamer.read().unwrap(), Output::End(52, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path(r#"{" \" \\\" \\"}"#));
@@ -801,7 +807,7 @@ mod test {
     fn test_empty_object() {
         let mut streamer = Streamer::new();
         streamer.feed(br#"{}"#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(2, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -812,21 +818,21 @@ mod test {
     fn test_object_in_object() {
         let mut streamer = Streamer::new();
         streamer.feed(br#" {"u": {}, "j": {"x": {  }, "y": 10}} "#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(1));
+        assert_eq!(streamer.read().unwrap(), Output::Start(1, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(7));
+        assert_eq!(streamer.read().unwrap(), Output::Start(7, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(9, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(9));
-        assert_eq!(streamer.read().unwrap(), Output::Start(16));
+        assert_eq!(streamer.read().unwrap(), Output::Start(16, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
-        assert_eq!(streamer.read().unwrap(), Output::Start(22));
+        assert_eq!(streamer.read().unwrap(), Output::Start(22, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(26, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(26));
-        assert_eq!(streamer.read().unwrap(), Output::Start(33));
+        assert_eq!(streamer.read().unwrap(), Output::Start(33, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(35, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
@@ -873,30 +879,51 @@ mod test {
                 }
             };
 
-            assert_eq!(get_item(Some("")), Output::Start(1));
-            assert_eq!(get_item(Some("[0]")), Output::Start(2));
-            assert_eq!(get_item(Some("[0]{\"aha y\"}")), Output::Start(12));
+            assert_eq!(get_item(Some("")), Output::Start(1, ParsedKind::Arr));
+            assert_eq!(get_item(Some("[0]")), Output::Start(2, ParsedKind::Obj));
+            assert_eq!(
+                get_item(Some("[0]{\"aha y\"}")),
+                Output::Start(12, ParsedKind::Obj)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"aha y\"}")),
                 Output::End(14, ParsedKind::Obj)
             );
             assert_eq!(get_item(None), Output::Separator(14));
-            assert_eq!(get_item(Some("[0]{\"j\"}")), Output::Start(21));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}")), Output::Start(27));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[0]")), Output::Start(28));
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}")),
+                Output::Start(21, ParsedKind::Obj)
+            );
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"x\"}")),
+                Output::Start(27, ParsedKind::Arr)
+            );
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"x\"}[0]")),
+                Output::Start(28, ParsedKind::Obj)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"j\"}{\"x\"}[0]")),
                 Output::End(32, ParsedKind::Obj)
             );
             assert_eq!(get_item(None), Output::Separator(32));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1]")), Output::Start(34));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")), Output::Start(36));
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"x\"}[1]")),
+                Output::Start(34, ParsedKind::Arr)
+            );
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")),
+                Output::Start(36, ParsedKind::Obj)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"j\"}{\"x\"}[1][0]")),
                 Output::End(38, ParsedKind::Obj)
             );
             assert_eq!(get_item(None), Output::Separator(38));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")), Output::Start(40));
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")),
+                Output::Start(40, ParsedKind::Null)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"j\"}{\"x\"}[1][1]")),
                 Output::End(44, ParsedKind::Null)
@@ -910,7 +937,10 @@ mod test {
                 Output::End(47, ParsedKind::Arr)
             );
             assert_eq!(get_item(None), Output::Separator(47));
-            assert_eq!(get_item(Some("[0]{\"j\"}{\"y\"}")), Output::Start(55));
+            assert_eq!(
+                get_item(Some("[0]{\"j\"}{\"y\"}")),
+                Output::Start(55, ParsedKind::Num)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"j\"}{\"y\"}")),
                 Output::End(57, ParsedKind::Num)
@@ -921,15 +951,18 @@ mod test {
             );
             assert_eq!(get_item(Some("[0]")), Output::End(59, ParsedKind::Obj));
             assert_eq!(get_item(None), Output::Separator(59));
-            assert_eq!(get_item(Some("[1]")), Output::Start(61));
+            assert_eq!(get_item(Some("[1]")), Output::Start(61, ParsedKind::Null));
             assert_eq!(get_item(Some("[1]")), Output::End(65, ParsedKind::Null));
             assert_eq!(get_item(None), Output::Separator(65));
-            assert_eq!(get_item(Some("[2]")), Output::Start(67));
+            assert_eq!(get_item(Some("[2]")), Output::Start(67, ParsedKind::Num));
             assert_eq!(get_item(Some("[2]")), Output::End(69, ParsedKind::Num));
             assert_eq!(get_item(None), Output::Separator(69));
-            assert_eq!(get_item(Some("[3]")), Output::Start(71));
-            assert_eq!(get_item(Some("[3][0]")), Output::Start(73));
-            assert_eq!(get_item(Some("[3][0]{\"a\"}")), Output::Start(79));
+            assert_eq!(get_item(Some("[3]")), Output::Start(71, ParsedKind::Arr));
+            assert_eq!(get_item(Some("[3][0]")), Output::Start(73, ParsedKind::Obj));
+            assert_eq!(
+                get_item(Some("[3][0]{\"a\"}")),
+                Output::Start(79, ParsedKind::Bool)
+            );
             assert_eq!(
                 get_item(Some("[3][0]{\"a\"}")),
                 Output::End(84, ParsedKind::Bool)
@@ -976,16 +1009,19 @@ mod test {
                 }
             };
 
-            assert_eq!(get_item(Some("")), Output::Start(0));
-            assert_eq!(get_item(Some("[0]")), Output::Start(1));
-            assert_eq!(get_item(Some("[0]{\"š𐍈€\"}")), Output::Start(15));
+            assert_eq!(get_item(Some("")), Output::Start(0, ParsedKind::Arr));
+            assert_eq!(get_item(Some("[0]")), Output::Start(1, ParsedKind::Obj));
+            assert_eq!(
+                get_item(Some("[0]{\"š𐍈€\"}")),
+                Output::Start(15, ParsedKind::Str)
+            );
             assert_eq!(
                 get_item(Some("[0]{\"š𐍈€\"}")),
                 Output::End(26, ParsedKind::Str)
             );
             assert_eq!(get_item(Some("[0]")), Output::End(27, ParsedKind::Obj));
             assert_eq!(get_item(None), Output::Separator(27));
-            assert_eq!(get_item(Some("[1]")), Output::Start(29));
+            assert_eq!(get_item(Some("[1]")), Output::Start(29, ParsedKind::Str));
             assert_eq!(get_item(Some("[1]")), Output::End(40, ParsedKind::Str));
             assert_eq!(get_item(Some("")), Output::End(41, ParsedKind::Arr));
             assert_eq!(get_item(None), Output::Pending);
@@ -996,15 +1032,15 @@ mod test {
     fn test_multiple_input_flat() {
         let mut streamer = Streamer::new();
         streamer.feed(br#""first" "second""third""#);
-        assert_eq!(streamer.read().unwrap(), Output::Start(0));
+        assert_eq!(streamer.read().unwrap(), Output::Start(0, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(7, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(8));
+        assert_eq!(streamer.read().unwrap(), Output::Start(8, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(16, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(16));
+        assert_eq!(streamer.read().unwrap(), Output::Start(16, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
         assert_eq!(streamer.read().unwrap(), Output::End(23, ParsedKind::Str));
         assert_eq!(streamer.current_path(), &make_path(""));
@@ -1023,21 +1059,24 @@ mod test {
                 }
             } "#,
         );
-        assert_eq!(streamer.read().unwrap(), Output::Start(1));
+        assert_eq!(streamer.read().unwrap(), Output::Start(1, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path(""));
-        assert_eq!(streamer.read().unwrap(), Output::Start(24));
+        assert_eq!(streamer.read().unwrap(), Output::Start(24, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(26, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"u\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(26));
-        assert_eq!(streamer.read().unwrap(), Output::Start(49));
+        assert_eq!(streamer.read().unwrap(), Output::Start(49, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}"));
-        assert_eq!(streamer.read().unwrap(), Output::Start(76));
+        assert_eq!(streamer.read().unwrap(), Output::Start(76, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(80, ParsedKind::Obj));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"x\"}"));
         assert_eq!(streamer.read().unwrap(), Output::Separator(81));
-        assert_eq!(streamer.read().unwrap(), Output::Start(107));
+        assert_eq!(
+            streamer.read().unwrap(),
+            Output::Start(107, ParsedKind::Num)
+        );
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));
         assert_eq!(streamer.read().unwrap(), Output::End(109, ParsedKind::Num));
         assert_eq!(streamer.current_path(), &make_path("{\"j\"}{\"y\"}"));

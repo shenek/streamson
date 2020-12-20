@@ -1,4 +1,4 @@
-use streamson_lib::{handler, matcher, path::Path, strategy};
+use streamson_lib::{handler, matcher, path::Path, strategy, streamer::ParsedKind};
 
 use std::sync::{Arc, Mutex};
 
@@ -17,7 +17,7 @@ impl Letter {
 }
 
 impl matcher::MatchMaker for Letter {
-    fn match_path(&self, path: &Path) -> bool {
+    fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         path.to_string().chars().any(|c| c == self.letter)
     }
 }

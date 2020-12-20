@@ -1,5 +1,6 @@
 //! Collections of path matchers (matches the path).
 
+use crate::streamer::ParsedKind;
 use std::fmt;
 
 pub mod all;
@@ -23,8 +24,9 @@ pub trait MatchMaker: fmt::Debug + Send {
     /// Check whether the path matches
     /// # Arguments
     /// * `path` - path to be matched (has to be a valid path)
+    /// * `kind` - what kind (object, array, boolean, ...) are matched data
     ///
     /// # Returns
     /// * `true` if path matches, `false` otherwise
-    fn match_path(&self, path: &Path) -> bool;
+    fn match_path(&self, path: &Path, kind: ParsedKind) -> bool;
 }
