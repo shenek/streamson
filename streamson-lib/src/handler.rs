@@ -25,64 +25,67 @@ pub use self::shorten::Shorten;
 pub use self::unstringify::Unstringify;
 pub use crate::streamer::ParsedKind;
 
+pub trait Instance: Send {
+    fn finalize(self) -> Result<Option<Vec<u8>>, error::Handler>;
+}
+
 /// Common handler trait
 pub trait Handler: Send {
-    /// Calls handler on matched data
+    /// Is called when  a path is matched
     ///
     /// # Arguments
     /// * `path` - path which was matched
     /// * `matcher_idx`- idx of matcher which was used
+    /// * `token` - part of a input which was matched
+    ///
+    /// # Returns
+    /// * `Ok(None)` - All went well, no output
+    /// * `Ok(Some(data))` - All went, handler has some output
+    /// * `Err(_)` - Failed to execute handler
+    fn start(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        _token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        Ok(None)
+    }
+
+    /// Is called when handler receives some data
+    ///
+    /// # Arguments
+    /// * `matcher_idx`- idx of matcher which was used
     /// * `data` - matched data
+    ///
+    /// # Returns
+    /// * `Ok(None)` - All went well, no output
+    /// * `Ok(Some(data))` - All went, handler has some output
+    /// * `Err(_)` - Failed to execute handler
+    fn feed(
+        &mut self,
+        _data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        Ok(None)
+    }
+
+    /// Is called when the path is no longer matched
+    ///
+    /// # Arguments
+    /// * `path` - path which was matched
+    /// * `matcher_idx`- idx of matcher which was used
+    /// * `token` - part of a input which was matched
     ///
     /// # Returns
     /// * `Ok(None)` - All went well, no data conversion needed
     /// * `Ok(Some(data))` - Alll went well, data converted
     /// * `Err(_)` - Failed to execute handler
-    ///
-    /// # Errors
-    ///
-    /// Handler failed (e.g. failed to write to output file).
-    fn handle(
-        &mut self,
-        path: &Path,
-        matcher_idx: usize,
-        data: Option<&[u8]>,
-        kind: ParsedKind,
-    ) -> Result<Option<Vec<u8>>, error::Handler>;
-
-    /// Calls when an index occured
-    ///
-    /// # Arguments
-    /// * `path` - path which was matched
-    /// * `idx`  - input data index of next data after handle
-    /// * `matcher_idx`- idx of matcher which was used
-    fn handle_idx(
+    fn end(
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _idx: Output,
-    ) -> Result<(), error::Handler> {
-        Ok(())
-    }
-
-    /// Should path be used
-    fn use_path(&self) -> bool {
-        false
-    }
-
-    /// A str which will be used to separate records
-    fn separator(&self) -> &str {
-        "\n"
-    }
-
-    /// If true is returned a buffer will
-    /// be used to store input data when
-    /// matcher matches
-    ///
-    /// Required for most of the handlers,
-    /// but there can be situations where,
-    /// it can be avoided
-    fn buffering_required(&self) -> bool {
-        true
+        _token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        Ok(None)
     }
 }

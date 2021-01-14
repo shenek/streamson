@@ -12,10 +12,7 @@ use crate::{
     path::Path,
     streamer::{Output, Streamer},
 };
-use std::{
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 /// Item in matcher list
 type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
@@ -24,10 +21,6 @@ type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 pub struct Convert {
     /// Input idx against total idx
     input_start: usize,
-    /// Buffer index against total idx
-    buffer_start: usize,
-    /// Buffer which is used to store collected data
-    buffer: Vec<u8>,
     /// Currently matched path and matcher index
     matched: Option<(Path, usize)>,
     /// Path matchers and handlers
@@ -40,8 +33,6 @@ impl Default for Convert {
     fn default() -> Self {
         Self {
             input_start: 0,
-            buffer_start: 0,
-            buffer: vec![],
             matched: None,
             matchers: vec![],
             streamer: Streamer::new(),
@@ -86,6 +77,33 @@ impl Convert {
         self.matchers.push((matcher, handlers));
     }
 
+    fn feed(&mut self, matcher_idx: usize, data: &[u8]) -> Result<Option<Vec<u8>>, error::Handler> {
+        let mut handler_input = Some(data.to_vec());
+        // Chain matcher responses
+        for handler in self.matchers[matcher_idx].1.iter() {
+            if let Some(input_data) = handler_input {
+                let mut guard = handler.lock().unwrap();
+
+                // trigger idx handler
+                if let Some(processed_data) = guard.feed(&input_data, matcher_idx)? {
+                    handler_input = Some(processed_data);
+                } else {
+                    handler_input = None;
+                }
+            } else {
+                // all consumed no data will be passed for the next handlers
+                break;
+            }
+        }
+
+        if let Some(to_output) = handler_input {
+            // Output as result immediatelly
+            Ok(Some(to_output.to_vec()))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Processes input data
     ///
     /// # Arguments
@@ -128,68 +146,108 @@ impl Convert {
                 Output::Start(idx, kind) => {
                     if self.matched.is_none() {
                         // try to check whether it matches
-                        let path = self.streamer.current_path();
                         for (matcher_idx, (matcher, _)) in self.matchers.iter().enumerate() {
-                            if matcher.match_path(path, kind) {
+                            if matcher.match_path(self.streamer.current_path(), kind) {
                                 // start collecting
-                                self.buffer_start = idx;
-                                self.matched = Some((path.clone(), matcher_idx));
+                                self.matched =
+                                    Some((self.streamer.current_path().clone(), matcher_idx));
 
-                                // Flush data to output
+                                // Flush remaining data to output
                                 let to = idx - self.input_start;
                                 result.push(input[inner_idx..to].to_vec());
                                 inner_idx = to;
 
+                                // Notify handlers that match has started
+                                let mut start_buff: Option<Vec<u8>> = None;
+                                for handler in self.matchers[matcher_idx].1.iter() {
+                                    let mut guard = handler.lock().unwrap();
+
+                                    let prev_output = start_buff.take();
+
+                                    // trigger start handler
+                                    start_buff = guard.start(
+                                        self.streamer.current_path(),
+                                        matcher_idx,
+                                        Output::Start(idx, kind),
+                                    )?;
+
+                                    // make pass remaining data to handler
+                                    if let Some(data) = prev_output {
+                                        if let Some(feed_data) = guard.feed(&data, matcher_idx)? {
+                                            if let Some(mut start_data) = start_buff.take() {
+                                                start_data.extend(feed_data);
+                                                start_buff = Some(start_data);
+                                            } else {
+                                                start_buff = Some(feed_data)
+                                            }
+                                        }
+                                    }
+                                }
+                                if let Some(data) = start_buff {
+                                    result.push(data);
+                                }
                                 break;
                             }
                         }
                     }
                 }
                 Output::End(idx, kind) => {
-                    let current_path = self.streamer.current_path();
                     let mut clear = false;
-                    if let Some((matched_path, matcher_idx)) = self.matched.as_ref() {
-                        if current_path == matched_path {
+                    if let Some((matched_path, matcher_idx)) = self.matched.take() {
+                        if self.streamer.current_path() == &matched_path {
                             clear = true;
 
                             // move the buffer
                             let to = idx - self.input_start;
-                            self.buffer.extend(&input[inner_idx..to]);
+                            let data = &input[inner_idx..to];
                             inner_idx = to;
 
-                            // new buffer
-                            let mut buffer = vec![];
-                            mem::swap(&mut buffer, &mut self.buffer);
+                            // consume the data
+                            if let Some(to_output) = self.feed(matcher_idx, data)? {
+                                result.push(to_output);
+                            }
 
-                            let start_idx = idx - buffer.len();
-
-                            for handler in self.matchers[*matcher_idx].1.iter() {
+                            // Notify handlers that match has ended
+                            let mut end_buff: Option<Vec<u8>> = None;
+                            for handler in self.matchers[matcher_idx].1.iter() {
                                 let mut guard = handler.lock().unwrap();
-                                // trigger idx handler
-                                guard.handle_idx(
-                                    current_path,
-                                    start_idx,
+
+                                let prev_output = end_buff.take();
+
+                                // trigger end handler
+                                end_buff = guard.end(
+                                    self.streamer.current_path(),
+                                    matcher_idx,
                                     Output::End(idx, kind),
                                 )?;
 
-                                // Chain the handlers conversion
-                                if let Some(converted) =
-                                    guard.handle(current_path, *matcher_idx, Some(&buffer), kind)?
-                                {
-                                    buffer = converted;
+                                // make pass remaining data to handler
+                                if let Some(data) = prev_output {
+                                    if let Some(feed_data) = guard.feed(&data, matcher_idx)? {
+                                        if let Some(mut end_data) = end_buff.take() {
+                                            end_data.extend(feed_data);
+                                            end_buff = Some(end_data);
+                                        } else {
+                                            end_buff = Some(feed_data)
+                                        }
+                                    }
                                 }
                             }
-                            result.push(buffer);
+                            if let Some(data) = end_buff {
+                                result.push(data);
+                            }
                         }
-                    }
-                    if clear {
-                        self.matched = None;
+                        if !clear {
+                            self.matched = Some((matched_path, matcher_idx));
+                        }
                     }
                 }
                 Output::Pending => {
                     self.input_start += input.len();
-                    if self.matched.is_some() {
-                        self.buffer.extend(&input[inner_idx..]);
+                    if let Some((_, matcher_idx)) = self.matched {
+                        if let Some(to_output) = self.feed(matcher_idx, &input[inner_idx..])? {
+                            result.push(to_output);
+                        }
                     } else {
                         result.push(input[inner_idx..].to_vec())
                     }
@@ -204,7 +262,10 @@ impl Convert {
 #[cfg(test)]
 mod tests {
     use super::Convert;
-    use crate::{handler::Replace, matcher::Simple};
+    use crate::{
+        handler::{Replace, Shorten},
+        matcher::Simple,
+    };
     use std::sync::{Arc, Mutex};
 
     fn make_replace_handler() -> Arc<Mutex<Replace>> {
@@ -252,6 +313,24 @@ mod tests {
         assert_eq!(
             String::from_utf8(result.into_iter().flatten().collect()).unwrap(),
             r#"[{"id": 1, "password": "***"}, {"id": 2, "password": "***"}]"#
+        );
+    }
+
+    #[test]
+    fn chaining_handlers() {
+        let mut convert = Convert::new();
+        let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
+        let replace = Arc::new(Mutex::new(Replace::new(br#""*****************""#.to_vec())));
+        let shorten = Arc::new(Mutex::new(Shorten::new(4, "...\"".into())));
+        convert.add_matcher(Box::new(matcher), vec![replace, shorten]);
+
+        let output = convert
+            .process(br#"[{"id": 1, "password": "secret1"}, {"id": 2, "password": "secret2"}]"#)
+            .unwrap();
+
+        assert_eq!(
+            String::from_utf8(output.into_iter().flatten().collect()).unwrap(),
+            r#"[{"id": 1, "password": "****..."}, {"id": 2, "password": "****..."}]"#
         );
     }
 }

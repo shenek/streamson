@@ -1,7 +1,7 @@
 //! Handler which puts output into a file
 
 use super::Handler;
-use crate::{error, path::Path, streamer::ParsedKind};
+use crate::{error, path::Path, streamer::Output};
 use std::{fs, io::Write};
 
 /// File handler responsible for storing data to a file.
@@ -81,30 +81,38 @@ impl File {
 }
 
 impl Handler for File {
-    fn use_path(&self) -> bool {
-        self.use_path
-    }
-
-    fn separator(&self) -> &str {
-        &self.separator
-    }
-
-    fn handle(
+    fn start(
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        _kind: ParsedKind,
+        _token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.use_path {
             self.file
                 .write(format!("{}: ", path).as_bytes())
                 .map_err(|err| error::Handler::new(err.to_string()))?;
         }
+        Ok(None)
+    }
+
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.file
-            .write(data.unwrap())
+            .write(data)
             .map_err(|err| error::Handler::new(err.to_string()))?;
-        let separator = self.separator().to_string();
+        Ok(None)
+    }
+
+    fn end(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        _token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        let separator = self.separator.to_string();
         self.file
             .write(separator.as_bytes())
             .map_err(|err| error::Handler::new(err.to_string()))?;

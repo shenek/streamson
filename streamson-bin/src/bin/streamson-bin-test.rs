@@ -179,7 +179,7 @@ fn trigger(cmd_str: &str) {
         .arg("--file")
         .arg("simple")
         .arg(r#"{"logs"}[]"#)
-        .arg("/dev/stdout")
+        .arg("/dev/stderr")
         .arg("--print")
         .arg("regex")
         .arg(r#"^\{"users"\}$"#)
@@ -197,11 +197,8 @@ fn trigger(cmd_str: &str) {
 {"groups"}[0]: {"name": "admin", "gid": 1}
 {"groups"}[1]: {"name": "staff", "gid": 2}
 {"logs"}[0]: "null"
-"null"
 {"logs"}[1]: "{}"
-"{}"
 {"logs"}[2]: "[]"
-"[]"
 JSON structure:
   <root>: 1
   {"groups"}: 1
@@ -215,7 +212,14 @@ JSON structure:
   {"users"}[]{"id"}: 2
   {"users"}[]{"name"}: 2
 "#,
+        )
+        .stderr(
+            r#""null"
+"{}"
+"[]"
+"#,
         );
+
     println!("OK");
 }
 

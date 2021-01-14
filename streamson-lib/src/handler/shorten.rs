@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, streamer::ParsedKind, Path};
+use crate::{error, path::Path, streamer::Output};
 
 /// Handler which shortens the matched data
 ///
@@ -34,6 +34,9 @@ use crate::{error, streamer::ParsedKind, Path};
 pub struct Shorten {
     /// max length of original data
     max_length: usize,
+
+    /// how many letters were already used
+    used: usize,
 
     /// How shortened data are supposed to be terminated
     /// Note that the new data length = max_length + terminator.length
@@ -46,34 +49,50 @@ impl Shorten {
         Self {
             max_length,
             terminator,
+            used: 0,
         }
     }
 }
 
 impl Handler for Shorten {
-    fn handle(
+    fn start(
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        _kind: ParsedKind,
+        _token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        let data = data.unwrap(); // buffering is required -> data should not be None
-        if data.len() <= self.max_length {
+        // clear the used so it can start matching again
+        self.used = 0;
+
+        Ok(None)
+    }
+
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        // all letters were used
+        if self.used >= self.max_length {
+            return Ok(None);
+        }
+
+        // entire data can be consumed
+        if data.len() <= (self.max_length - self.used) {
+            self.used += data.len();
             return Ok(Some(data.to_vec()));
         }
 
-        let result: Vec<u8> = data[..self.max_length + 1]
+        // terminates now
+        let result: Vec<u8> = data[..(self.max_length - self.used + 1)]
             .iter()
             .cloned()
             .chain(self.terminator.as_bytes().iter().cloned())
             .collect();
 
-        Ok(Some(result))
-    }
+        self.used = self.max_length;
 
-    fn buffering_required(&self) -> bool {
-        true
+        Ok(Some(result))
     }
 }
 
@@ -93,6 +112,31 @@ mod tests {
         let output = convert
             .process(br#"[{"description": "too long description"}, {"description": "short"}]"#)
             .unwrap();
+
+        let output: Vec<u8> = output.into_iter().flatten().collect();
+
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            r#"[{"description": "too long d.."}, {"description": "short"}]"#
+        );
+    }
+
+    #[test]
+    fn shorten_handler_parts() {
+        let mut convert = Convert::new();
+        let shorten_handler = Arc::new(Mutex::new(Shorten::new(10, "..\"".to_string())));
+        let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
+
+        convert.add_matcher(Box::new(matcher), vec![shorten_handler.clone()]);
+        let mut output = convert.process(br#"[{"description": "t"#).unwrap();
+
+        output.extend(convert.process(br#"oo long d"#).unwrap());
+
+        output.extend(
+            convert
+                .process(br#"escription"}, {"description": "short"}]"#)
+                .unwrap(),
+        );
 
         let output: Vec<u8> = output.into_iter().flatten().collect();
 

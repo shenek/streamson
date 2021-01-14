@@ -28,14 +28,23 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::ParsedKind};
+use crate::{error, path::Path, streamer::Output};
 use std::collections::VecDeque;
 
 /// Buffer handler responsible for storing slitted JSONs into memory
 #[derive(Debug)]
 pub struct Buffer {
+    /// For storing unterminated data
+    buffer: Vec<u8>,
+
+    /// Buffer idx to total index
+    buffer_idx: usize,
+
+    /// Indexes for the Path and size
+    buffer_parts: Vec<usize>,
+
     /// Queue with stored jsons in (path, data) format
-    stored: VecDeque<(Option<String>, Vec<u8>)>,
+    results: VecDeque<(Option<String>, Vec<u8>)>,
 
     /// Not to show path will spare some allocation
     use_path: bool,
@@ -50,51 +59,150 @@ pub struct Buffer {
 impl Default for Buffer {
     fn default() -> Self {
         Self {
-            stored: VecDeque::new(),
             use_path: false,
             current_buffer_size: 0,
             max_buffer_size: None,
+            buffer: vec![],
+            buffer_idx: 0,
+            buffer_parts: vec![],
+            results: VecDeque::new(),
         }
     }
 }
 
-impl Handler for Buffer {
-    fn handle(
+trait Buff: Handler {
+    fn _start(
         &mut self,
-        path: &Path,
+        _path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        _kind: ParsedKind,
+        token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        // TODO we may limit the max VecDeque size and raise
-        // an error when reached
-        //
-        let path_opt = if self.use_path {
-            Some(path.to_string())
-        } else {
-            None
-        };
-
-        let data = data.unwrap(); // data will be buffered
-
-        // check whether buffer capacity hasn't been reached
-        if let Some(limit) = self.max_buffer_size {
-            if self.current_buffer_size + data.len() > limit {
-                return Err(error::Handler::new(format!(
-                    "Max buffer size {} was reached",
-                    limit
-                )));
+        if let Output::Start(idx, _) = token {
+            if self.buffer_parts().is_empty() {
+                *self.buffer_idx() = idx;
             }
+            let buffer_idx = *self.buffer_idx();
+            self.buffer_parts().push(idx - buffer_idx);
+            Ok(None)
+        } else {
+            Err(error::Handler::new("Invalid token"))
         }
+    }
 
-        self.current_buffer_size += data.len();
-        self.stored.push_back((path_opt, data.to_vec()));
+    fn _feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        // buffer is being used
+        if !self.buffer_parts().is_empty() {
+            // check whether buffer capacity hasn't been reached
+            if let Some(limit) = *self.max_buffer_size() {
+                if *self.current_buffer_size() + data.len() > limit {
+                    return Err(error::Handler::new(format!(
+                        "Max buffer size {} was reached",
+                        limit
+                    )));
+                }
+            }
+            self.buffer().extend(data);
+            *self.current_buffer_size() += data.len();
+        }
 
         Ok(None)
     }
 
-    fn use_path(&self) -> bool {
-        self.use_path
+    fn _end(
+        &mut self,
+        path: &Path,
+        _matcher_idx: usize,
+        _token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        // Try to push buffer
+        if let Some(idx) = self.buffer_parts().pop() {
+            let data = self.buffer()[idx..].to_vec();
+            self.store_result(path, data);
+            if self.buffer_parts().is_empty() {
+                self.buffer().clear();
+            }
+            Ok(None)
+        } else {
+            Err(error::Handler::new("Invalid token"))
+        }
+    }
+
+    fn store_result(&mut self, path: &Path, data: Vec<u8>);
+    fn buffer(&mut self) -> &mut Vec<u8>;
+    fn buffer_parts(&mut self) -> &mut Vec<usize>;
+    fn buffer_idx(&mut self) -> &mut usize;
+    fn max_buffer_size(&mut self) -> &mut Option<usize>;
+    fn current_buffer_size(&mut self) -> &mut usize;
+    fn use_path(&mut self) -> &mut bool;
+}
+
+impl Handler for Buffer {
+    fn start(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self._start(_path, _matcher_idx, token)
+    }
+
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self._feed(data, _matcher_idx)
+    }
+
+    fn end(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self._end(_path, _matcher_idx, token)
+    }
+}
+
+impl Buff for Buffer {
+    fn store_result(&mut self, path: &Path, data: Vec<u8>) {
+        let use_path = *self.use_path();
+        &mut self.results.push_back((
+            if use_path {
+                Some(path.to_string())
+            } else {
+                None
+            },
+            data,
+        ));
+    }
+
+    fn buffer(&mut self) -> &mut Vec<u8> {
+        &mut self.buffer
+    }
+
+    fn buffer_parts(&mut self) -> &mut Vec<usize> {
+        &mut self.buffer_parts
+    }
+
+    fn buffer_idx(&mut self) -> &mut usize {
+        &mut self.buffer_idx
+    }
+
+    fn max_buffer_size(&mut self) -> &mut Option<usize> {
+        &mut self.max_buffer_size
+    }
+
+    fn current_buffer_size(&mut self) -> &mut usize {
+        &mut self.current_buffer_size
+    }
+
+    fn use_path(&mut self) -> &mut bool {
+        &mut self.use_path
     }
 }
 
@@ -137,7 +245,7 @@ impl Buffer {
     ///
     /// ```
     pub fn pop(&mut self) -> Option<(Option<String>, Vec<u8>)> {
-        let popped = self.stored.pop_front();
+        let popped = self.results.pop_front();
         if let Some((_, buffer)) = popped.as_ref() {
             self.current_buffer_size -= buffer.len();
         }

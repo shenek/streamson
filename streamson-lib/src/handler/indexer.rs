@@ -29,11 +29,7 @@
 //! ```
 
 use super::Handler;
-use crate::{
-    error,
-    path::Path,
-    streamer::{Output, ParsedKind},
-};
+use crate::{error, path::Path, streamer::Output};
 use std::collections::VecDeque;
 
 /// Indexer handler responsible for storing index of the matches
@@ -56,41 +52,30 @@ impl Default for Indexer {
 }
 
 impl Handler for Indexer {
-    fn handle(
-        &mut self,
-        _path: &Path,
-        _matcher_idx: usize,
-        _data: Option<&[u8]>,
-        _kind: ParsedKind,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
-        Ok(None)
-    }
-
-    fn handle_idx(
+    fn start(
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        idx: Output,
-    ) -> Result<(), error::Handler> {
+        token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.stored.push_back((
             if self.use_path {
                 Some(path.to_string())
             } else {
                 None
             },
-            idx,
+            token,
         ));
-        Ok(())
+        Ok(None)
     }
 
-    fn use_path(&self) -> bool {
-        self.use_path
-    }
-
-    fn buffering_required(&self) -> bool {
-        // no need to buffer input
-        // handler doesn't use matched data
-        false
+    fn end(
+        &mut self,
+        path: &Path,
+        matcher_idx: usize,
+        token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self.start(path, matcher_idx, token) // same as start
     }
 }
 

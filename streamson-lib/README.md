@@ -250,17 +250,29 @@ while let Ok(size) = input.read(&mut buffer[..]) {
 ### Custom Handlers
 You can define your custom handler.
 ```rust
-use streamson_lib::{handler, Path, error, streamer::ParsedKind};
+use streamson_lib::{handler, Path, error, streamer::Output};
 
 #[derive(Debug)]
 struct CustomHandler;
 
 impl handler::Handler for CustomHandler {
-	fn handle(
-		&mut self, _: &Path, _: usize, _: Option<&[u8]>, _: ParsedKind
-		) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
+	fn start(
+		&mut self, _: &Path, _: usize, _: Output 
+	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
 			todo!()
-		}
+	}
+
+	fn feed(
+		&mut self, _: &[u8], _: usize,
+	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
+			todo!()
+	}
+
+	fn end(
+		&mut self, _: &Path, _: usize, _: Output
+	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
+			todo!()
+	}
 }
 
 ```

@@ -25,58 +25,110 @@
 //! ```
 
 use super::Handler;
-use crate::{error, streamer::ParsedKind, Path};
+use crate::{
+    error,
+    streamer::{Output, ParsedKind},
+    Path,
+};
+
+#[derive(Debug)]
+pub enum State {
+    Initial,
+    Escaping,
+    Processing,
+    Terminated,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self::Initial
+    }
+}
+
+fn _processing_error() -> error::Handler {
+    error::Handler::new("Wrong unstringify format")
+}
 
 /// Handler which unstringifies the matched data
 ///
 #[derive(Debug, Default)]
-pub struct Unstringify;
+pub struct Unstringify {
+    state: State,
+}
 
 impl Unstringify {
     /// Creates a new handler which unstringifies matched data
     pub fn new() -> Self {
-        Self
+        Default::default()
     }
 }
 
 impl Handler for Unstringify {
-    fn handle(
+    fn start(
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        kind: ParsedKind,
+        token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        let data = data.unwrap(); // buffering is required -> data should not be None
-        if !matches!(kind, ParsedKind::Str) {
-            return Err(error::Handler::new(
-                "Unstringified data is supposed to be a string.",
-            ));
-        }
-
-        let mut result: Vec<u8> = vec![];
-        let mut escaped = false;
-        for byte in data.iter().take(data.len() - 1).skip(1) {
-            if escaped {
-                result.push(*byte);
-                escaped = false;
-            } else {
-                match *byte {
-                    b'\\' => escaped = true,
-                    b'"' => return Err(error::Handler::new("Wrong unstringify format")),
-                    byte => result.push(byte),
-                }
+        self.state = State::Initial;
+        if let Output::Start(_, kind) = token {
+            if !matches!(kind, ParsedKind::Str) {
+                return Err(error::Handler::new(
+                    "Unstringified data is supposed to be a string.",
+                ));
             }
+            Ok(None)
+        } else {
+            unreachable!();
         }
-        if escaped {
-            return Err(error::Handler::new("Wrong unstringify format"));
+    }
+
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        let mut result: Vec<u8> = vec![];
+        for byte in data.iter() {
+            match self.state {
+                State::Initial => {
+                    // skip first character
+                    self.state = State::Processing;
+                    continue;
+                }
+                State::Processing => {
+                    match *byte {
+                        b'\\' => self.state = State::Escaping,
+                        b'"' => {
+                            // terminate handler matching
+                            self.state = State::Terminated;
+                            break;
+                        }
+                        byte => result.push(byte),
+                    }
+                }
+                State::Escaping => {
+                    // Just append next byte
+                    result.push(*byte);
+                    self.state = State::Processing;
+                }
+                State::Terminated => return Err(_processing_error()),
+            }
         }
 
         Ok(Some(result))
     }
 
-    fn buffering_required(&self) -> bool {
-        true
+    fn end(
+        &mut self,
+        _path: &Path,
+        _matcher_idx: usize,
+        _token: Output,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        if !matches!(self.state, State::Terminated) {
+            return Err(error::Handler::new("String does not ended"));
+        }
+        Ok(None)
     }
 }
 

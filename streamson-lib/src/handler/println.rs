@@ -1,7 +1,7 @@
 //! Handler which puts output into stdout
 //!
 use super::Handler;
-use crate::{error, path::Path, streamer::ParsedKind};
+use crate::{error, path::Path, streamer::Output};
 use std::str;
 
 /// Handler responsible for sending data to stdout.
@@ -13,6 +13,9 @@ pub struct PrintLn {
     /// String which will be appended to the end of each record
     /// to separate it with the next record (default '#')
     separator: String,
+
+    /// Buffer to store output data (should be printed all at once)
+    buffer: Vec<u8>,
 }
 
 impl Default for PrintLn {
@@ -20,6 +23,7 @@ impl Default for PrintLn {
         Self {
             use_path: false,
             separator: "\n".into(),
+            buffer: vec![],
         }
     }
 }
@@ -68,29 +72,29 @@ impl PrintLn {
 }
 
 impl Handler for PrintLn {
-    fn use_path(&self) -> bool {
-        self.use_path
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self.buffer.extend(data);
+        Ok(None)
     }
 
-    fn separator(&self) -> &str {
-        &self.separator
-    }
-
-    fn handle(
+    fn end(
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        _kind: ParsedKind,
+        _token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        let str_data =
-            str::from_utf8(data.unwrap()).map_err(|err| error::Handler::new(err.to_string()))?;
-        if self.use_path() {
-            print!("{}: {}{}", path, str_data, self.separator());
-        } else {
-            print!("{}{}", str_data, self.separator());
+        if self.use_path {
+            print!("{}: ", path);
         }
-
+        let str_data =
+            str::from_utf8(&self.buffer).map_err(|err| error::Handler::new(err.to_string()))?;
+        print!("{}", str_data);
+        print!("{}", self.separator);
+        self.buffer.clear();
         Ok(None)
     }
 }

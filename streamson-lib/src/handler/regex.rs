@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::ParsedKind};
+use crate::{error, path::Path, streamer::Output};
 use std::str;
 
 /// Regex to match and string to convert to
@@ -37,33 +37,38 @@ type Replacement = (regex::Regex, String, usize);
 pub struct Regex {
     /// All replacements which will be triggered
     replacements: Vec<Replacement>,
+    /// Buffer to collect input
+    buffer: Vec<u8>,
 }
 
 impl Handler for Regex {
-    fn handle(
+    fn feed(
+        &mut self,
+        data: &[u8],
+        _matcher_idx: usize,
+    ) -> Result<Option<Vec<u8>>, error::Handler> {
+        self.buffer.extend(data);
+        Ok(None)
+    }
+
+    fn end(
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        data: Option<&[u8]>,
-        _kind: ParsedKind,
+        _token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        let mut output: String = str::from_utf8(data.unwrap())
+        let mut output: String = str::from_utf8(&self.buffer)
             .map_err(|e| error::Handler::new(e.to_string()))?
             .to_string();
         for (regex, into, limit) in &self.replacements {
             let str_to_replace: &str = &into;
             output = regex.replacen(&output, *limit, str_to_replace).to_string();
         }
+
+        // Clear the buffer so it can be reused later
+        self.buffer.clear();
+
         Ok(Some(output.as_bytes().to_vec()))
-    }
-
-    fn use_path(&self) -> bool {
-        false
-    }
-
-    fn buffering_required(&self) -> bool {
-        // handle function expects data
-        true
     }
 }
 

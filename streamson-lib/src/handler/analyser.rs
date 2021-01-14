@@ -6,7 +6,7 @@ use super::Handler;
 use crate::{
     error,
     path::{Element, Path},
-    streamer::ParsedKind,
+    streamer::Output,
 };
 
 #[derive(Debug, Default)]
@@ -28,25 +28,14 @@ fn to_recuded_array_str(path: &Path) -> String {
 }
 
 impl Handler for Analyser {
-    fn handle(
+    fn start(
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        _data: Option<&[u8]>,
-        _kind: ParsedKind,
+        _token: Output,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         *self.paths.entry(to_recuded_array_str(path)).or_insert(0) += 1;
         Ok(None)
-    }
-
-    fn use_path(&self) -> bool {
-        // paths will be stored
-        true
-    }
-
-    fn buffering_required(&self) -> bool {
-        // no need to buffer input
-        false
     }
 }
 

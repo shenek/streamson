@@ -20,8 +20,6 @@ struct StackItem {
     idx: usize,
     /// Idx to vec of matchers
     match_idx: usize,
-    /// Is it required to buffer input data
-    buffering_required: bool,
 }
 
 /// Item in matcher list
@@ -31,12 +29,6 @@ type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
 pub struct Trigger {
     /// Input idx against total idx
     input_start: usize,
-    /// Buffer index against total idx
-    buffer_start: usize,
-    /// Buffer which is used to store collected data
-    buffer: Vec<u8>,
-    /// Indicator whether data are collected
-    collecting: bool,
     /// Path matchers and handlers
     matchers: Vec<MatcherItem>,
     /// Responsible for data extraction
@@ -49,9 +41,6 @@ impl Default for Trigger {
     fn default() -> Self {
         Self {
             input_start: 0,
-            buffer_start: 0,
-            buffer: vec![],
-            collecting: false,
             matchers: vec![],
             streamer: Streamer::new(),
             matched_stack: vec![],
@@ -96,6 +85,18 @@ impl Trigger {
         self.matchers.push((matcher, handlers.to_vec()));
     }
 
+    fn feed(&mut self, data: &[u8]) -> Result<(), error::Handler> {
+        for matched_items in &self.matched_stack {
+            for matched_item in matched_items {
+                for handler in &self.matchers[matched_item.match_idx].1 {
+                    let mut guard = handler.lock().unwrap();
+                    guard.feed(data, matched_item.match_idx)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Processes input data
     ///
     /// # Arguments
@@ -128,11 +129,9 @@ impl Trigger {
         loop {
             match self.streamer.read()? {
                 Output::Start(idx, kind) => {
-                    // extend the input
+                    // trigger handler for matched
                     let to = idx - self.input_start;
-                    if self.collecting {
-                        self.buffer.extend(&input[inner_idx..to]);
-                    }
+                    self.feed(&input[inner_idx..to])?;
                     inner_idx = to;
 
                     let mut matched = vec![];
@@ -141,82 +140,36 @@ impl Trigger {
                     // try to check whether it matches
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
                         if matcher.match_path(path, kind) {
-                            let mut buffering_required = false;
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
                                 let mut guard = handler.lock().unwrap();
-                                guard.handle_idx(path, match_idx, Output::Start(idx, kind))?;
-                                if guard.buffering_required() {
-                                    buffering_required = true
-                                }
+                                guard.start(path, match_idx, Output::Start(idx, kind))?;
                             }
 
-                            matched.push(StackItem {
-                                idx,
-                                match_idx,
-                                buffering_required,
-                            });
-
-                            if !self.collecting & buffering_required {
-                                // start the buffer
-                                self.buffer_start = idx;
-                                self.collecting = true;
-                            }
+                            matched.push(StackItem { idx, match_idx });
                         }
                     }
 
                     self.matched_stack.push(matched);
                 }
                 Output::End(idx, kind) => {
-                    let current_path = self.streamer.current_path();
                     let to = idx - self.input_start;
-                    if self.collecting {
-                        self.buffer.extend(&input[inner_idx..to]);
-                    }
+                    self.feed(&input[inner_idx..to])?;
                     inner_idx = to;
 
+                    let current_path = self.streamer.current_path();
                     let items = self.matched_stack.pop().unwrap();
                     for item in items {
                         // run handlers for the matches
                         for handler in &self.matchers[item.match_idx].1 {
                             let mut guard = handler.lock().unwrap();
-                            guard.handle_idx(
-                                current_path,
-                                item.match_idx,
-                                Output::End(idx, kind),
-                            )?;
-                            let buffering_required = guard.buffering_required();
-                            guard.handle(
-                                current_path,
-                                item.match_idx,
-                                if buffering_required {
-                                    Some(
-                                        &self.buffer
-                                            [item.idx - self.buffer_start..idx - self.buffer_start],
-                                    )
-                                } else {
-                                    None
-                                },
-                                kind,
-                            )?;
+                            guard.end(current_path, item.match_idx, Output::End(idx, kind))?;
                         }
-                    }
-
-                    // Clear the buffer if there is no need to keep the buffer
-                    if self
-                        .matched_stack
-                        .iter()
-                        .all(|items| items.iter().all(|item| !item.buffering_required))
-                    {
-                        self.collecting = false;
-                        self.buffer.clear();
                     }
                 }
                 Output::Pending => {
                     self.input_start += input.len();
-                    if self.collecting {
-                        self.buffer.extend(&input[inner_idx..]);
-                    }
+                    self.feed(&input[inner_idx..])?;
                     return Ok(());
                 }
                 Output::Separator(_) => {}
@@ -228,7 +181,7 @@ impl Trigger {
 #[cfg(test)]
 mod tests {
     use super::Trigger;
-    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::ParsedKind};
+    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::Output};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -238,15 +191,21 @@ mod tests {
     }
 
     impl Handler for TestHandler {
-        fn handle(
+        fn start(
             &mut self,
             path: &Path,
             _matcher_idx: usize,
-            data: Option<&[u8]>,
-            _kind: ParsedKind,
+            _kind: Output,
         ) -> Result<Option<Vec<u8>>, error::Handler> {
             self.paths.push(path.to_string());
-            self.data.push(data.unwrap().to_vec());
+            Ok(None)
+        }
+        fn feed(
+            &mut self,
+            data: &[u8],
+            _matcher_idx: usize,
+        ) -> Result<Option<Vec<u8>>, error::Handler> {
+            self.data.push(data.to_vec());
             Ok(None)
         }
     }
