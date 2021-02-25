@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 
 /// Replace handler which converts matched data to fixed output
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Handler for Replace {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(Some(self.new_data.clone()))
     }

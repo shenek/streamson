@@ -28,7 +28,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 use std::collections::VecDeque;
 
 /// Buffer handler responsible for storing slitted JSONs into memory
@@ -75,9 +75,9 @@ trait Buff: Handler {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        if let Output::Start(idx, _) = token {
+        if let Token::Start(idx, _) = token {
             if self.buffer_parts().is_empty() {
                 *self.buffer_idx() = idx;
             }
@@ -116,7 +116,7 @@ trait Buff: Handler {
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         // Try to push buffer
         if let Some(idx) = self.buffer_parts().pop() {
@@ -145,7 +145,7 @@ impl Handler for Buffer {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self._start(_path, _matcher_idx, token)
     }
@@ -162,7 +162,7 @@ impl Handler for Buffer {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self._end(_path, _matcher_idx, token)
     }

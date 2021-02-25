@@ -9,7 +9,7 @@ use crate::{
     error,
     matcher::MatchMaker,
     path::Path,
-    streamer::{Output, Streamer},
+    streamer::{Streamer, Token},
 };
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
@@ -111,7 +111,7 @@ impl Filter {
         let mut result = Vec::new();
         loop {
             match self.streamer.read()? {
-                Output::Pending => {
+                Token::Pending => {
                     if self.matched_path.is_none() {
                         if let Some(final_idx) = self.last_output_idx {
                             result.extend(self.move_forward(final_idx));
@@ -119,7 +119,7 @@ impl Filter {
                     }
                     return Ok(result);
                 }
-                Output::Start(idx, kind) => {
+                Token::Start(idx, kind) => {
                     // The path is not matched yet
                     if self.matched_path.is_none() {
                         // Discard first
@@ -156,7 +156,7 @@ impl Filter {
                         }
                     }
                 }
-                Output::End(idx, _) => {
+                Token::End(idx, _) => {
                     if let Some(path) = self.matched_path.as_ref() {
                         if path == self.streamer.current_path() {
                             self.matched_path = None;
@@ -177,7 +177,7 @@ impl Filter {
                         self.last_output_level = self.streamer.current_path().depth();
                     }
                 }
-                Output::Separator(idx) => {
+                Token::Separator(idx) => {
                     if self.matched_path.is_none() {
                         if self.delayed_discard {
                             // special first child to filter case

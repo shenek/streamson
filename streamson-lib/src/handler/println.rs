@@ -1,7 +1,7 @@
 //! Handler which puts output into stdout
 //!
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 use std::str;
 
 /// Handler responsible for sending data to stdout.
@@ -85,7 +85,7 @@ impl Handler for PrintLn {
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.use_path {
             print!("{}: ", path);

@@ -7,7 +7,7 @@ use crate::{
     error,
     matcher::MatchMaker,
     path::Path,
-    streamer::{Output, Streamer},
+    streamer::{Streamer, Token},
 };
 use std::mem::swap;
 
@@ -108,7 +108,7 @@ impl Extract {
         let mut result = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Start(idx, kind) if self.matched_path.is_none() => {
+                Token::Start(idx, kind) if self.matched_path.is_none() => {
                     let path = self.streamer.current_path();
 
                     // try to check whether it matches
@@ -121,14 +121,14 @@ impl Extract {
                         }
                     }
                 }
-                Output::Pending => {
+                Token::Pending => {
                     self.input_start += input.len();
                     if self.matched_path.is_some() {
                         self.buffer.extend(&input[input_idx..]);
                     }
                     return Ok(result);
                 }
-                Output::End(idx, _) if self.matched_path.is_some() => {
+                Token::End(idx, _) if self.matched_path.is_some() => {
                     if let Some(path) = self.matched_path.as_ref() {
                         if path == self.streamer.current_path() {
                             // extend buffer and update indexes

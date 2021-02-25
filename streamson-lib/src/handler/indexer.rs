@@ -29,14 +29,14 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 use std::collections::VecDeque;
 
 /// Indexer handler responsible for storing index of the matches
 #[derive(Debug)]
 pub struct Indexer {
     /// Queue with stored indexes
-    stored: VecDeque<(Option<String>, Output)>,
+    stored: VecDeque<(Option<String>, Token)>,
 
     /// Not to show path will spare some allocation
     use_path: bool,
@@ -56,7 +56,7 @@ impl Handler for Indexer {
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.stored.push_back((
             if self.use_path {
@@ -73,7 +73,7 @@ impl Handler for Indexer {
         &mut self,
         path: &Path,
         matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.start(path, matcher_idx, token) // same as start
     }
@@ -117,7 +117,7 @@ impl Indexer {
     ///
     ///
     /// ```
-    pub fn pop(&mut self) -> Option<(Option<String>, Output)> {
+    pub fn pop(&mut self) -> Option<(Option<String>, Token)> {
         self.stored.pop_front()
     }
 }
@@ -129,7 +129,7 @@ mod tests {
         handler::buffer::Buffer,
         matcher::Simple,
         strategy::Trigger,
-        streamer::{Output, ParsedKind},
+        streamer::{ParsedKind, Token},
     };
     use std::sync::{Arc, Mutex};
 
@@ -154,43 +154,43 @@ mod tests {
         let mut guard = indexer_handler.lock().unwrap();
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::Start(13, ParsedKind::Arr))
+            (None, Token::Start(13, ParsedKind::Arr))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::Start(14, ParsedKind::Num))
+            (None, Token::Start(14, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::End(15, ParsedKind::Num))
+            (None, Token::End(15, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::Start(17, ParsedKind::Num))
+            (None, Token::Start(17, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::End(18, ParsedKind::Num))
+            (None, Token::End(18, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::Start(20, ParsedKind::Num))
+            (None, Token::Start(20, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::End(21, ParsedKind::Num))
+            (None, Token::End(21, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::Start(23, ParsedKind::Num))
+            (None, Token::Start(23, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::End(24, ParsedKind::Num))
+            (None, Token::End(24, ParsedKind::Num))
         );
         assert_eq!(
             guard.pop().unwrap(),
-            (None, Output::End(25, ParsedKind::Arr))
+            (None, Token::End(25, ParsedKind::Arr))
         );
 
         // Test whether buffer handler contains the right data

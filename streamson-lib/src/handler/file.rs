@@ -1,7 +1,7 @@
 //! Handler which puts output into a file
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 use std::{fs, io::Write};
 
 /// File handler responsible for storing data to a file.
@@ -85,7 +85,7 @@ impl Handler for File {
         &mut self,
         path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.use_path {
             self.file
@@ -110,7 +110,7 @@ impl Handler for File {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let separator = self.separator.to_string();
         self.file

@@ -27,7 +27,7 @@
 use super::Handler;
 use crate::{
     error,
-    streamer::{Output, ParsedKind},
+    streamer::{ParsedKind, Token},
     Path,
 };
 
@@ -68,10 +68,10 @@ impl Handler for Unstringify {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        token: Output,
+        token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.state = State::Initial;
-        if let Output::Start(_, kind) = token {
+        if let Token::Start(_, kind) = token {
             if !matches!(kind, ParsedKind::Str) {
                 return Err(error::Handler::new(
                     "Unstringified data is supposed to be a string.",
@@ -123,7 +123,7 @@ impl Handler for Unstringify {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if !matches!(self.state, State::Terminated) {
             return Err(error::Handler::new("String does not ended"));

@@ -10,7 +10,7 @@ use crate::{
     handler::Handler,
     matcher::MatchMaker,
     path::Path,
-    streamer::{Output, Streamer},
+    streamer::{Streamer, Token},
 };
 use std::sync::{Arc, Mutex};
 
@@ -97,7 +97,7 @@ impl Convert {
         }
 
         if let Some(to_output) = handler_input {
-            // Output as result immediatelly
+            // Token as result immediatelly
             Ok(Some(to_output.to_vec()))
         } else {
             Ok(None)
@@ -143,7 +143,7 @@ impl Convert {
         let mut result: Vec<Vec<u8>> = vec![];
         loop {
             match self.streamer.read()? {
-                Output::Start(idx, kind) => {
+                Token::Start(idx, kind) => {
                     if self.matched.is_none() {
                         // try to check whether it matches
                         for (matcher_idx, (matcher, _)) in self.matchers.iter().enumerate() {
@@ -168,7 +168,7 @@ impl Convert {
                                     start_buff = guard.start(
                                         self.streamer.current_path(),
                                         matcher_idx,
-                                        Output::Start(idx, kind),
+                                        Token::Start(idx, kind),
                                     )?;
 
                                     // make pass remaining data to handler
@@ -191,7 +191,7 @@ impl Convert {
                         }
                     }
                 }
-                Output::End(idx, kind) => {
+                Token::End(idx, kind) => {
                     let mut clear = false;
                     if let Some((matched_path, matcher_idx)) = self.matched.take() {
                         if self.streamer.current_path() == &matched_path {
@@ -218,7 +218,7 @@ impl Convert {
                                 end_buff = guard.end(
                                     self.streamer.current_path(),
                                     matcher_idx,
-                                    Output::End(idx, kind),
+                                    Token::End(idx, kind),
                                 )?;
 
                                 // make pass remaining data to handler
@@ -242,7 +242,7 @@ impl Convert {
                         }
                     }
                 }
-                Output::Pending => {
+                Token::Pending => {
                     self.input_start += input.len();
                     if let Some((_, matcher_idx)) = self.matched {
                         if let Some(to_output) = self.feed(matcher_idx, &input[inner_idx..])? {
@@ -253,7 +253,7 @@ impl Convert {
                     }
                     return Ok(result);
                 }
-                Output::Separator(_) => {}
+                Token::Separator(_) => {}
             }
         }
     }

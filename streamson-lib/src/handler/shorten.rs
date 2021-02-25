@@ -26,7 +26,7 @@
 //! ```
 
 use super::Handler;
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 
 /// Handler which shortens the matched data
 ///
@@ -59,7 +59,7 @@ impl Handler for Shorten {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         // clear the used so it can start matching again
         self.used = 0;

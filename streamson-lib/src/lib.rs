@@ -107,7 +107,7 @@ pub mod streamer;
 
 pub use handler::Handler;
 pub use path::Path;
-pub use streamer::{Output, Streamer};
+pub use streamer::{Streamer, Token};
 
 #[cfg(doctest)]
 mod test_readme {

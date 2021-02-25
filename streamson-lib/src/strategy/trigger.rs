@@ -10,7 +10,7 @@ use crate::{
     error,
     handler::Handler,
     matcher::MatchMaker,
-    streamer::{Output, Streamer},
+    streamer::{Streamer, Token},
 };
 use std::sync::{Arc, Mutex};
 
@@ -128,7 +128,7 @@ impl Trigger {
         let mut inner_idx = 0;
         loop {
             match self.streamer.read()? {
-                Output::Start(idx, kind) => {
+                Token::Start(idx, kind) => {
                     // trigger handler for matched
                     let to = idx - self.input_start;
                     self.feed(&input[inner_idx..to])?;
@@ -143,7 +143,7 @@ impl Trigger {
                             // handler starts
                             for handler in &self.matchers[match_idx].1 {
                                 let mut guard = handler.lock().unwrap();
-                                guard.start(path, match_idx, Output::Start(idx, kind))?;
+                                guard.start(path, match_idx, Token::Start(idx, kind))?;
                             }
 
                             matched.push(StackItem { idx, match_idx });
@@ -152,7 +152,7 @@ impl Trigger {
 
                     self.matched_stack.push(matched);
                 }
-                Output::End(idx, kind) => {
+                Token::End(idx, kind) => {
                     let to = idx - self.input_start;
                     self.feed(&input[inner_idx..to])?;
                     inner_idx = to;
@@ -163,16 +163,16 @@ impl Trigger {
                         // run handlers for the matches
                         for handler in &self.matchers[item.match_idx].1 {
                             let mut guard = handler.lock().unwrap();
-                            guard.end(current_path, item.match_idx, Output::End(idx, kind))?;
+                            guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
                         }
                     }
                 }
-                Output::Pending => {
+                Token::Pending => {
                     self.input_start += input.len();
                     self.feed(&input[inner_idx..])?;
                     return Ok(());
                 }
-                Output::Separator(_) => {}
+                Token::Separator(_) => {}
             }
         }
     }
@@ -181,7 +181,7 @@ impl Trigger {
 #[cfg(test)]
 mod tests {
     use super::Trigger;
-    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::Output};
+    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::Token};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -195,7 +195,7 @@ mod tests {
             &mut self,
             path: &Path,
             _matcher_idx: usize,
-            _kind: Output,
+            _kind: Token,
         ) -> Result<Option<Vec<u8>>, error::Handler> {
             self.paths.push(path.to_string());
             Ok(None)

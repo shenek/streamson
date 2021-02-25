@@ -1,6 +1,6 @@
 //! Collections of handler (what to do with matched paths and data).
 
-use crate::{error, path::Path, streamer::Output};
+use crate::{error, path::Path, streamer::Token};
 
 pub mod analyser;
 pub mod buffer;
@@ -31,12 +31,12 @@ pub trait Instance: Send {
 
 /// Common handler trait
 pub trait Handler: Send {
-    /// Is called when  a path is matched
+    /// Is called when a path is matched
     ///
     /// # Arguments
     /// * `path` - path which was matched
     /// * `matcher_idx`- idx of matcher which was used
-    /// * `token` - part of a input which was matched
+    /// * `token` - further info about matched data
     ///
     /// # Returns
     /// * `Ok(None)` - All went well, no output
@@ -46,7 +46,7 @@ pub trait Handler: Send {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(None)
     }
@@ -54,8 +54,8 @@ pub trait Handler: Send {
     /// Is called when handler receives some data
     ///
     /// # Arguments
+    /// * `data` - a part of matched data
     /// * `matcher_idx`- idx of matcher which was used
-    /// * `data` - matched data
     ///
     /// # Returns
     /// * `Ok(None)` - All went well, no output
@@ -74,7 +74,7 @@ pub trait Handler: Send {
     /// # Arguments
     /// * `path` - path which was matched
     /// * `matcher_idx`- idx of matcher which was used
-    /// * `token` - part of a input which was matched
+    /// * `token` - further info about matched data
     ///
     /// # Returns
     /// * `Ok(None)` - All went well, no data conversion needed
@@ -84,7 +84,7 @@ pub trait Handler: Send {
         &mut self,
         _path: &Path,
         _matcher_idx: usize,
-        _token: Output,
+        _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(None)
     }
