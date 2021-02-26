@@ -171,7 +171,7 @@ impl Handler for Buffer {
 impl Buff for Buffer {
     fn store_result(&mut self, path: &Path, data: Vec<u8>) {
         let use_path = *self.use_path();
-        &mut self.results.push_back((
+        self.results.push_back((
             if use_path {
                 Some(path.to_string())
             } else {

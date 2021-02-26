@@ -181,16 +181,16 @@ impl Streamer {
     }
 
     /// Moves cursor forward while characters are whitespace
-    fn process_remove_whitespace(&mut self) -> Result<Option<Token>, error::General> {
+    fn process_remove_whitespace(&mut self) -> Option<Token> {
         while let Some(byte) = self.peek() {
             if !byte.is_ascii_whitespace() {
                 self.advance();
-                return Ok(None);
+                return None;
             }
             self.forward();
         }
         self.states.push(States::RemoveWhitespaces);
-        Ok(Some(Token::Pending))
+        Some(Token::Pending)
     }
 
     /// Processes value which type will be determined later
@@ -269,18 +269,18 @@ impl Streamer {
     }
 
     /// Processes string on the input
-    fn process_str(&mut self, state: StringState) -> Result<Option<Token>, error::General> {
+    fn process_str(&mut self, state: StringState) -> Option<Token> {
         if let Some(byte) = self.peek() {
             match byte {
                 b'"' => {
                     if state == StringState::Normal {
                         self.forward();
                         self.advance();
-                        Ok(Some(Token::End(self.total_idx, ParsedKind::Str)))
+                        Some(Token::End(self.total_idx, ParsedKind::Str))
                     } else {
                         self.forward();
                         self.states.push(States::Str(StringState::Normal));
-                        Ok(None)
+                        None
                     }
                 }
                 b'\\' => {
@@ -290,68 +290,68 @@ impl Streamer {
                         StringState::Normal => StringState::Escaped,
                     };
                     self.states.push(States::Str(new_state));
-                    Ok(None)
+                    None
                 }
                 _ => {
                     self.forward();
                     self.states.push(States::Str(StringState::Normal));
-                    Ok(None)
+                    None
                 }
             }
         } else {
             self.states.push(States::Str(state));
-            Ok(Some(Token::Pending))
+            Some(Token::Pending)
         }
     }
 
     /// Processes the number
-    fn process_number(&mut self) -> Result<Option<Token>, error::General> {
+    fn process_number(&mut self) -> Option<Token> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_digit() || byte == b'.' {
                 self.forward();
                 self.states.push(States::Number);
-                Ok(None)
+                None
             } else {
                 self.advance();
-                Ok(Some(Token::End(self.total_idx, ParsedKind::Num)))
+                Some(Token::End(self.total_idx, ParsedKind::Num))
             }
         } else {
             self.states.push(States::Number);
-            Ok(Some(Token::Pending))
+            Some(Token::Pending)
         }
     }
 
     /// Processes bool
-    fn process_bool(&mut self) -> Result<Option<Token>, error::General> {
+    fn process_bool(&mut self) -> Option<Token> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_alphabetic() {
                 self.forward();
                 self.states.push(States::Bool);
-                Ok(None)
+                None
             } else {
                 self.advance();
-                Ok(Some(Token::End(self.total_idx, ParsedKind::Bool)))
+                Some(Token::End(self.total_idx, ParsedKind::Bool))
             }
         } else {
             self.states.push(States::Bool);
-            Ok(Some(Token::Pending))
+            Some(Token::Pending)
         }
     }
 
     /// Processes null
-    fn process_null(&mut self) -> Result<Option<Token>, error::General> {
+    fn process_null(&mut self) -> Option<Token> {
         if let Some(byte) = self.peek() {
             if byte.is_ascii_alphabetic() {
                 self.forward();
                 self.states.push(States::Null);
-                Ok(None)
+                None
             } else {
                 self.advance();
-                Ok(Some(Token::End(self.total_idx, ParsedKind::Null)))
+                Some(Token::End(self.total_idx, ParsedKind::Null))
             }
         } else {
             self.states.push(States::Null);
-            Ok(Some(Token::Pending))
+            Some(Token::Pending)
         }
     }
 
@@ -516,7 +516,7 @@ impl Streamer {
 
                 match state {
                     States::RemoveWhitespaces => {
-                        if let Some(output) = self.process_remove_whitespace()? {
+                        if let Some(output) = self.process_remove_whitespace() {
                             return Ok(output);
                         }
                     }
@@ -529,25 +529,25 @@ impl Streamer {
                         }
                     }
                     States::Str(state) => {
-                        if let Some(output) = self.process_str(state)? {
+                        if let Some(output) = self.process_str(state) {
                             self.pop_path = output.is_end();
                             return Ok(output);
                         }
                     }
                     States::Number => {
-                        if let Some(output) = self.process_number()? {
+                        if let Some(output) = self.process_number() {
                             self.pop_path = output.is_end();
                             return Ok(output);
                         }
                     }
                     States::Bool => {
-                        if let Some(output) = self.process_bool()? {
+                        if let Some(output) = self.process_bool() {
                             self.pop_path = output.is_end();
                             return Ok(output);
                         }
                     }
                     States::Null => {
-                        if let Some(output) = self.process_null()? {
+                        if let Some(output) = self.process_null() {
                             self.pop_path = output.is_end();
                             return Ok(output);
                         }
