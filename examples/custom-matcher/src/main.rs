@@ -27,7 +27,7 @@ fn main() {
     let matcher = Letter::new('l');
     let mut trigger = strategy::Trigger::new();
 
-    trigger.add_matcher(Box::new(matcher), &[handler]);
+    trigger.add_matcher(Box::new(matcher), handler);
     trigger
         .process(br#"{"first": {"log": [1,2,3,4]}}"#)
         .unwrap();

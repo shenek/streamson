@@ -13,7 +13,7 @@
 //! let mut convert = strategy::Convert::new();
 //!
 //! // Set the matcher for convert strategy
-//! convert.add_matcher(Box::new(matcher), vec![converter]);
+//! convert.add_matcher(Box::new(matcher), converter);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"password": "1234", "name": "User1"}, {"#.to_vec(),
@@ -70,6 +70,10 @@ impl Handler for Regex {
 
         Ok(Some(output.as_bytes().to_vec()))
     }
+
+    fn is_converter(&self) -> bool {
+        true
+    }
 }
 
 impl Regex {
@@ -106,10 +110,7 @@ mod tests {
         );
 
         let matcher = Simple::new(r#"[]{"name"}"#).unwrap();
-        convert.add_matcher(
-            Box::new(matcher),
-            vec![Arc::new(Mutex::new(regex_converter))],
-        );
+        convert.add_matcher(Box::new(matcher), Arc::new(Mutex::new(regex_converter)));
 
         let output = convert
             .process(br#"[{"name": "User1 User1"}, {"name": "user2"}]"#)

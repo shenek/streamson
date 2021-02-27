@@ -137,7 +137,7 @@ mod tests {
     ) -> String {
         let handler = Arc::new(Mutex::new(handler));
         let mut trigger = strategy::Trigger::new();
-        trigger.add_matcher(Box::new(matcher), &[handler]);
+        trigger.add_matcher(Box::new(matcher), handler);
 
         trigger.process(input).unwrap();
         fs::read_to_string(path).unwrap()

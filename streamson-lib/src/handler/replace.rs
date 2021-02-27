@@ -13,7 +13,7 @@
 //! let mut convert = strategy::Convert::new();
 //!
 //! // Set the matcher for convert strategy
-//! convert.add_matcher(Box::new(matcher), vec![handler]);
+//! convert.add_matcher(Box::new(matcher), handler);
 //!
 //! for input in vec![
 //!     br#"{"users": [{"password": "1234", "name": "first"}, {"#.to_vec(),
@@ -50,5 +50,9 @@ impl Handler for Replace {
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(Some(self.new_data.clone()))
+    }
+
+    fn is_converter(&self) -> bool {
+        true
     }
 }

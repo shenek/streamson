@@ -12,7 +12,7 @@
 //! let mut trigger = strategy::Trigger::new();
 //!
 //! // Set the matcher for trigger strategy
-//! trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+//! trigger.add_matcher(Box::new(matcher), buffer_handler.clone());
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),
@@ -274,7 +274,7 @@ mod tests {
         let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
         let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
 
-        trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), buffer_handler.clone());
 
         // Fits into the buffer
         assert!(trigger.process(br#"[{"description": "short"}, "#).is_ok());
@@ -290,7 +290,7 @@ mod tests {
         let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
         let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
 
-        trigger.add_matcher(Box::new(matcher), &[buffer_handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), buffer_handler.clone());
 
         // Fits into the buffer
         assert!(trigger.process(br#"[{"description": "short"}, "#).is_ok());

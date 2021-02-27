@@ -13,7 +13,7 @@
 //! let mut convert = strategy::Convert::new();
 //!
 //! // Set the matcher for convert strategy
-//! convert.add_matcher(Box::new(matcher), vec![handler]);
+//! convert.add_matcher(Box::new(matcher), handler);
 //!
 //! for input in vec![
 //!     br#"{"elements": [{"description": "too long string"}, {"#.to_vec(),
@@ -94,6 +94,10 @@ impl Handler for Shorten {
 
         Ok(Some(result))
     }
+
+    fn is_converter(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -108,7 +112,7 @@ mod tests {
         let shorten_handler = Arc::new(Mutex::new(Shorten::new(10, "..\"".to_string())));
         let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
 
-        convert.add_matcher(Box::new(matcher), vec![shorten_handler.clone()]);
+        convert.add_matcher(Box::new(matcher), shorten_handler.clone());
         let output = convert
             .process(br#"[{"description": "too long description"}, {"description": "short"}]"#)
             .unwrap();
@@ -127,7 +131,7 @@ mod tests {
         let shorten_handler = Arc::new(Mutex::new(Shorten::new(10, "..\"".to_string())));
         let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
 
-        convert.add_matcher(Box::new(matcher), vec![shorten_handler.clone()]);
+        convert.add_matcher(Box::new(matcher), shorten_handler.clone());
         let mut output = convert.process(br#"[{"description": "t"#).unwrap();
 
         output.extend(convert.process(br#"oo long d"#).unwrap());

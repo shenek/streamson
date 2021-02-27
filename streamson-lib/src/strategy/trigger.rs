@@ -23,7 +23,7 @@ struct StackItem {
 }
 
 /// Item in matcher list
-type MatcherItem = (Box<dyn MatchMaker>, Vec<Arc<Mutex<dyn Handler>>>);
+type MatcherItem = (Box<dyn MatchMaker>, Arc<Mutex<dyn Handler>>);
 
 /// Processes data from input and triggers handlers
 pub struct Trigger {
@@ -74,24 +74,18 @@ impl Trigger {
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// trigger.add_matcher(
     ///     Box::new(matcher),
-    ///     &[Arc::new(Mutex::new(handler))]
+    ///     Arc::new(Mutex::new(handler))
     /// );
     /// ```
-    pub fn add_matcher(
-        &mut self,
-        matcher: Box<dyn MatchMaker>,
-        handlers: &[Arc<Mutex<dyn Handler>>],
-    ) {
-        self.matchers.push((matcher, handlers.to_vec()));
+    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>, handler: Arc<Mutex<dyn Handler>>) {
+        self.matchers.push((matcher, handler));
     }
 
     fn feed(&mut self, data: &[u8]) -> Result<(), error::Handler> {
         for matched_items in &self.matched_stack {
             for matched_item in matched_items {
-                for handler in &self.matchers[matched_item.match_idx].1 {
-                    let mut guard = handler.lock().unwrap();
-                    guard.feed(data, matched_item.match_idx)?;
-                }
+                let mut guard = self.matchers[matched_item.match_idx].1.lock().unwrap();
+                guard.feed(data, matched_item.match_idx)?;
             }
         }
         Ok(())
@@ -141,11 +135,8 @@ impl Trigger {
                     for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
                         if matcher.match_path(path, kind) {
                             // handler starts
-                            for handler in &self.matchers[match_idx].1 {
-                                let mut guard = handler.lock().unwrap();
-                                guard.start(path, match_idx, Token::Start(idx, kind))?;
-                            }
-
+                            let mut guard = self.matchers[match_idx].1.lock().unwrap();
+                            guard.start(path, match_idx, Token::Start(idx, kind))?;
                             matched.push(StackItem { idx, match_idx });
                         }
                     }
@@ -161,10 +152,8 @@ impl Trigger {
                     let items = self.matched_stack.pop().unwrap();
                     for item in items {
                         // run handlers for the matches
-                        for handler in &self.matchers[item.match_idx].1 {
-                            let mut guard = handler.lock().unwrap();
-                            guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
-                        }
+                        let mut guard = self.matchers[item.match_idx].1.lock().unwrap();
+                        guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
                     }
                 }
                 Token::Pending => {
@@ -215,7 +204,7 @@ mod tests {
         let mut trigger = Trigger::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), handler.clone());
         trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap();
 
         let guard = handler.lock().unwrap();
@@ -237,7 +226,7 @@ mod tests {
         let mut trigger = Trigger::new();
         let handler = Arc::new(Mutex::new(TestHandler::default()));
         let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), handler.clone());
 
         trigger.process(br#"{"elem"#).unwrap();
         trigger.process(br#"ents": [1, 2, 3, 4]}"#).unwrap();

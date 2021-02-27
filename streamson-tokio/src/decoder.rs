@@ -47,7 +47,7 @@ impl Extractor {
             handler::Buffer::new().set_use_path(include_path),
         ));
         let mut trigger = strategy::Trigger::new();
-        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), handler.clone());
         Self { trigger, handler }
     }
 }

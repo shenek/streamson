@@ -1,10 +1,10 @@
 //! Collections of handler (what to do with matched paths and data).
-
-use crate::{error, path::Path, streamer::Token};
+//!
 
 pub mod analyser;
 pub mod buffer;
 pub mod file;
+pub mod group;
 pub mod indexer;
 pub mod println;
 #[cfg(feature = "with_regex")]
@@ -13,9 +13,12 @@ pub mod replace;
 pub mod shorten;
 pub mod unstringify;
 
+use crate::{error, path::Path, streamer::Token};
+
 pub use self::analyser::Analyser;
 pub use self::buffer::Buffer;
 pub use self::file::File;
+pub use self::group::Group;
 pub use self::indexer::Indexer;
 pub use self::println::PrintLn;
 #[cfg(feature = "with_regex")]
@@ -23,11 +26,6 @@ pub use self::regex::Regex;
 pub use self::replace::Replace;
 pub use self::shorten::Shorten;
 pub use self::unstringify::Unstringify;
-pub use crate::streamer::ParsedKind;
-
-pub trait Instance: Send {
-    fn finalize(self) -> Result<Option<Vec<u8>>, error::Handler>;
-}
 
 /// Common handler trait
 pub trait Handler: Send {
@@ -78,7 +76,7 @@ pub trait Handler: Send {
     ///
     /// # Returns
     /// * `Ok(None)` - All went well, no data conversion needed
-    /// * `Ok(Some(data))` - Alll went well, data converted
+    /// * `Ok(Some(data))` - All went well, data converted
     /// * `Err(_)` - Failed to execute handler
     fn end(
         &mut self,
@@ -87,5 +85,10 @@ pub trait Handler: Send {
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         Ok(None)
+    }
+
+    /// Should be handler used to convert data
+    fn is_converter(&self) -> bool {
+        false
     }
 }

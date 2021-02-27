@@ -20,7 +20,7 @@ use crate::{error, matcher::MatchMaker, path::Path, streamer::ParsedKind};
 ///
 /// trigger.add_matcher(
 ///     Box::new(matcher),
-///     &[handler],
+///     handler,
 /// );
 ///
 /// for input in vec![

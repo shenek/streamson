@@ -13,7 +13,7 @@
 //! let mut trigger = strategy::Trigger::new();
 //!
 //! // Set the matcher for trigger
-//! trigger.add_matcher(Box::new(matcher), &[indexer_handler.clone()]);
+//! trigger.add_matcher(Box::new(matcher), indexer_handler.clone());
 //!
 //! for input in vec![
 //!     br#"{"users": [{"id": 1, "name": "first"}, {"#.to_vec(),
@@ -126,7 +126,7 @@ impl Indexer {
 mod tests {
     use super::Indexer;
     use crate::{
-        handler::buffer::Buffer,
+        handler::{Buffer, Group},
         matcher::Simple,
         strategy::Trigger,
         streamer::{ParsedKind, Token},
@@ -142,10 +142,14 @@ mod tests {
         let matcher_all = Simple::new(r#"{"elements"}"#).unwrap();
         let matcher_elements = Simple::new(r#"{"elements"}[]"#).unwrap();
 
-        trigger.add_matcher(Box::new(matcher_all), &[indexer_handler.clone()]);
+        trigger.add_matcher(Box::new(matcher_all), indexer_handler.clone());
         trigger.add_matcher(
             Box::new(matcher_elements),
-            &[indexer_handler.clone(), buffer_handler.clone()],
+            Arc::new(Mutex::new(
+                Group::new()
+                    .add_handler(indexer_handler.clone())
+                    .add_handler(buffer_handler.clone()),
+            )),
         );
 
         trigger.process(br#"{"elements": [1, 2, 3, 4]}"#).unwrap();

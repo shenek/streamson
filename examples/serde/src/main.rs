@@ -39,7 +39,7 @@ fn main() {
     let matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
     let mut trigger = strategy::Trigger::new();
 
-    trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+    trigger.add_matcher(Box::new(matcher), handler.clone());
     trigger.process(br#"{"users": [{"firstname": "Carl", "surname": "Streamson"}, {"firstname": "Stream", "surname": "Carlson"}]}"#).unwrap();
 
     handler

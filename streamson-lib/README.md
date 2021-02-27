@@ -94,7 +94,7 @@ let mut trigger = strategy::Trigger::new();
 
 trigger.add_matcher(
     Box::new(matcher),
-    &[handler],
+    handler,
 );
 
 for input in vec![
@@ -141,7 +141,7 @@ Arc::new(Mutex::new(handler::Regex::new().add_regex(regex::Regex::new("User").un
 let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 let mut convert = strategy::Convert::new();
 // Set the matcher for convert strategy
-convert.add_matcher(Box::new(matcher), vec![converter]);
+convert.add_matcher(Box::new(matcher), converter);
 for input in vec![
     br#"{"users": [{"password": "1234", "name": "User1"}, {"#.to_vec(),
     br#""password": "0000", "name": "user2}]}"#.to_vec(),
@@ -171,7 +171,7 @@ use std::io::prelude::*;
 let mut trigger = strategy::Trigger::new();
 let handler = Arc::new(Mutex::new(PrintLn::new()));
 let matcher = Simple::new(r#"{"users"}[]"#).unwrap();
-trigger.add_matcher(Box::new(matcher), &[handler]);
+trigger.add_matcher(Box::new(matcher), handler);
 
 let mut buffer = [0; 2048];
 let mut input = "<input data>".as_bytes();
@@ -232,7 +232,7 @@ let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
 
 convert.add_matcher(
 	Box::new(matcher),
-	vec![Arc::new(Mutex::new(handler::Unstringify::new()))]
+	Arc::new(Mutex::new(handler::Unstringify::new())),
 );
 
 let mut buffer = [0; 2048];

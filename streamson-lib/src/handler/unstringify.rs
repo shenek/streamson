@@ -13,7 +13,7 @@
 //! let mut convert = strategy::Convert::new();
 //!
 //! // Set the matcher for convert strategy
-//! convert.add_matcher(Box::new(matcher), vec![handler]);
+//! convert.add_matcher(Box::new(matcher), handler);
 //!
 //! for input in vec![
 //!     br#"{"stringified_strings": ["\"string\"", "{}", "[]"]}"#.to_vec(),
@@ -144,7 +144,7 @@ mod tests {
         let shorten_handler = Arc::new(Mutex::new(Unstringify::new()));
         let matcher = Simple::new(r#"[]{"stringified"}[]"#).unwrap();
 
-        convert.add_matcher(Box::new(matcher), vec![shorten_handler.clone()]);
+        convert.add_matcher(Box::new(matcher), shorten_handler.clone());
         let mut output = convert
             .process(br#"[{"stringified": ["true", "false", "null", "11", "\"\""]},"#)
             .unwrap();

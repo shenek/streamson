@@ -103,13 +103,13 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     if let Some(simple_matches) = matches.values_of("print") {
         printing = true;
         let matcher = prepare_matcher_from_list(simple_matches.map(String::from).collect())?;
-        trigger.add_matcher(Box::new(matcher), &[print_handler]);
+        trigger.add_matcher(Box::new(matcher), print_handler);
     }
 
     if let Some(simple_matches) = matches.values_of("print_with_header") {
         printing = true;
         let matcher = prepare_matcher_from_list(simple_matches.map(String::from).collect())?;
-        trigger.add_matcher(Box::new(matcher), &[print_with_header_handler]);
+        trigger.add_matcher(Box::new(matcher), print_with_header_handler);
     }
 
     if let Some(file_matches) = matches.values_of("file") {
@@ -133,7 +133,7 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         // prepare handlers
         for (filename, matcher) in file_handler_map.into_iter() {
             let handler = Arc::new(Mutex::new(handler::File::new(&filename)?));
-            trigger.add_matcher(Box::new(matcher), &[handler]);
+            trigger.add_matcher(Box::new(matcher), handler);
         }
     }
 
@@ -141,7 +141,7 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         printing = true;
         let matcher = matcher::All::default();
         let handler = Arc::new(Mutex::new(handler::Analyser::new()));
-        trigger.add_matcher(Box::new(matcher), &[handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), handler.clone());
 
         Some(handler)
     } else {

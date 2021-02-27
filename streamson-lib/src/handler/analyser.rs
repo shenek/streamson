@@ -72,7 +72,7 @@ mod tests {
 
         let matcher = All::default();
 
-        trigger.add_matcher(Box::new(matcher), &[analyser_handler.clone()]);
+        trigger.add_matcher(Box::new(matcher), analyser_handler.clone());
 
         trigger.process(br#"{"elements": [1, 2, 3, [41, 42, {"sub1": {"subsub": 1}, "sub2": null}]], "after": true, "last": [{"aaa": 1, "cc": "dd"}, {"aaa": 2, "extra": false}]}"#).unwrap();
 

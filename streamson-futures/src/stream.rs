@@ -56,10 +56,7 @@ where
     pub fn new(input: I, matcher: Box<dyn matcher::MatchMaker>) -> Self {
         let trigger = Arc::new(Mutex::new(strategy::Trigger::new()));
         let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-        trigger
-            .lock()
-            .unwrap()
-            .add_matcher(matcher, &[buffer.clone()]);
+        trigger.lock().unwrap().add_matcher(matcher, buffer.clone());
         Self {
             input,
             trigger,

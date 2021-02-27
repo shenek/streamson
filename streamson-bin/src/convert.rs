@@ -134,7 +134,7 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
             replace_string.as_bytes().to_vec(),
         )));
         if let Some(matcher_to_add) = matcher {
-            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+            convert.add_matcher(Box::new(matcher_to_add), converter);
         }
     } else if let Some(shorten_args) = matches.values_of("shorten") {
         let args: Vec<String> = shorten_args.map(String::from).collect();
@@ -143,12 +143,12 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
             args[1].clone(),
         )));
         if let Some(matcher_to_add) = matcher {
-            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+            convert.add_matcher(Box::new(matcher_to_add), converter);
         }
     } else if matches.is_present("unstringify") {
         let converter = Arc::new(Mutex::new(handler::Unstringify::new()));
         if let Some(matcher_to_add) = matcher {
-            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+            convert.add_matcher(Box::new(matcher_to_add), converter);
         }
     } else if let Some(regex_convert_args) = matches.values_of("regex_convert") {
         let args: Vec<String> = regex_convert_args.map(String::from).collect();
@@ -158,7 +158,7 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
             1,
         )));
         if let Some(matcher_to_add) = matcher {
-            convert.add_matcher(Box::new(matcher_to_add), vec![converter]);
+            convert.add_matcher(Box::new(matcher_to_add), converter);
         }
     } else {
         unreachable!();

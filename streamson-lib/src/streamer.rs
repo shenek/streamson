@@ -27,7 +27,7 @@ pub enum ParsedKind {
 }
 
 /// Structure which contains further info about matched data
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     /// Path starts here
     Start(usize, ParsedKind),

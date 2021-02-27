@@ -11,10 +11,11 @@
 //! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
 //! use std::sync::{Arc, Mutex};
 //!
-//! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("out.txt").unwrap())
-//! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//!
+//! let handler = handler::Group::new()
+//!     .add_handler(Arc::new(Mutex::new(handler::File::new("out.txt").unwrap())))
+//!     .add_handler(stdout_handler.clone());
 //!
 //! let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
 //! let second_matcher = matcher::Simple::new(r#"{"groups"}[]"#).unwrap();
@@ -24,13 +25,13 @@
 //! // exports users to stdout and out.txt
 //! trigger.add_matcher(
 //!     Box::new(first_matcher),
-//!     &[stdout_handler.clone(), file_handler],
+//!     Arc::new(Mutex::new(handler.clone())),
 //! );
 //!
 //! // groups are going to be expoted only to stdout
 //! trigger.add_matcher(
 //!     Box::new(second_matcher),
-//!     &[stdout_handler],
+//!     stdout_handler,
 //! );
 //!
 //! for input in vec![
@@ -49,6 +50,9 @@
 //!     Mutex::new(handler::File::new("out.txt").unwrap())
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//! let handler = handler::Group::new()
+//!     .add_handler(stdout_handler)
+//!     .add_handler(file_handler);
 //!
 //! let first_matcher = matcher::Depth::new(1, Some(2));
 //! let second_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
@@ -60,7 +64,7 @@
 //! // Paths with depths 1, 2 are exported to out.txt
 //! trigger.add_matcher(
 //!     Box::new(matcher),
-//!     &[stdout_handler.clone(), file_handler],
+//!     Arc::new(Mutex::new(handler)),
 //! );
 //!
 //! for input in vec![
@@ -79,6 +83,9 @@
 //!     Mutex::new(handler::File::new("out.txt").unwrap())
 //! );
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//! let handler = handler::Group::new()
+//!     .add_handler(stdout_handler)
+//!     .add_handler(file_handler);
 //!
 //! let matcher = matcher::Depth::new(1, Some(2));
 //!
@@ -87,7 +94,7 @@
 //! // Paths with depths 1, 2 are exported to out.txt
 //! trigger.add_matcher(
 //!     Box::new(matcher),
-//!     &[stdout_handler.clone(), file_handler],
+//!     Arc::new(Mutex::new(handler)),
 //! );
 //!
 //! for input in vec![
