@@ -190,7 +190,7 @@ use std::io::prelude::*;
 
 let mut filter = strategy::Filter::new();
 let matcher = Simple::new(r#"{"users"}[]"#).unwrap();
-filter.add_matcher(Box::new(matcher));
+filter.add_matcher(Box::new(matcher), None);
 
 let mut buffer = [0; 2048];
 let mut input = "<input data>".as_bytes();

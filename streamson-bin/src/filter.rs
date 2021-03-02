@@ -88,7 +88,7 @@ pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Bo
     }
 
     if let Some(matcher_to_add) = matcher {
-        filter.add_matcher(Box::new(matcher_to_add));
+        filter.add_matcher(Box::new(matcher_to_add), None);
     }
 
     let mut buffer = vec![];

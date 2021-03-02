@@ -153,7 +153,7 @@ mod tests {
     use crate::{
         handler::{Buffer, Replace, Shorten},
         matcher::Simple,
-        strategy::{Convert, Trigger},
+        strategy::{Convert, Filter, Trigger},
     };
     use std::sync::{Arc, Mutex};
 
@@ -285,7 +285,60 @@ mod tests {
 
     #[test]
     fn test_filter() {
-        // TODO finish once filter can trigger handlers
+        let mut filter = Filter::new();
+        let (buffer1, buffer2, buffer3, replace, shorten) = prepare_handlers();
+        let matcher = Simple::new(r#"[]{"desc"}"#).unwrap();
+        let group = Group::new()
+            .add_handler(buffer1.clone())
+            .add_handler(replace.clone())
+            .add_handler(buffer2.clone())
+            .add_handler(shorten.clone())
+            .add_handler(buffer3.clone());
+
+        filter.add_matcher(Box::new(matcher), Some(Arc::new(Mutex::new(group))));
+
+        let output = filter
+            .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
+            .unwrap();
+
+        // output
+        assert_eq!(
+            String::from_utf8(output.into_iter().collect()).unwrap(),
+            r#"[{}, {}]"#
+        );
+
+        // buffer1
+        assert_eq!(
+            String::from_utf8(buffer1.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""aa""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer1.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""bbbbbb""#
+        );
+        assert!(buffer1.lock().unwrap().pop().is_none());
+
+        // buffer2
+        assert_eq!(
+            String::from_utf8(buffer2.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccccc""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer2.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccccc""#
+        );
+        assert!(buffer2.lock().unwrap().pop().is_none());
+
+        // buffer3
+        assert_eq!(
+            String::from_utf8(buffer3.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccc..""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer3.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccc..""#
+        );
+        assert!(buffer3.lock().unwrap().pop().is_none());
     }
 
     #[test]

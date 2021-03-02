@@ -3,14 +3,21 @@
 //! It uses matchers and filters matched parts
 //! from output
 
-use std::{collections::VecDeque, mem::swap};
+use std::{
+    collections::VecDeque,
+    mem::swap,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     error,
+    handler::Handler,
     matcher::MatchMaker,
     path::Path,
     streamer::{Streamer, Token},
 };
+
+type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
 pub struct Filter {
@@ -21,15 +28,11 @@ pub struct Filter {
     /// Responsible for data extraction
     streamer: Streamer,
     /// Matchers which will cause filtering
-    matchers: Vec<Box<dyn MatchMaker>>,
-    /// Path which is matched
-    matched_path: Option<Path>,
-    /// Level of last element which is not filtered
-    last_output_level: usize,
-    /// Index of last element which is not filtered
-    last_output_idx: Option<usize>,
-    /// discard on next not filtered start or end token
-    delayed_discard: bool,
+    matchers: Vec<MatcherItem>,
+    /// What is currently matched - path and indexes to matchers
+    matches: Option<(Path, Vec<usize>)>,
+    /// Path which data were written to stream for the last time
+    last_streaming_path: Option<Path>,
 }
 
 impl Default for Filter {
@@ -39,10 +42,8 @@ impl Default for Filter {
             buffer: VecDeque::new(),
             matchers: vec![],
             streamer: Streamer::new(),
-            matched_path: None,
-            last_output_idx: None,
-            delayed_discard: false,
-            last_output_level: 0,
+            matches: None,
+            last_streaming_path: None,
         }
     }
 }
@@ -85,10 +86,68 @@ impl Filter {
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// filter.add_matcher(
     ///     Box::new(matcher),
+    ///     None,
     /// );
     /// ```
-    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>) {
-        self.matchers.push(matcher);
+    pub fn add_matcher(
+        &mut self,
+        matcher: Box<dyn MatchMaker>,
+        handler: Option<Arc<Mutex<dyn Handler>>>,
+    ) {
+        self.matchers.push((matcher, handler));
+    }
+
+    fn start_handlers(
+        &self,
+        path: &Path,
+        matched_indexes: &[usize],
+        token: Token,
+    ) -> Result<(), error::General> {
+        for (matcher_idx, handler) in matched_indexes
+            .iter()
+            .filter(|idx| self.matchers[**idx].1.is_some())
+            .map(|idx| (idx, self.matchers[*idx].1.as_ref().unwrap()))
+        {
+            let mut guard = handler.lock().unwrap();
+            guard.start(&path, *matcher_idx, token.clone())?;
+        }
+        Ok(())
+    }
+
+    fn feed_handlers(
+        &self,
+        matched_indexes: &[usize],
+        data: VecDeque<u8>,
+    ) -> Result<(), error::General> {
+        let (first, second) = data.as_slices();
+        for (matcher_idx, handler) in matched_indexes
+            .iter()
+            .filter(|idx| self.matchers[**idx].1.is_some())
+            .map(|idx| (idx, self.matchers[*idx].1.as_ref().unwrap()))
+        {
+            let mut guard = handler.lock().unwrap();
+            guard.feed(first, *matcher_idx)?;
+            guard.feed(second, *matcher_idx)?;
+        }
+        Ok(())
+    }
+
+    fn end_handlers(
+        &self,
+        path: &Path,
+        matched_indexes: &[usize],
+        token: Token,
+    ) -> Result<(), error::General> {
+        // Trigger handlers start
+        for (matcher_idx, handler) in matched_indexes
+            .iter()
+            .filter(|idx| self.matchers[**idx].1.is_some())
+            .map(|idx| (idx, self.matchers[*idx].1.as_ref().unwrap()))
+        {
+            let mut guard = handler.lock().unwrap();
+            guard.end(&path, *matcher_idx, token.clone())?;
+        }
+        Ok(())
     }
 
     /// Processes input data
@@ -109,84 +168,71 @@ impl Filter {
 
         // initialize result
         let mut result = Vec::new();
+
+        // Finish skip
+
         loop {
             match self.streamer.read()? {
-                Token::Pending => {
-                    if self.matched_path.is_none() {
-                        if let Some(final_idx) = self.last_output_idx {
-                            result.extend(self.move_forward(final_idx));
-                        }
-                    }
-                    return Ok(result);
-                }
                 Token::Start(idx, kind) => {
-                    // The path is not matched yet
-                    if self.matched_path.is_none() {
-                        // Discard first
-                        if self.delayed_discard {
-                            self.move_forward(idx);
-                            self.delayed_discard = false;
-                        }
-
+                    if let Some((path, matched_indexes)) = self.matches.take() {
+                        let data = self.move_forward(idx);
+                        self.feed_handlers(&matched_indexes, data)?;
+                        self.matches = Some((path, matched_indexes));
+                    } else {
+                        // The path is not matched yet
                         let current_path = self.streamer.current_path().clone();
 
-                        // check whether matches
-                        if self
+                        // Try to match current path
+                        let matcher_indexes: Vec<usize> = self
                             .matchers
                             .iter()
-                            .any(|e| e.match_path(&current_path, kind))
-                        {
-                            self.matched_path = Some(current_path);
+                            .enumerate()
+                            .map(|(idx, matcher)| (idx, matcher.0.match_path(&current_path, kind)))
+                            .filter(|(_, matched)| *matched)
+                            .map(|(idx, _)| idx)
+                            .collect();
 
-                            // We can move idx forward (export last data which can be exported
-                            let move_to_idx = if let Some(last_idx) = self.last_output_idx.take() {
-                                last_idx
-                            } else {
-                                idx
-                            };
-                            result.extend(self.move_forward(move_to_idx));
-
-                            // Special handling of first item in array / dict for output
-                            if self.last_output_level < self.streamer.current_path().depth() {
-                                self.delayed_discard = true;
-                            }
+                        if !matcher_indexes.is_empty() {
+                            // Trigger handlers start
+                            self.start_handlers(
+                                &current_path,
+                                &matcher_indexes,
+                                Token::Start(idx, kind),
+                            )?;
+                            self.matches = Some((current_path, matcher_indexes));
+                            self.move_forward(idx); // discard e.g. '"key": '
                         } else {
-                            self.last_output_idx = Some(idx + 1); // one element before
-                            self.last_output_level = self.streamer.current_path().depth();
+                            // no match here -> extend output
+                            self.last_streaming_path = Some(current_path);
+                            result.extend(self.move_forward(idx + 1));
                         }
                     }
                 }
-                Token::End(idx, _) => {
-                    if let Some(path) = self.matched_path.as_ref() {
-                        if path == self.streamer.current_path() {
-                            self.matched_path = None;
+                Token::End(idx, kind) => {
+                    if let Some((path, matched_indexes)) = self.matches.take() {
+                        // Trigger handler feed
+                        let data = self.move_forward(idx);
+                        self.feed_handlers(&matched_indexes, data)?;
 
-                            // move idx without storing it
-                            if !self.delayed_discard {
-                                self.move_forward(idx);
-                            }
+                        if &path == self.streamer.current_path() {
+                            // Trigger handlers end
+                            self.end_handlers(&path, &matched_indexes, Token::End(idx, kind))?;
+                        } else {
+                            self.matches = Some((path, matched_indexes));
                         }
                     } else {
-                        // Discard
-                        if self.delayed_discard {
-                            self.move_forward(idx - 1); // idx is on closing `]` or `}`
-                            self.delayed_discard = false;
-                        }
-
-                        self.last_output_idx = Some(idx);
-                        self.last_output_level = self.streamer.current_path().depth();
+                        self.last_streaming_path = Some(self.streamer.current_path().clone());
+                        result.extend(self.move_forward(idx));
                     }
                 }
+                Token::Pending => {
+                    return Ok(result);
+                }
                 Token::Separator(idx) => {
-                    if self.matched_path.is_none() {
-                        if self.delayed_discard {
-                            // special first child to filter case
-                            self.move_forward(idx + 1); // rmeove with separator
-                            self.delayed_discard = false;
-                            self.last_output_idx = Some(idx + 1);
-                        } else {
-                            // just update output index to separator index
-                            self.last_output_idx = Some(idx);
+                    if let Some(path) = self.last_streaming_path.as_ref() {
+                        if self.streamer.current_path() == path {
+                            // removing ',' if the first record from array / object was deleted
+                            self.move_forward(idx + 1);
                         }
                     }
                 }
@@ -215,7 +261,7 @@ mod tests {
 
         let matcher = Simple::new(r#"{"no-existing"}[]{"uid"}"#).unwrap();
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(filter.process(&input[0]).unwrap(), input[0].clone());
     }
@@ -226,7 +272,7 @@ mod tests {
         let matcher = Simple::new(r#"{"users"}[0]"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -240,7 +286,7 @@ mod tests {
         let matcher = Simple::new(r#"{"users"}[2]"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -254,7 +300,7 @@ mod tests {
         let matcher = Simple::new(r#"{"users"}[1]"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -268,7 +314,7 @@ mod tests {
         let matcher = Simple::new(r#"{"users"}[]"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -282,7 +328,7 @@ mod tests {
         let matcher = Simple::new(r#"{"users"}"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -296,7 +342,7 @@ mod tests {
         let matcher = Simple::new(r#"{"void"}"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -310,7 +356,7 @@ mod tests {
         let matcher = Simple::new(r#"{"groups"}"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -324,7 +370,7 @@ mod tests {
         let matcher = Simple::new(r#"{}"#).unwrap();
 
         let mut filter = Filter::new();
-        filter.add_matcher(Box::new(matcher));
+        filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
             String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
@@ -341,7 +387,7 @@ mod tests {
             let matcher = Combinator::new(Simple::new(r#"{"users"}"#).unwrap())
                 | Combinator::new(Simple::new(r#"{"void"}"#).unwrap());
             let mut filter = Filter::new();
-            filter.add_matcher(Box::new(matcher));
+            filter.add_matcher(Box::new(matcher), None);
             let mut result: Vec<u8> = Vec::new();
 
             result.extend(filter.process(&start_input).unwrap());
