@@ -75,6 +75,7 @@ impl Filter {
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
+    /// * `handler` - optinal handler to be used to process data
     ///
     /// # Example
     ///

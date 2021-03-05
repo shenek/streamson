@@ -5,27 +5,31 @@
 
 use crate::{
     error,
+    handler::Handler,
     matcher::MatchMaker,
     path::Path,
     streamer::{Streamer, Token},
 };
-use std::mem::swap;
+use std::sync::{Arc, Mutex};
 
-type OptinalPathAndData = (Option<String>, Vec<u8>);
+#[derive(Debug, PartialEq)]
+pub enum Output {
+    Start(Option<Path>),
+    Data(Vec<u8>),
+    End,
+}
+
+type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
 
 pub struct Extract {
     /// Export path as well
     export_path: bool,
     /// Input idx against total idx
     input_start: usize,
-    /// Buffer index against total idx
-    buffer_start: usize,
-    /// Buffer which is used to store collected data
-    buffer: Vec<u8>,
-    /// Path which is matched
-    matched_path: Option<Path>,
+    /// What is currently matched - path and indexes to matchers
+    matches: Option<(Path, Vec<usize>)>,
     /// Path matchers
-    matchers: Vec<Box<dyn MatchMaker>>,
+    matchers: Vec<MatcherItem>,
     /// Creates to token stream
     streamer: Streamer,
 }
@@ -35,9 +39,7 @@ impl Default for Extract {
         Self {
             export_path: false,
             input_start: 0,
-            buffer_start: 0,
-            buffer: vec![],
-            matched_path: None,
+            matches: None,
             matchers: vec![],
             streamer: Streamer::new(),
         }
@@ -64,6 +66,7 @@ impl Extract {
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
+    /// * `handler` - optinal handler to be used to process data
     ///
     /// # Example
     ///
@@ -76,10 +79,15 @@ impl Extract {
     /// let mut extract = strategy::Extract::new();
     /// extract.add_matcher(
     ///     Box::new(matcher),
+    ///     None,
     /// );
     /// ```
-    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>) {
-        self.matchers.push(matcher);
+    pub fn add_matcher(
+        &mut self,
+        matcher: Box<dyn MatchMaker>,
+        handler: Option<Arc<Mutex<dyn Handler>>>,
+    ) {
+        self.matchers.push((matcher, handler));
     }
 
     /// Processes input data
@@ -100,7 +108,7 @@ impl Extract {
     /// # Errors
     /// * Error is triggered when incorrect json is detected
     ///   Note that not all json errors are detected
-    pub fn process(&mut self, input: &[u8]) -> Result<Vec<OptinalPathAndData>, error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         self.streamer.feed(input);
 
         let mut input_idx = 0;
@@ -108,46 +116,70 @@ impl Extract {
         let mut result = vec![];
         loop {
             match self.streamer.read()? {
-                Token::Start(idx, kind) if self.matched_path.is_none() => {
-                    let path = self.streamer.current_path();
+                Token::Start(idx, kind) => {
+                    if self.matches.is_none() {
+                        let path = self.streamer.current_path();
 
-                    // try to check whether it matches
-                    for matcher in self.matchers.iter() {
-                        if matcher.match_path(path, kind) {
-                            // start the buffer
-                            self.buffer_start = idx;
-                            self.matched_path = Some(path.clone());
+                        // try to check whether it matches
+                        let mut matched_indexes = vec![];
+                        for (matcher_idx, (matcher, _handler)) in self.matchers.iter().enumerate() {
+                            if matcher.match_path(path, kind) {
+                                matched_indexes.push(matcher_idx);
+                            }
+                        }
+                        if !matched_indexes.is_empty() {
+                            // New match appears here
                             input_idx = idx - self.input_start;
+                            for matcher_idx in &matched_indexes {
+                                if let Some(handler) = self.matchers[*matcher_idx].1.as_ref() {
+                                    let mut guard = handler.lock().unwrap();
+                                    // triger handlers start
+                                    guard.start(path, *matcher_idx, Token::Start(idx, kind))?;
+                                }
+                            }
+                            self.matches = Some((path.clone(), matched_indexes));
+
+                            // Set output
+                            result.push(Output::Start(if self.export_path {
+                                Some(path.clone())
+                            } else {
+                                None
+                            }));
                         }
                     }
                 }
                 Token::Pending => {
-                    self.input_start += input.len();
-                    if self.matched_path.is_some() {
-                        self.buffer.extend(&input[input_idx..]);
+                    if let Some((_, matched_indexes)) = self.matches.as_ref() {
+                        for matcher_idx in matched_indexes {
+                            if let Some(handler) = self.matchers[*matcher_idx].1.as_ref() {
+                                let mut guard = handler.lock().unwrap();
+                                // feed handlers
+                                guard.feed(&input[input_idx..], *matcher_idx)?;
+                            }
+                        }
+                        result.push(Output::Data(input[input_idx..].to_vec()));
                     }
+                    self.input_start += input.len();
                     return Ok(result);
                 }
-                Token::End(idx, _) if self.matched_path.is_some() => {
-                    if let Some(path) = self.matched_path.as_ref() {
+                Token::End(idx, kind) => {
+                    if let Some((path, matched_indexes)) = self.matches.as_ref() {
+                        // Put the data to results
                         if path == self.streamer.current_path() {
-                            // extend buffer and update indexes
-                            let to = idx - self.input_start;
-                            self.buffer.extend(&input[input_idx..to]);
-                            input_idx = to;
-
-                            // Put the buffer to results
-                            let mut buffer = vec![];
-                            swap(&mut self.buffer, &mut buffer);
-                            result.push((
-                                if self.export_path {
-                                    Some(path.to_string())
-                                } else {
-                                    None
-                                },
-                                buffer,
-                            ));
-                            self.matched_path = None
+                            let old_idx = input_idx;
+                            input_idx = idx - self.input_start;
+                            result.push(Output::Data(input[old_idx..input_idx].to_vec()));
+                            result.push(Output::End);
+                            // Feed and end handlers
+                            for matcher_idx in matched_indexes {
+                                if let Some(handler) = self.matchers[*matcher_idx].1.as_ref() {
+                                    let mut guard = handler.lock().unwrap();
+                                    // feed handlers
+                                    guard.feed(&input[old_idx..input_idx], *matcher_idx)?;
+                                    guard.end(&path, *matcher_idx, Token::End(idx, kind))?;
+                                }
+                            }
+                            self.matches = None;
                         }
                     }
                 }
@@ -159,8 +191,12 @@ impl Extract {
 
 #[cfg(test)]
 mod tests {
-    use super::Extract;
-    use crate::matcher::Simple;
+    use super::{Extract, Output};
+    use crate::{handler::Buffer, matcher::Simple, path::Path};
+    use std::{
+        convert::TryFrom,
+        sync::{Arc, Mutex},
+    };
 
     fn get_input() -> Vec<Vec<u8>> {
         vec![
@@ -178,35 +214,44 @@ mod tests {
         let matcher = Simple::new(r#"{}[]{"name"}"#).unwrap();
 
         let mut extract = Extract::new();
-        extract.add_matcher(Box::new(matcher.clone()));
+        extract.add_matcher(Box::new(matcher.clone()), None);
 
-        let mut output = extract.process(&input[0]).unwrap();
-        assert_eq!(output.len(), 3);
-        assert_eq!(output[0].0.clone(), None);
-        assert_eq!(output[1].0.clone(), None);
-        assert_eq!(output[2].0.clone(), None);
-        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""fred""#);
-        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""bob""#);
-        assert_eq!(
-            String::from_utf8(output.remove(0).1).unwrap(),
-            r#""admins""#
-        );
+        let output = extract.process(&input[0]).unwrap();
+        assert_eq!(output.len(), 9);
+        assert_eq!(output[0], Output::Start(None));
+        assert_eq!(output[1], Output::Data(br#""fred""#.to_vec()));
+        assert_eq!(output[2], Output::End);
+        assert_eq!(output[3], Output::Start(None));
+        assert_eq!(output[4], Output::Data(br#""bob""#.to_vec()));
+        assert_eq!(output[5], Output::End);
+        assert_eq!(output[6], Output::Start(None));
+        assert_eq!(output[7], Output::Data(br#""admins""#.to_vec()));
+        assert_eq!(output[8], Output::End);
 
         // with path
         let input = get_input();
         let mut extract = Extract::new().set_export_path(true);
-        extract.add_matcher(Box::new(matcher));
-        let mut output = extract.process(&input[0]).unwrap();
-        assert_eq!(output.len(), 3);
-        assert_eq!(output[0].0.clone(), Some(r#"{"users"}[0]{"name"}"#.into()));
-        assert_eq!(output[1].0.clone(), Some(r#"{"users"}[1]{"name"}"#.into()));
-        assert_eq!(output[2].0.clone(), Some(r#"{"groups"}[0]{"name"}"#.into()));
-        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""fred""#);
-        assert_eq!(String::from_utf8(output.remove(0).1).unwrap(), r#""bob""#);
+        extract.add_matcher(Box::new(matcher), None);
+        let output = extract.process(&input[0]).unwrap();
+        assert_eq!(output.len(), 9);
         assert_eq!(
-            String::from_utf8(output.remove(0).1).unwrap(),
-            r#""admins""#
+            output[0],
+            Output::Start(Some(Path::try_from(r#"{"users"}[0]{"name"}"#).unwrap()))
         );
+        assert_eq!(output[1], Output::Data(br#""fred""#.to_vec()));
+        assert_eq!(output[2], Output::End);
+        assert_eq!(
+            output[3],
+            Output::Start(Some(Path::try_from(r#"{"users"}[1]{"name"}"#).unwrap()))
+        );
+        assert_eq!(output[4], Output::Data(br#""bob""#.to_vec()));
+        assert_eq!(output[5], Output::End);
+        assert_eq!(
+            output[6],
+            Output::Start(Some(Path::try_from(r#"{"groups"}[0]{"name"}"#).unwrap()))
+        );
+        assert_eq!(output[7], Output::Data(br#""admins""#.to_vec()));
+        assert_eq!(output[8], Output::End);
     }
 
     #[test]
@@ -215,36 +260,62 @@ mod tests {
         let matcher = Simple::new(r#"{}[1]"#).unwrap();
 
         let mut extract = Extract::new();
-        extract.add_matcher(Box::new(matcher));
+        extract.add_matcher(Box::new(matcher), None);
 
-        let mut output = extract.process(&input[0]).unwrap();
-        assert_eq!(output.len(), 1);
-        assert_eq!(
-            String::from_utf8(output.remove(0).1).unwrap(),
-            r#"{"name": "bob"}"#
-        );
+        let output = extract.process(&input[0]).unwrap();
+        assert_eq!(output.len(), 3);
+        assert_eq!(output[0], Output::Start(None));
+        assert_eq!(output[1], Output::Data(br#"{"name": "bob"}"#.to_vec()));
+        assert_eq!(output[2], Output::End);
     }
 
     #[test]
     fn pending() {
         let input = get_input();
-        let input1 = &input[0][0..20];
-        let input2 = &input[0][20..];
+        let input1 = &input[0][0..37];
+        let input2 = &input[0][37..];
 
         let matcher = Simple::new(r#"{}[1]"#).unwrap();
 
         let mut extract = Extract::new();
-        extract.add_matcher(Box::new(matcher));
+        extract.add_matcher(Box::new(matcher), None);
 
-        let mut result = vec![];
         let output = extract.process(input1).unwrap();
-        result.extend(output);
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0], Output::Start(None));
+        assert_eq!(output[1], Output::Data(br#"{"name":"#.to_vec()));
 
         let output = extract.process(input2).unwrap();
-        result.extend(output);
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0], Output::Data(br#" "bob"}"#.to_vec()));
+        assert_eq!(output[1], Output::End);
+    }
+
+    #[test]
+    fn pending_handlers() {
+        let input = get_input();
+        let input1 = &input[0][0..37];
+        let input2 = &input[0][37..];
+
+        let matcher = Simple::new(r#"{}[1]"#).unwrap();
+        let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
+
+        let mut extract = Extract::new();
+        extract.add_matcher(Box::new(matcher), Some(buffer_handler.clone()));
+
+        let output = extract.process(input1).unwrap();
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0], Output::Start(None));
+        assert_eq!(output[1], Output::Data(br#"{"name":"#.to_vec()));
+
+        let output = extract.process(input2).unwrap();
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0], Output::Data(br#" "bob"}"#.to_vec()));
+        assert_eq!(output[1], Output::End);
+
         assert_eq!(
-            String::from_utf8(result.into_iter().map(|e| e.1).flatten().collect()).unwrap(),
-            r#"{"name": "bob"}"#
+            buffer_handler.lock().unwrap().pop().unwrap(),
+            (None, br#"{"name": "bob"}"#.to_vec())
         );
     }
 }

@@ -5,7 +5,10 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::{matcher, strategy};
+use streamson_lib::{
+    matcher,
+    strategy::{self, extract},
+};
 
 pub fn prepare_extract_subcommand() -> App<'static> {
     App::new("extract")
@@ -120,7 +123,7 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     }
 
     if let Some(matcher_to_add) = matcher {
-        extract.add_matcher(Box::new(matcher_to_add));
+        extract.add_matcher(Box::new(matcher_to_add), None);
     }
     let mut buffer = vec![];
     let mut first = true;
@@ -133,13 +136,20 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         }
         let output = extract.process(&buffer[..size])?;
         buffer.clear();
-        for (_, data) in output {
-            if !first && !data.is_empty() {
-                out.write_all(&separator)?;
+        for part in output {
+            match part {
+                extract::Output::Start(_) => {
+                    if !first {
+                        out.write_all(&separator)?;
+                    } else {
+                        first = false;
+                    }
+                }
+                extract::Output::Data(data) => {
+                    out.write_all(&data)?;
+                }
+                extract::Output::End => {}
             }
-            out.write_all(&data)?;
-
-            first = false;
         }
     }
     out.write_all(&after)?;

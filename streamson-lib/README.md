@@ -209,7 +209,7 @@ use std::io::prelude::*;
 
 let mut extract = strategy::Extract::new();
 let matcher = Simple::new(r#"{"users"}[]"#).unwrap();
-extract.add_matcher(Box::new(matcher));
+extract.add_matcher(Box::new(matcher), None);
 
 let mut buffer = [0; 2048];
 let mut input = "<input data>".as_bytes();
