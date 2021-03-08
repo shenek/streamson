@@ -170,13 +170,22 @@ impl Trigger {
 #[cfg(test)]
 mod tests {
     use super::Trigger;
-    use crate::{error, handler::Handler, matcher::Simple, path::Path, streamer::Token};
+    use crate::{
+        error,
+        handler::Handler,
+        matcher::Simple,
+        path::Path,
+        streamer::Token,
+        test::{Single, Splitter, Window},
+    };
+    use rstest::*;
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
     struct TestHandler {
         paths: Vec<String>,
         data: Vec<Vec<u8>>,
+        current: Vec<u8>,
     }
 
     impl Handler for TestHandler {
@@ -194,7 +203,17 @@ mod tests {
             data: &[u8],
             _matcher_idx: usize,
         ) -> Result<Option<Vec<u8>>, error::Handler> {
-            self.data.push(data.to_vec());
+            self.current.extend(data.to_vec());
+            Ok(None)
+        }
+        fn end(
+            &mut self,
+            _path: &Path,
+            _matcher_idx: usize,
+            _kind: Token,
+        ) -> Result<Option<Vec<u8>>, error::Handler> {
+            self.data.push(self.current.clone());
+            self.current.clear();
             Ok(None)
         }
     }
@@ -221,27 +240,38 @@ mod tests {
         assert_eq!(guard.data[3], br#"4"#.to_vec());
     }
 
-    #[test]
-    fn basic_pending() {
-        let mut trigger = Trigger::new();
-        let handler = Arc::new(Mutex::new(TestHandler::default()));
-        let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
-        trigger.add_matcher(Box::new(matcher), handler.clone());
+    #[rstest(
+        splitter,
+        case::single(Box::new(Single::new())),
+        case::window1(Box::new(Window::new(1))),
+        case::window5(Box::new(Window::new(5))),
+        case::window100(Box::new(Window::new(100)))
+    )]
+    fn splitted(splitter: Box<dyn Splitter>) {
+        for parts in splitter.split(br#"{"elements": [1, 2, 3, 4]}"#.to_vec()) {
+            let mut trigger = Trigger::new();
+            let handler = Arc::new(Mutex::new(TestHandler::default()));
+            let matcher = Simple::new(r#"{"elements"}[]"#).unwrap();
+            trigger.add_matcher(Box::new(matcher), handler.clone());
 
-        trigger.process(br#"{"elem"#).unwrap();
-        trigger.process(br#"ents": [1, 2, 3, 4]}"#).unwrap();
+            for part in parts {
+                trigger.process(&part).unwrap();
+            }
 
-        let guard = handler.lock().unwrap();
-        assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
-        assert_eq!(guard.data[0], br#"1"#.to_vec());
+            let guard = handler.lock().unwrap();
+            assert_eq!(guard.paths.len(), 4);
+            //assert_eq!(guard.data.len(), 4);
+            assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
+            assert_eq!(guard.data[0], br#"1"#.to_vec());
 
-        assert_eq!(guard.paths[1], r#"{"elements"}[1]"#);
-        assert_eq!(guard.data[1], br#"2"#.to_vec());
+            assert_eq!(guard.paths[1], r#"{"elements"}[1]"#);
+            assert_eq!(guard.data[1], br#"2"#.to_vec());
 
-        assert_eq!(guard.paths[2], r#"{"elements"}[2]"#);
-        assert_eq!(guard.data[2], br#"3"#.to_vec());
+            assert_eq!(guard.paths[2], r#"{"elements"}[2]"#);
+            assert_eq!(guard.data[2], br#"3"#.to_vec());
 
-        assert_eq!(guard.paths[3], r#"{"elements"}[3]"#);
-        assert_eq!(guard.data[3], br#"4"#.to_vec());
+            assert_eq!(guard.paths[3], r#"{"elements"}[3]"#);
+            assert_eq!(guard.data[3], br#"4"#.to_vec());
+        }
     }
 }

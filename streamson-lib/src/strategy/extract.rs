@@ -192,19 +192,21 @@ impl Extract {
 #[cfg(test)]
 mod tests {
     use super::{Extract, Output};
-    use crate::{handler::Buffer, matcher::Simple, path::Path};
+    use crate::{
+        handler::Buffer,
+        matcher::Simple,
+        path::Path,
+        test::{Single, Splitter, Window},
+    };
+    use rstest::*;
     use std::{
         convert::TryFrom,
         sync::{Arc, Mutex},
     };
 
-    fn get_input() -> Vec<Vec<u8>> {
-        vec![
-            br#"{"users": [{"name": "fred"}, {"name": "bob"}], "groups": [{"name": "admins"}]}"#
-                .iter()
-                .map(|e| *e)
-                .collect(),
-        ]
+    fn get_input() -> Vec<u8> {
+        br#"{"users": [{"name": "fred"}, {"name": "bob"}], "groups": [{"name": "admins"}]}"#
+            .to_vec()
     }
 
     #[test]
@@ -216,7 +218,7 @@ mod tests {
         let mut extract = Extract::new();
         extract.add_matcher(Box::new(matcher.clone()), None);
 
-        let output = extract.process(&input[0]).unwrap();
+        let output = extract.process(&input).unwrap();
         assert_eq!(output.len(), 9);
         assert_eq!(output[0], Output::Start(None));
         assert_eq!(output[1], Output::Data(br#""fred""#.to_vec()));
@@ -232,7 +234,7 @@ mod tests {
         let input = get_input();
         let mut extract = Extract::new().set_export_path(true);
         extract.add_matcher(Box::new(matcher), None);
-        let output = extract.process(&input[0]).unwrap();
+        let output = extract.process(&input).unwrap();
         assert_eq!(output.len(), 9);
         assert_eq!(
             output[0],
@@ -262,7 +264,7 @@ mod tests {
         let mut extract = Extract::new();
         extract.add_matcher(Box::new(matcher), None);
 
-        let output = extract.process(&input[0]).unwrap();
+        let output = extract.process(&input).unwrap();
         assert_eq!(output.len(), 3);
         assert_eq!(output[0], Output::Start(None));
         assert_eq!(output[1], Output::Data(br#"{"name": "bob"}"#.to_vec()));
@@ -272,8 +274,8 @@ mod tests {
     #[test]
     fn pending() {
         let input = get_input();
-        let input1 = &input[0][0..37];
-        let input2 = &input[0][37..];
+        let input1 = &input[0..37];
+        let input2 = &input[37..];
 
         let matcher = Simple::new(r#"{}[1]"#).unwrap();
 
@@ -294,8 +296,8 @@ mod tests {
     #[test]
     fn pending_handlers() {
         let input = get_input();
-        let input1 = &input[0][0..37];
-        let input2 = &input[0][37..];
+        let input1 = &input[0..37];
+        let input2 = &input[37..];
 
         let matcher = Simple::new(r#"{}[1]"#).unwrap();
         let buffer_handler = Arc::new(Mutex::new(Buffer::new().set_max_buffer_size(Some(22))));
@@ -317,5 +319,33 @@ mod tests {
             buffer_handler.lock().unwrap().pop().unwrap(),
             (None, br#"{"name": "bob"}"#.to_vec())
         );
+    }
+
+    #[rstest(
+        splitter,
+        case::single(Box::new(Single::new())),
+        case::window1(Box::new(Window::new(1))),
+        case::window5(Box::new(Window::new(5))),
+        case::window100(Box::new(Window::new(100)))
+    )]
+    fn splitters(splitter: Box<dyn Splitter>) {
+        for parts in splitter.split(get_input()) {
+            let matcher = Simple::new(r#"{}[]{"name"}"#).unwrap();
+
+            let mut extract = Extract::new();
+            extract.add_matcher(Box::new(matcher.clone()), None);
+
+            let mut res = vec![];
+            for part in parts {
+                let output = extract.process(&part).unwrap();
+                for e in output {
+                    match e {
+                        Output::Data(data) => res.extend(data),
+                        _ => {}
+                    }
+                }
+            }
+            assert_eq!(String::from_utf8(res).unwrap(), r#""fred""bob""admins""#)
+        }
     }
 }

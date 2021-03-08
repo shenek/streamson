@@ -126,3 +126,52 @@ mod test_readme {
     }
     external_doc_test!(include_str!("../README.md"));
 }
+
+#[cfg(test)]
+pub mod test {
+    pub trait Splitter {
+        fn split(&self, input: Vec<u8>) -> Vec<Vec<Vec<u8>>>;
+    }
+
+    pub(crate) struct Single;
+
+    impl Single {
+        pub fn new() -> Self {
+            Self
+        }
+    }
+
+    impl Splitter for Single {
+        fn split(&self, input: Vec<u8>) -> Vec<Vec<Vec<u8>>> {
+            vec![input.iter().map(|e| vec![*e]).collect()]
+        }
+    }
+
+    pub(crate) struct Window {
+        size: usize,
+    }
+
+    impl Window {
+        pub fn new(size: usize) -> Self {
+            Self { size }
+        }
+    }
+
+    impl Splitter for Window {
+        fn split(&self, input: Vec<u8>) -> Vec<Vec<Vec<u8>>> {
+            if input.len() <= self.size {
+                return vec![vec![input]];
+            }
+            let out_count = input.len() - self.size;
+            let mut res = vec![];
+            for i in 0..=out_count {
+                res.push(vec![
+                    input[0..i].to_vec(),
+                    input[i..self.size + i].to_vec(),
+                    input[self.size + i..input.len()].to_vec(),
+                ]);
+            }
+            res
+        }
+    }
+}

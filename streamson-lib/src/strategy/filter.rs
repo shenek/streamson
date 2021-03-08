@@ -245,15 +245,15 @@ impl Filter {
 #[cfg(test)]
 mod tests {
     use super::Filter;
-    use crate::matcher::{Combinator, Simple};
+    use crate::{
+        matcher::{Combinator, Simple},
+        test::{Single, Splitter, Window},
+    };
+    use rstest::*;
 
-    fn get_input() -> Vec<Vec<u8>> {
-        vec![
-            br#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
-                .iter()
-                .map(|e| *e)
-                .collect(),
-        ]
+    fn get_input() -> Vec<u8> {
+        br#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
+                .to_vec()
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
         let mut filter = Filter::new();
         filter.add_matcher(Box::new(matcher), None);
 
-        assert_eq!(filter.process(&input[0]).unwrap(), input[0].clone());
+        assert_eq!(filter.process(&input).unwrap(), input.clone());
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [ {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -290,7 +290,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -304,7 +304,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -318,7 +318,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -332,7 +332,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{ "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -346,7 +346,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}]}"#
         );
     }
@@ -360,7 +360,7 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "void": {}}"#
         );
     }
@@ -374,25 +374,30 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input[0]).unwrap()).unwrap(),
+            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
             r#"{}"#
         );
     }
 
-    #[test]
-    fn combinator_slices() {
+    #[rstest(
+        splitter,
+        case::single(Box::new(Single::new())),
+        case::window1(Box::new(Window::new(1))),
+        case::window5(Box::new(Window::new(5))),
+        case::window100(Box::new(Window::new(100)))
+    )]
+    fn combinator_slices(splitter: Box<dyn Splitter>) {
         let input = get_input();
-        for i in 0..input.len() {
-            let start_input = &input[0][0..i];
-            let end_input = &input[0][i..];
+        for parts in splitter.split(input) {
             let matcher = Combinator::new(Simple::new(r#"{"users"}"#).unwrap())
                 | Combinator::new(Simple::new(r#"{"void"}"#).unwrap());
             let mut filter = Filter::new();
             filter.add_matcher(Box::new(matcher), None);
             let mut result: Vec<u8> = Vec::new();
 
-            result.extend(filter.process(&start_input).unwrap());
-            result.extend(filter.process(&end_input).unwrap());
+            for part in parts {
+                result.extend(filter.process(&part).unwrap());
+            }
             assert_eq!(
                 String::from_utf8(result).unwrap(),
                 r#"{ "groups": [{"gid": 1}, {"gid": 2}]}"#

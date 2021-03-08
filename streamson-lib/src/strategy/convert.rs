@@ -196,7 +196,9 @@ mod tests {
     use crate::{
         handler::{Group, Replace, Shorten},
         matcher::Simple,
+        test::{Single, Splitter, Window},
     };
+    use rstest::*;
     use std::sync::{Arc, Mutex};
 
     fn make_replace_handler() -> Arc<Mutex<Replace>> {
@@ -227,24 +229,32 @@ mod tests {
         assert_eq!(String::from_utf8(output.remove(0)).unwrap(), "}]");
     }
 
-    #[test]
-    fn basic_pending() {
-        let mut convert = Convert::new();
-        let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
-        convert.add_matcher(Box::new(matcher), make_replace_handler());
+    #[rstest(
+        splitter,
+        case::single(Box::new(Single::new())),
+        case::window1(Box::new(Window::new(1))),
+        case::window5(Box::new(Window::new(5))),
+        case::window100(Box::new(Window::new(100)))
+    )]
+    fn basic_pending(splitter: Box<dyn Splitter>) {
+        for parts in splitter.split(
+            br#"[{"id": 1, "password": "secret1"}, {"id": 2, "password": "secret2"}]"#.to_vec(),
+        ) {
+            let mut convert = Convert::new();
+            let matcher = Simple::new(r#"[]{"password"}"#).unwrap();
+            convert.add_matcher(Box::new(matcher), make_replace_handler());
 
-        let mut result = vec![];
-        let output = convert.process(br#"[{"id": 1, "password": "s"#).unwrap();
-        result.extend(output);
+            let mut result = vec![];
+            for part in parts {
+                let output = convert.process(&part).unwrap();
+                result.extend(output);
+            }
 
-        let output = convert
-            .process(br#"ecret1"}, {"id": 2, "password": "secret2"}]"#)
-            .unwrap();
-        result.extend(output);
-        assert_eq!(
-            String::from_utf8(result.into_iter().flatten().collect()).unwrap(),
-            r#"[{"id": 1, "password": "***"}, {"id": 2, "password": "***"}]"#
-        );
+            assert_eq!(
+                String::from_utf8(result.into_iter().flatten().collect()).unwrap(),
+                r#"[{"id": 1, "password": "***"}, {"id": 2, "password": "***"}]"#
+            );
+        }
     }
 
     #[test]
