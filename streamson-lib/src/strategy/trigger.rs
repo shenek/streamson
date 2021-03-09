@@ -61,7 +61,7 @@ impl Trigger {
     ///
     /// # Arguments
     /// * `matcher` - matcher which matches the path
-    /// * `handlers` - list of handlers to be triggers when path matches
+    /// * `handler` - handler to be triggers when path matches
     ///
     /// # Example
     ///
