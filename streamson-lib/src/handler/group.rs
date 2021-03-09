@@ -41,16 +41,24 @@ impl Group {
         Default::default()
     }
 
-    /// Adds a handler to handler group
+    /// Adds a handler to handler group (builder pattern)
     ///
     /// # Arguments
     /// * `handler` - handler to add
     ///
     /// # Returns
-    /// * Group handler (builder pattern)
+    /// * Group handler
     pub fn add_handler(mut self, handler: Arc<Mutex<dyn Handler>>) -> Self {
         self.handlers.push(handler);
         self
+    }
+
+    /// Adds a handler to handler group (mut reference)
+    ///
+    /// # Arguments
+    /// * `handler` - handler to add
+    pub fn add_handler_mut(&mut self, handler: Arc<Mutex<dyn Handler>>) {
+        self.handlers.push(handler);
     }
 }
 

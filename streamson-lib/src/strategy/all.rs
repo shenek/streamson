@@ -5,7 +5,7 @@
 
 use crate::{
     error,
-    handler::Handler,
+    handler::{Group, Handler},
     streamer::{Streamer, Token},
 };
 use std::sync::{Arc, Mutex};
@@ -13,12 +13,14 @@ use std::sync::{Arc, Mutex};
 /// Trigger handlers on every element
 #[derive(Default)]
 pub struct All {
+    /// Should handlers be used for converting
+    convert: bool,
     /// Input idx against total idx
     input_start: usize,
     /// Responsible for data extraction
     streamer: Streamer,
     /// List of handlers to be triggered
-    handlers: Vec<Arc<Mutex<dyn Handler>>>,
+    handlers: Arc<Mutex<Group>>,
 }
 
 impl All {
@@ -27,6 +29,11 @@ impl All {
     /// It triggers handlers on all found elements
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Sets whether handlers should be actually used to converting data
+    pub fn set_convert(&mut self, convert: bool) {
+        self.convert = convert;
     }
 
     /// Adds a handler to `All`
@@ -47,7 +54,7 @@ impl All {
     /// );
     /// ```
     pub fn add_handler(&mut self, handler: Arc<Mutex<dyn Handler>>) {
-        self.handlers.push(handler);
+        self.handlers.lock().unwrap().add_handler_mut(handler);
     }
 
     /// Processes input data
@@ -76,19 +83,26 @@ impl All {
     /// Note that streamson assumes that its input is a valid
     /// JSONs and if not, it still might be processed without an error.
     /// This is caused because streamson does not validate JSON.
-    pub fn process(&mut self, input: &[u8]) -> Result<(), error::General> {
+    pub fn process(&mut self, input: &[u8]) -> Result<Option<Vec<u8>>, error::General> {
         self.streamer.feed(input);
         let mut inner_idx = 0;
+        let mut result = vec![];
         loop {
             match self.streamer.read()? {
                 Token::Start(idx, kind) => {
                     let path = self.streamer.current_path();
 
                     let to = idx - self.input_start;
-                    for handler in &self.handlers {
-                        let mut guard = handler.lock().unwrap();
-                        guard.feed(&input[inner_idx..to], 0)?;
-                        guard.start(path, 0, Token::Start(idx, kind))?;
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
+                        if self.convert {
+                            result.extend(data);
+                        }
+                    }
+                    if let Some(data) = guard.start(path, 0, Token::Start(idx, kind))? {
+                        if self.convert {
+                            result.extend(data);
+                        }
                     }
                     inner_idx = to;
                 }
@@ -96,20 +110,28 @@ impl All {
                     let path = self.streamer.current_path();
 
                     let to = idx - self.input_start;
-                    for handler in &self.handlers {
-                        let mut guard = handler.lock().unwrap();
-                        guard.feed(&input[inner_idx..to], 0)?;
-                        guard.end(path, 0, Token::End(idx, kind))?;
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
+                        if self.convert {
+                            result.extend(data);
+                        }
+                    }
+                    if let Some(data) = guard.end(path, 0, Token::Start(idx, kind))? {
+                        if self.convert {
+                            result.extend(data);
+                        }
                     }
                     inner_idx = to;
                 }
                 Token::Pending => {
                     self.input_start += input.len();
-                    for handler in &self.handlers {
-                        let mut guard = handler.lock().unwrap();
-                        guard.feed(&input[inner_idx..], 0)?;
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..], 0)? {
+                        if self.convert {
+                            result.extend(data);
+                        }
                     }
-                    return Ok(());
+                    return Ok(if self.convert { Some(result) } else { None });
                 }
                 Token::Separator(_) => {}
             }
@@ -121,7 +143,7 @@ impl All {
 mod tests {
     use super::All;
     use crate::{
-        handler::Analyser,
+        handler::{Analyser, Replace},
         test::{Single, Splitter, Window},
     };
     use rstest::*;
@@ -138,13 +160,13 @@ mod tests {
         case::window5(Box::new(Window::new(5))),
         case::window100(Box::new(Window::new(100)))
     )]
-    fn splitted(splitter: Box<dyn Splitter>) {
+    fn no_convert(splitter: Box<dyn Splitter>) {
         for part in splitter.split(get_input()) {
-            let mut trigger = All::new();
+            let mut all = All::new();
             let handler = Arc::new(Mutex::new(Analyser::new()));
-            trigger.add_handler(handler.clone());
+            all.add_handler(handler.clone());
             for input in part {
-                trigger.process(&input).unwrap();
+                all.process(&input).unwrap();
             }
 
             let guard = handler.lock().unwrap();
@@ -155,6 +177,29 @@ mod tests {
             assert_eq!(results[2], (r#"{"elements"}[]"#.into(), 6));
             assert_eq!(results[3], (r#"{"elements"}[][]"#.into(), 2));
             assert_eq!(results[4], (r#"{"elements"}[]{"another"}"#.into(), 1));
+        }
+    }
+
+    #[rstest(
+        splitter,
+        case::single(Box::new(Single::new())),
+        case::window1(Box::new(Window::new(1))),
+        case::window5(Box::new(Window::new(5))),
+        case::window100(Box::new(Window::new(100)))
+    )]
+    fn convert(splitter: Box<dyn Splitter>) {
+        for part in splitter.split(get_input()) {
+            let mut all = All::new();
+            all.set_convert(true);
+            let handler = Arc::new(Mutex::new(Replace::new(br#"."#.to_vec())));
+            all.add_handler(handler);
+            let mut result = vec![];
+            for input in part {
+                result.extend(all.process(&input).unwrap().unwrap());
+            }
+            dbg!(String::from_utf8(result.clone()).unwrap());
+
+            assert_eq!(result, br#"..........."#);
         }
     }
 }
