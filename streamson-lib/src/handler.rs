@@ -5,6 +5,7 @@ pub mod analyser;
 pub mod buffer;
 pub mod file;
 pub mod group;
+pub mod indenter;
 pub mod indexer;
 pub mod println;
 #[cfg(feature = "with_regex")]
@@ -19,6 +20,7 @@ pub use self::analyser::Analyser;
 pub use self::buffer::Buffer;
 pub use self::file::File;
 pub use self::group::Group;
+pub use self::indenter::Indenter;
 pub use self::indexer::Indexer;
 pub use self::println::PrintLn;
 #[cfg(feature = "with_regex")]

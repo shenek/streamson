@@ -116,7 +116,7 @@ impl All {
                             result.extend(data);
                         }
                     }
-                    if let Some(data) = guard.end(path, 0, Token::Start(idx, kind))? {
+                    if let Some(data) = guard.end(path, 0, Token::End(idx, kind))? {
                         if self.convert {
                             result.extend(data);
                         }
