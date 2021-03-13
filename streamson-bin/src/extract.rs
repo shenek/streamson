@@ -7,7 +7,7 @@ use std::{
 use clap::{App, Arg, ArgMatches};
 use streamson_lib::{
     matcher,
-    strategy::{self, extract},
+    strategy::{self, Strategy},
 };
 
 pub fn prepare_extract_subcommand() -> App<'static> {
@@ -138,17 +138,17 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         buffer.clear();
         for part in output {
             match part {
-                extract::Output::Start(_) => {
+                strategy::Output::Start(_) => {
                     if !first {
                         out.write_all(&separator)?;
                     } else {
                         first = false;
                     }
                 }
-                extract::Output::Data(data) => {
+                strategy::Output::Data(data) => {
                     out.write_all(&data)?;
                 }
-                extract::Output::End => {}
+                strategy::Output::End => {}
             }
         }
     }

@@ -83,7 +83,7 @@ Matches path based on regex.
 
 #### Example
 ```rust
-use streamson_lib::{handler, strategy, matcher};
+use streamson_lib::{handler, strategy::{self, Strategy}, matcher};
 
 use std::{str::FromStr, sync::{Arc, Mutex}};
 
@@ -132,7 +132,7 @@ Converts data based on regex.
 
 #### Example
 ```rust
-use streamson_lib::{matcher, strategy, handler};
+use streamson_lib::{matcher, strategy::{self, Strategy}, handler};
 use std::sync::{Arc, Mutex};
 use regex;
 
@@ -147,7 +147,7 @@ for input in vec![
     br#""password": "0000", "name": "user2}]}"#.to_vec(),
 ] {
     for converted_data in convert.process(&input).unwrap() {
-        println!("{:?} (len {})", converted_data, converted_data.len());
+        println!("{:?}", converted_data);
     }
 }
 ```
@@ -164,7 +164,7 @@ Unstringifies matched data
 ## Examples
 ### Trigger
 ```rust
-use streamson_lib::{strategy, error::General, handler::PrintLn, matcher::Simple};
+use streamson_lib::{strategy::{self, Strategy}, error::General, handler::PrintLn, matcher::Simple};
 use std::sync::{Arc, Mutex};
 use std::io::prelude::*;
 
@@ -185,7 +185,7 @@ while let Ok(size) = input.read(&mut buffer[..]) {
 
 ### Filter
 ```rust
-use streamson_lib::{strategy, error::General, matcher::Simple};
+use streamson_lib::{strategy::{self, Strategy}, error::General, matcher::Simple};
 use std::io::prelude::*;
 
 let mut filter = strategy::Filter::new();
@@ -204,7 +204,7 @@ while let Ok(size) = input.read(&mut buffer[..]) {
 
 ### Extract
 ```rust
-use streamson_lib::{strategy, error::General, matcher::Simple};
+use streamson_lib::{strategy::{self, Strategy}, error::General, matcher::Simple};
 use std::io::prelude::*;
 
 let mut extract = strategy::Extract::new();
@@ -223,7 +223,7 @@ while let Ok(size) = input.read(&mut buffer[..]) {
 
 ### Convert
 ```rust
-use streamson_lib::{strategy, matcher, handler};
+use streamson_lib::{strategy::{self, Strategy}, matcher, handler};
 use std::sync::{Arc, Mutex};
 use std::io::prelude::*;
 

@@ -4,7 +4,10 @@
 
 use bytes::{Bytes, BytesMut};
 use std::sync::{Arc, Mutex};
-use streamson_lib::{error, handler, matcher, strategy};
+use streamson_lib::{
+    error, handler, matcher,
+    strategy::{self, Strategy},
+};
 use tokio_util::codec::Decoder;
 
 /// This struct uses `streamson_lib::matcher` to decode data.

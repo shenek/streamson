@@ -14,6 +14,8 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 
+use super::{Output, Strategy};
+
 #[derive(Debug)]
 struct StackItem {
     /// Total index
@@ -44,6 +46,61 @@ impl Default for Trigger {
             matchers: vec![],
             streamer: Streamer::new(),
             matched_stack: vec![],
+        }
+    }
+}
+
+impl Strategy for Trigger {
+    fn get_export_path(&self) -> bool {
+        false
+    }
+
+    fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
+        self.streamer.feed(input);
+        let mut inner_idx = 0;
+        loop {
+            match self.streamer.read()? {
+                Token::Start(idx, kind) => {
+                    // trigger handler for matched
+                    let to = idx - self.input_start;
+                    self.feed(&input[inner_idx..to])?;
+                    inner_idx = to;
+
+                    let mut matched = vec![];
+                    let path = self.streamer.current_path();
+
+                    // try to check whether it matches
+                    for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
+                        if matcher.match_path(path, kind) {
+                            // handler starts
+                            let mut guard = self.matchers[match_idx].1.lock().unwrap();
+                            guard.start(path, match_idx, Token::Start(idx, kind))?;
+                            matched.push(StackItem { idx, match_idx });
+                        }
+                    }
+
+                    self.matched_stack.push(matched);
+                }
+                Token::End(idx, kind) => {
+                    let to = idx - self.input_start;
+                    self.feed(&input[inner_idx..to])?;
+                    inner_idx = to;
+
+                    let current_path = self.streamer.current_path();
+                    let items = self.matched_stack.pop().unwrap();
+                    for item in items {
+                        // run handlers for the matches
+                        let mut guard = self.matchers[item.match_idx].1.lock().unwrap();
+                        guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
+                    }
+                }
+                Token::Pending => {
+                    self.input_start += input.len();
+                    self.feed(&input[inner_idx..])?;
+                    return Ok(vec![]);
+                }
+                Token::Separator(_) => {}
+            }
         }
     }
 }
@@ -90,86 +147,11 @@ impl Trigger {
         }
         Ok(())
     }
-
-    /// Processes input data
-    ///
-    /// # Arguments
-    /// * `input` - input data
-    ///
-    /// # Returns
-    /// * `Ok(()) processing passed, more data might be needed
-    /// * `Err(_)` - error occured during processing
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use streamson_lib::strategy;
-    ///
-    /// let mut trigger = strategy::Trigger::new();
-    /// trigger.process(br#"{}"#);
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// If parsing logic finds that JSON is not valid,
-    /// it returns `error::General`.
-    ///
-    /// Note that streamson assumes that its input is a valid
-    /// JSONs and if not, it still might be processed without an error.
-    /// This is caused because streamson does not validate JSON.
-    pub fn process(&mut self, input: &[u8]) -> Result<(), error::General> {
-        self.streamer.feed(input);
-        let mut inner_idx = 0;
-        loop {
-            match self.streamer.read()? {
-                Token::Start(idx, kind) => {
-                    // trigger handler for matched
-                    let to = idx - self.input_start;
-                    self.feed(&input[inner_idx..to])?;
-                    inner_idx = to;
-
-                    let mut matched = vec![];
-                    let path = self.streamer.current_path();
-
-                    // try to check whether it matches
-                    for (match_idx, (matcher, _)) in self.matchers.iter().enumerate() {
-                        if matcher.match_path(path, kind) {
-                            // handler starts
-                            let mut guard = self.matchers[match_idx].1.lock().unwrap();
-                            guard.start(path, match_idx, Token::Start(idx, kind))?;
-                            matched.push(StackItem { idx, match_idx });
-                        }
-                    }
-
-                    self.matched_stack.push(matched);
-                }
-                Token::End(idx, kind) => {
-                    let to = idx - self.input_start;
-                    self.feed(&input[inner_idx..to])?;
-                    inner_idx = to;
-
-                    let current_path = self.streamer.current_path();
-                    let items = self.matched_stack.pop().unwrap();
-                    for item in items {
-                        // run handlers for the matches
-                        let mut guard = self.matchers[item.match_idx].1.lock().unwrap();
-                        guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
-                    }
-                }
-                Token::Pending => {
-                    self.input_start += input.len();
-                    self.feed(&input[inner_idx..])?;
-                    return Ok(());
-                }
-                Token::Separator(_) => {}
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Trigger;
+    use super::{Strategy, Trigger};
     use crate::{
         error,
         handler::Handler,

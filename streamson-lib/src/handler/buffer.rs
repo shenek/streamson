@@ -2,7 +2,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let buffer_handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
@@ -265,7 +265,10 @@ impl Buffer {
 #[cfg(test)]
 mod tests {
     use super::Buffer;
-    use crate::{matcher::Simple, strategy::Trigger};
+    use crate::{
+        matcher::Simple,
+        strategy::{Strategy, Trigger},
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]

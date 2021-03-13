@@ -1,4 +1,9 @@
-use streamson_lib::{handler, matcher, path::Path, strategy, streamer::ParsedKind};
+use streamson_lib::{
+    handler, matcher,
+    path::Path,
+    strategy::{self, Strategy},
+    streamer::ParsedKind,
+};
 
 use std::sync::{Arc, Mutex};
 

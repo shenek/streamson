@@ -4,7 +4,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let handler = Arc::new(Mutex::new(handler::Shorten::new(3, r#"..""#.to_string())));
@@ -20,7 +20,7 @@
 //!     br#""description": "other long string"}]}"#.to_vec(),
 //! ] {
 //!     for converted_data in convert.process(&input).unwrap() {
-//!         println!("{:?} (len {})", converted_data, converted_data.len());
+//!         println!("{:?}", converted_data);
 //!     }
 //! }
 //! ```
@@ -103,7 +103,10 @@ impl Handler for Shorten {
 #[cfg(test)]
 mod tests {
     use super::Shorten;
-    use crate::{matcher::Simple, strategy::Convert};
+    use crate::{
+        matcher::Simple,
+        strategy::{Convert, OutputConverter, Strategy},
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -113,11 +116,18 @@ mod tests {
         let matcher = Simple::new(r#"[]{"description"}"#).unwrap();
 
         convert.add_matcher(Box::new(matcher), shorten_handler.clone());
-        let output = convert
-            .process(br#"[{"description": "too long description"}, {"description": "short"}]"#)
-            .unwrap();
-
-        let output: Vec<u8> = output.into_iter().flatten().collect();
+        let output: Vec<u8> = OutputConverter::new()
+            .convert(
+                &convert
+                    .process(
+                        br#"[{"description": "too long description"}, {"description": "short"}]"#,
+                    )
+                    .unwrap(),
+            )
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
 
         assert_eq!(
             String::from_utf8(output).unwrap(),
@@ -142,7 +152,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let output: Vec<u8> = output.into_iter().flatten().collect();
+        let output: Vec<u8> = OutputConverter::new()
+            .convert(&output)
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
 
         assert_eq!(
             String::from_utf8(output).unwrap(),

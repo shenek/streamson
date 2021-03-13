@@ -4,7 +4,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let handler = Arc::new(Mutex::new(handler::Replace::new(br#"***"#.to_vec())));
@@ -20,7 +20,7 @@
 //!     br#""password": "0000", "name": "second}]}"#.to_vec(),
 //! ] {
 //!     for converted_data in convert.process(&input).unwrap() {
-//!         println!("{:?} (len {})", converted_data, converted_data.len());
+//!         println!("{:?}", converted_data);
 //!     }
 //! }
 //! ```

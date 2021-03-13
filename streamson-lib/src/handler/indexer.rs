@@ -3,7 +3,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let indexer_handler = Arc::new(Mutex::new(handler::Indexer::new().set_use_path(true)));
@@ -128,7 +128,7 @@ mod tests {
     use crate::{
         handler::{Buffer, Group},
         matcher::Simple,
-        strategy::Trigger,
+        strategy::{Strategy, Trigger},
         streamer::{ParsedKind, Token},
     };
     use std::sync::{Arc, Mutex};

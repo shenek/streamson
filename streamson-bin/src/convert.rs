@@ -6,7 +6,10 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::{handler, matcher, strategy};
+use streamson_lib::{
+    handler, matcher,
+    strategy::{self, Strategy},
+};
 
 pub fn prepare_convert_subcommand() -> App<'static> {
     App::new("convert")
@@ -165,14 +168,19 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     };
 
     let mut buffer = vec![];
+    let mut converter = strategy::OutputConverter::new();
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
-        let output = convert.process(&buffer[..size])?;
+        let output = converter
+            .convert(&convert.process(&buffer[..size])?)
+            .into_iter()
+            .map(|e| e.1)
+            .collect::<Vec<Vec<u8>>>();
         buffer.clear();
-        for data in output {
-            stdout().write_all(&data)?;
+        for data in &output {
+            stdout().write_all(data)?;
         }
     }
 

@@ -2,7 +2,7 @@
 //!
 //!
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //!
@@ -161,7 +161,7 @@ mod tests {
     use crate::{
         handler::{Buffer, Replace, Shorten},
         matcher::Simple,
-        strategy::{Convert, Filter, Trigger},
+        strategy::{Convert, Filter, OutputConverter, Strategy, Trigger},
     };
     use std::sync::{Arc, Mutex};
 
@@ -195,9 +195,15 @@ mod tests {
 
         convert.add_matcher(Box::new(matcher), Arc::new(Mutex::new(group)));
 
-        let output = convert
-            .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
-            .unwrap();
+        let output = OutputConverter::new()
+            .convert(
+                &convert
+                    .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
+                    .unwrap(),
+            )
+            .into_iter()
+            .map(|e| e.1)
+            .collect::<Vec<Vec<u8>>>();
 
         // output
         assert_eq!(
@@ -305,15 +311,19 @@ mod tests {
 
         filter.add_matcher(Box::new(matcher), Some(Arc::new(Mutex::new(group))));
 
-        let output = filter
-            .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
-            .unwrap();
+        let output: Vec<u8> = OutputConverter::new()
+            .convert(
+                &filter
+                    .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
+                    .unwrap(),
+            )
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
 
         // output
-        assert_eq!(
-            String::from_utf8(output.into_iter().collect()).unwrap(),
-            r#"[{}, {}]"#
-        );
+        assert_eq!(String::from_utf8(output).unwrap(), r#"[{}, {}]"#);
 
         // buffer1
         assert_eq!(

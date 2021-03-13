@@ -3,6 +3,7 @@
 //! This strategy doesn't require any matchers
 //! Handlers will be triggered on every element
 
+use super::{Output, Strategy};
 use crate::{
     error,
     handler::{Group, Handler},
@@ -21,6 +22,78 @@ pub struct All {
     streamer: Streamer,
     /// List of handlers to be triggered
     handlers: Arc<Mutex<Group>>,
+    /// Current json level
+    level: usize,
+}
+
+impl Strategy for All {
+    fn get_export_path(&self) -> bool {
+        false
+    }
+
+    fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
+        self.streamer.feed(input);
+        let mut inner_idx = 0;
+        let mut result = vec![];
+        loop {
+            match self.streamer.read()? {
+                Token::Start(idx, kind) => {
+                    let path = self.streamer.current_path();
+
+                    if self.level == 0 {
+                        result.push(Output::Start(None));
+                    }
+
+                    let to = idx - self.input_start;
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
+                        if self.convert {
+                            result.push(Output::Data(data));
+                        }
+                    }
+                    if let Some(data) = guard.start(path, 0, Token::Start(idx, kind))? {
+                        if self.convert {
+                            result.push(Output::Data(data));
+                        }
+                    }
+                    self.level += 1;
+                    inner_idx = to;
+                }
+                Token::End(idx, kind) => {
+                    let path = self.streamer.current_path();
+
+                    let to = idx - self.input_start;
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
+                        if self.convert {
+                            result.push(Output::Data(data));
+                        }
+                    }
+                    if let Some(data) = guard.end(path, 0, Token::End(idx, kind))? {
+                        if self.convert {
+                            result.push(Output::Data(data));
+                        }
+                    }
+                    inner_idx = to;
+                    self.level -= 1;
+                    if self.level == 0 {
+                        result.push(Output::End);
+                    }
+                }
+                Token::Pending => {
+                    self.input_start += input.len();
+                    let mut guard = self.handlers.lock().unwrap();
+                    if let Some(data) = guard.feed(&input[inner_idx..], 0)? {
+                        if self.convert {
+                            result.push(Output::Data(data));
+                        }
+                    }
+                    return Ok(if self.convert { result } else { vec![] });
+                }
+                Token::Separator(_) => {}
+            }
+        }
+    }
 }
 
 impl All {
@@ -56,94 +129,14 @@ impl All {
     pub fn add_handler(&mut self, handler: Arc<Mutex<dyn Handler>>) {
         self.handlers.lock().unwrap().add_handler_mut(handler);
     }
-
-    /// Processes input data
-    ///
-    /// # Arguments
-    /// * `input` - input data
-    ///
-    /// # Returns
-    /// * `Ok(()) processing passed, more data might be needed
-    /// * `Err(_)` - error occured during processing
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use streamson_lib::strategy;
-    ///
-    /// let mut trigger = strategy::All::new();
-    /// trigger.process(br#"{}"#);
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// If parsing logic finds that JSON is not valid,
-    /// it returns `error::General`.
-    ///
-    /// Note that streamson assumes that its input is a valid
-    /// JSONs and if not, it still might be processed without an error.
-    /// This is caused because streamson does not validate JSON.
-    pub fn process(&mut self, input: &[u8]) -> Result<Option<Vec<u8>>, error::General> {
-        self.streamer.feed(input);
-        let mut inner_idx = 0;
-        let mut result = vec![];
-        loop {
-            match self.streamer.read()? {
-                Token::Start(idx, kind) => {
-                    let path = self.streamer.current_path();
-
-                    let to = idx - self.input_start;
-                    let mut guard = self.handlers.lock().unwrap();
-                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
-                        if self.convert {
-                            result.extend(data);
-                        }
-                    }
-                    if let Some(data) = guard.start(path, 0, Token::Start(idx, kind))? {
-                        if self.convert {
-                            result.extend(data);
-                        }
-                    }
-                    inner_idx = to;
-                }
-                Token::End(idx, kind) => {
-                    let path = self.streamer.current_path();
-
-                    let to = idx - self.input_start;
-                    let mut guard = self.handlers.lock().unwrap();
-                    if let Some(data) = guard.feed(&input[inner_idx..to], 0)? {
-                        if self.convert {
-                            result.extend(data);
-                        }
-                    }
-                    if let Some(data) = guard.end(path, 0, Token::End(idx, kind))? {
-                        if self.convert {
-                            result.extend(data);
-                        }
-                    }
-                    inner_idx = to;
-                }
-                Token::Pending => {
-                    self.input_start += input.len();
-                    let mut guard = self.handlers.lock().unwrap();
-                    if let Some(data) = guard.feed(&input[inner_idx..], 0)? {
-                        if self.convert {
-                            result.extend(data);
-                        }
-                    }
-                    return Ok(if self.convert { Some(result) } else { None });
-                }
-                Token::Separator(_) => {}
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::All;
+    use super::{All, Strategy};
     use crate::{
         handler::{Analyser, Replace},
+        strategy::OutputConverter,
         test::{Single, Splitter, Window},
     };
     use rstest::*;
@@ -194,8 +187,12 @@ mod tests {
             let handler = Arc::new(Mutex::new(Replace::new(br#"."#.to_vec())));
             all.add_handler(handler);
             let mut result = vec![];
+            let mut converter = OutputConverter::new();
             for input in part {
-                result.extend(all.process(&input).unwrap().unwrap());
+                let output = converter.convert(&all.process(&input).unwrap());
+                for data in output {
+                    result.extend(data.1);
+                }
             }
             dbg!(String::from_utf8(result.clone()).unwrap());
 

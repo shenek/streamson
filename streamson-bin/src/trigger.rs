@@ -7,7 +7,10 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::{error, handler, matcher, strategy};
+use streamson_lib::{
+    error, handler, matcher,
+    strategy::{self, Strategy},
+};
 
 fn make_matcher(
     matcher_name: &str,

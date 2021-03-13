@@ -17,6 +17,8 @@ use crate::{
     streamer::{Streamer, Token},
 };
 
+use super::{Output, Strategy};
+
 type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
@@ -33,6 +35,8 @@ pub struct Filter {
     matches: Option<(Path, Vec<usize>)>,
     /// Path which data were written to stream for the last time
     last_streaming_path: Option<Path>,
+    /// Current json level
+    level: usize,
 }
 
 impl Default for Filter {
@@ -44,6 +48,103 @@ impl Default for Filter {
             streamer: Streamer::new(),
             matches: None,
             last_streaming_path: None,
+            level: 0,
+        }
+    }
+}
+
+impl Strategy for Filter {
+    fn get_export_path(&self) -> bool {
+        false
+    }
+
+    fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
+        // Feed the streamer
+        self.streamer.feed(input);
+
+        // Feed the input buffer
+        self.buffer.extend(input);
+
+        // initialize result
+        let mut result = Vec::new();
+
+        // Finish skip
+
+        loop {
+            match self.streamer.read()? {
+                Token::Start(idx, kind) => {
+                    if self.level == 0 {
+                        result.push(Output::Start(None));
+                    }
+                    self.level += 1;
+                    if let Some((path, matched_indexes)) = self.matches.take() {
+                        let data = self.move_forward(idx);
+                        self.feed_handlers(&matched_indexes, data)?;
+                        self.matches = Some((path, matched_indexes));
+                    } else {
+                        // The path is not matched yet
+                        let current_path = self.streamer.current_path().clone();
+
+                        // Try to match current path
+                        let matcher_indexes: Vec<usize> = self
+                            .matchers
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, matcher)| (idx, matcher.0.match_path(&current_path, kind)))
+                            .filter(|(_, matched)| *matched)
+                            .map(|(idx, _)| idx)
+                            .collect();
+
+                        if !matcher_indexes.is_empty() {
+                            // Trigger handlers start
+                            self.start_handlers(
+                                &current_path,
+                                &matcher_indexes,
+                                Token::Start(idx, kind),
+                            )?;
+                            self.matches = Some((current_path, matcher_indexes));
+                            self.move_forward(idx); // discard e.g. '"key": '
+                        } else {
+                            // no match here -> extend output
+                            self.last_streaming_path = Some(current_path);
+                            result
+                                .push(Output::Data(self.move_forward(idx + 1).drain(..).collect()));
+                        }
+                    }
+                }
+                Token::End(idx, kind) => {
+                    self.level -= 1;
+                    if let Some((path, matched_indexes)) = self.matches.take() {
+                        // Trigger handler feed
+                        let data = self.move_forward(idx);
+                        self.feed_handlers(&matched_indexes, data)?;
+
+                        if &path == self.streamer.current_path() {
+                            // Trigger handlers end
+                            self.end_handlers(&path, &matched_indexes, Token::End(idx, kind))?;
+                        } else {
+                            self.matches = Some((path, matched_indexes));
+                        }
+                    } else {
+                        self.last_streaming_path = Some(self.streamer.current_path().clone());
+                        result.push(Output::Data(self.move_forward(idx).drain(..).collect()));
+                    }
+                    if self.level == 0 {
+                        result.push(Output::End);
+                    }
+                }
+                Token::Pending => {
+                    return Ok(result);
+                }
+                Token::Separator(idx) => {
+                    if let Some(path) = self.last_streaming_path.as_ref() {
+                        if self.streamer.current_path() == path {
+                            // removing ',' if the first record from array / object was deleted
+                            self.move_forward(idx + 1);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -150,103 +251,14 @@ impl Filter {
         }
         Ok(())
     }
-
-    /// Processes input data
-    ///
-    /// # Returns
-    /// * `Ok(_) processing passed, more data might be needed
-    /// * `Err(_)` when input is not correct json
-    ///
-    /// # Errors
-    /// * Error is triggered when incorrect json is detected
-    ///   Note that not all json errors are detected
-    pub fn process(&mut self, input: &[u8]) -> Result<Vec<u8>, error::General> {
-        // Feed the streamer
-        self.streamer.feed(input);
-
-        // Feed the input buffer
-        self.buffer.extend(input);
-
-        // initialize result
-        let mut result = Vec::new();
-
-        // Finish skip
-
-        loop {
-            match self.streamer.read()? {
-                Token::Start(idx, kind) => {
-                    if let Some((path, matched_indexes)) = self.matches.take() {
-                        let data = self.move_forward(idx);
-                        self.feed_handlers(&matched_indexes, data)?;
-                        self.matches = Some((path, matched_indexes));
-                    } else {
-                        // The path is not matched yet
-                        let current_path = self.streamer.current_path().clone();
-
-                        // Try to match current path
-                        let matcher_indexes: Vec<usize> = self
-                            .matchers
-                            .iter()
-                            .enumerate()
-                            .map(|(idx, matcher)| (idx, matcher.0.match_path(&current_path, kind)))
-                            .filter(|(_, matched)| *matched)
-                            .map(|(idx, _)| idx)
-                            .collect();
-
-                        if !matcher_indexes.is_empty() {
-                            // Trigger handlers start
-                            self.start_handlers(
-                                &current_path,
-                                &matcher_indexes,
-                                Token::Start(idx, kind),
-                            )?;
-                            self.matches = Some((current_path, matcher_indexes));
-                            self.move_forward(idx); // discard e.g. '"key": '
-                        } else {
-                            // no match here -> extend output
-                            self.last_streaming_path = Some(current_path);
-                            result.extend(self.move_forward(idx + 1));
-                        }
-                    }
-                }
-                Token::End(idx, kind) => {
-                    if let Some((path, matched_indexes)) = self.matches.take() {
-                        // Trigger handler feed
-                        let data = self.move_forward(idx);
-                        self.feed_handlers(&matched_indexes, data)?;
-
-                        if &path == self.streamer.current_path() {
-                            // Trigger handlers end
-                            self.end_handlers(&path, &matched_indexes, Token::End(idx, kind))?;
-                        } else {
-                            self.matches = Some((path, matched_indexes));
-                        }
-                    } else {
-                        self.last_streaming_path = Some(self.streamer.current_path().clone());
-                        result.extend(self.move_forward(idx));
-                    }
-                }
-                Token::Pending => {
-                    return Ok(result);
-                }
-                Token::Separator(idx) => {
-                    if let Some(path) = self.last_streaming_path.as_ref() {
-                        if self.streamer.current_path() == path {
-                            // removing ',' if the first record from array / object was deleted
-                            self.move_forward(idx + 1);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Filter;
+    use super::{Filter, Strategy};
     use crate::{
         matcher::{Combinator, Simple},
+        strategy::OutputConverter,
         test::{Single, Splitter, Window},
     };
     use rstest::*;
@@ -264,7 +276,15 @@ mod tests {
         let mut filter = Filter::new();
         filter.add_matcher(Box::new(matcher), None);
 
-        assert_eq!(filter.process(&input).unwrap(), input.clone());
+        assert_eq!(
+            OutputConverter::new()
+                .convert(&filter.process(&input).unwrap())
+                .into_iter()
+                .map(|e| e.1)
+                .flatten()
+                .collect::<Vec<u8>>(),
+            input.clone()
+        );
     }
 
     #[test]
@@ -276,7 +296,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [ {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -290,7 +318,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -304,7 +340,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -318,7 +362,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [], "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -332,7 +384,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{ "groups": [{"gid": 1}, {"gid": 2}], "void": {}}"#
         );
     }
@@ -346,7 +406,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "groups": [{"gid": 1}, {"gid": 2}]}"#
         );
     }
@@ -360,7 +428,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{"users": [{"uid": 1}, {"uid": 2}, {"uid": 3}], "void": {}}"#
         );
     }
@@ -374,7 +450,15 @@ mod tests {
         filter.add_matcher(Box::new(matcher), None);
 
         assert_eq!(
-            String::from_utf8(filter.process(&input).unwrap()).unwrap(),
+            String::from_utf8(
+                OutputConverter::new()
+                    .convert(&filter.process(&input).unwrap())
+                    .into_iter()
+                    .map(|e| e.1)
+                    .flatten()
+                    .collect()
+            )
+            .unwrap(),
             r#"{}"#
         );
     }
@@ -395,8 +479,16 @@ mod tests {
             filter.add_matcher(Box::new(matcher), None);
             let mut result: Vec<u8> = Vec::new();
 
+            let mut converter = OutputConverter::new();
             for part in parts {
-                result.extend(filter.process(&part).unwrap());
+                result.extend(
+                    converter
+                        .convert(&filter.process(&part).unwrap())
+                        .into_iter()
+                        .map(|e| e.1)
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                );
             }
             assert_eq!(
                 String::from_utf8(result).unwrap(),

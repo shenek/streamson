@@ -5,7 +5,10 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::{matcher, strategy};
+use streamson_lib::{
+    matcher,
+    strategy::{self, Strategy},
+};
 
 pub fn prepare_filter_subcommand() -> App<'static> {
     App::new("filter")
@@ -96,7 +99,12 @@ pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Bo
         if size == 0 {
             break;
         }
-        let output = filter.process(&buffer[..size])?;
+        let output: Vec<u8> = strategy::OutputConverter::new()
+            .convert(&filter.process(&buffer[..size])?)
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
         buffer.clear();
         stdout().write_all(&output)?;
     }

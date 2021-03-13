@@ -12,7 +12,11 @@ use futures::{
     task::{Context, Poll},
     Stream,
 };
-use streamson_lib::{error::General as StreamsonError, handler, matcher, strategy};
+use streamson_lib::{
+    error::General as StreamsonError,
+    handler, matcher,
+    strategy::{self, Strategy},
+};
 
 /// This struct is used to wrap Bytes input stream to
 /// (Path, Bytes) - the matched path and matched bytes in json stream

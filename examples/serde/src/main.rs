@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use streamson_lib::{error, handler, matcher, strategy};
+use streamson_lib::{
+    error, handler, matcher,
+    strategy::{self, Strategy},
+};
 
 use std::sync::{Arc, Mutex};
 

@@ -4,7 +4,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let handler = Arc::new(Mutex::new(handler::Unstringify::new()));
@@ -19,7 +19,7 @@
 //!     br#"{"stringified_strings": ["\"string\"", "{}", "[]"]}"#.to_vec(),
 //! ] {
 //!     for converted_data in convert.process(&input).unwrap() {
-//!         println!("{:?} (len {})", converted_data, converted_data.len());
+//!         println!("{:?}", converted_data);
 //!     }
 //! }
 //! ```
@@ -135,7 +135,10 @@ impl Handler for Unstringify {
 #[cfg(test)]
 mod tests {
     use super::Unstringify;
-    use crate::{matcher::Simple, strategy::Convert};
+    use crate::{
+        matcher::Simple,
+        strategy::{Convert, OutputConverter, Strategy},
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -155,7 +158,12 @@ mod tests {
                 .unwrap(),
         );
 
-        let output: Vec<u8> = output.into_iter().flatten().collect();
+        let output: Vec<u8> = OutputConverter::new()
+            .convert(&output)
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
 
         assert_eq!(
             String::from_utf8(output).unwrap(),

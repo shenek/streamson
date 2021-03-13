@@ -122,7 +122,10 @@ impl Handler for File {
 
 #[cfg(test)]
 mod tests {
-    use crate::{handler, matcher, strategy};
+    use crate::{
+        handler, matcher,
+        strategy::{self, Strategy},
+    };
     use std::{
         fs, str,
         sync::{Arc, Mutex},

@@ -8,7 +8,7 @@
 //!
 //! # Examples
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
@@ -43,7 +43,7 @@
 //! ```
 //!
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{Strategy, self}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(
@@ -76,7 +76,7 @@
 //! ```
 //!
 //! ```
-//! use streamson_lib::{handler::{self, Handler}, matcher, strategy};
+//! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{Strategy, self}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let file_handler = Arc::new(

@@ -9,7 +9,7 @@ use crate::{error, matcher::MatchMaker, path::Path, streamer::ParsedKind};
 ///
 /// # Examples
 /// ```
-/// use streamson_lib::{handler, strategy, matcher};
+/// use streamson_lib::{handler, strategy::{self, Strategy}, matcher};
 ///
 /// use std::{str::FromStr, sync::{Arc, Mutex}};
 ///

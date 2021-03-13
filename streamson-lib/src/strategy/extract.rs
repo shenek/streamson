@@ -12,12 +12,7 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, PartialEq)]
-pub enum Output {
-    Start(Option<Path>),
-    Data(Vec<u8>),
-    End,
-}
+use super::{Output, Strategy};
 
 type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
 
@@ -46,69 +41,12 @@ impl Default for Extract {
     }
 }
 
-impl Extract {
-    /// Creates a new `Extract`
-    ///
-    /// It exracts matched data parts (not nested)
-    pub fn new() -> Self {
-        Self::default()
+impl Strategy for Extract {
+    fn get_export_path(&self) -> bool {
+        self.export_path
     }
 
-    /// Sets whether path should be exported with data
-    ///
-    /// if path is not exported extraction can be a bit faster
-    pub fn set_export_path(mut self, export: bool) -> Self {
-        self.export_path = export;
-        self
-    }
-
-    /// Adds new matcher for data extraction
-    ///
-    /// # Arguments
-    /// * `matcher` - matcher which matches the path
-    /// * `handler` - optinal handler to be used to process data
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use streamson_lib::{strategy, matcher};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let mut extract = strategy::Extract::new();
-    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
-    /// let mut extract = strategy::Extract::new();
-    /// extract.add_matcher(
-    ///     Box::new(matcher),
-    ///     None,
-    /// );
-    /// ```
-    pub fn add_matcher(
-        &mut self,
-        matcher: Box<dyn MatchMaker>,
-        handler: Option<Arc<Mutex<dyn Handler>>>,
-    ) {
-        self.matchers.push((matcher, handler));
-    }
-
-    /// Processes input data
-    ///
-    /// # Returns
-    /// * `Ok(Vec<(Some(r#"{"users"}[0]"#), Vec<u8>)>)` vector containing path and data
-    /// * `Ok(Vec<(None, Vec<u8>)>)` vector data only
-    /// * `Err(_)` when input is not correct json
-    ///
-    /// # Example
-    /// ```
-    /// use streamson_lib::strategy;
-    ///
-    /// let mut extract = strategy::Extract::new();
-    /// extract.process(br#"{}"#);
-    /// ```
-    ///
-    /// # Errors
-    /// * Error is triggered when incorrect json is detected
-    ///   Note that not all json errors are detected
-    pub fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
+    fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         self.streamer.feed(input);
 
         let mut input_idx = 0;
@@ -189,9 +127,54 @@ impl Extract {
     }
 }
 
+impl Extract {
+    /// Creates a new `Extract`
+    ///
+    /// It exracts matched data parts (not nested)
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets whether path should be exported with data
+    ///
+    /// if path is not exported extraction can be a bit faster
+    pub fn set_export_path(mut self, export: bool) -> Self {
+        self.export_path = export;
+        self
+    }
+
+    /// Adds new matcher for data extraction
+    ///
+    /// # Arguments
+    /// * `matcher` - matcher which matches the path
+    /// * `handler` - optinal handler to be used to process data
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use streamson_lib::{strategy, matcher};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let mut extract = strategy::Extract::new();
+    /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
+    /// let mut extract = strategy::Extract::new();
+    /// extract.add_matcher(
+    ///     Box::new(matcher),
+    ///     None,
+    /// );
+    /// ```
+    pub fn add_matcher(
+        &mut self,
+        matcher: Box<dyn MatchMaker>,
+        handler: Option<Arc<Mutex<dyn Handler>>>,
+    ) {
+        self.matchers.push((matcher, handler));
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Extract, Output};
+    use super::{Extract, Output, Strategy};
     use crate::{
         handler::Buffer,
         matcher::Simple,

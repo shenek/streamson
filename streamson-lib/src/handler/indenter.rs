@@ -2,7 +2,7 @@
 //!
 //! # Example
 //! ```
-//! use streamson_lib::{handler, matcher, strategy};
+//! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
 //! use std::sync::{Arc, Mutex};
 //!
 //! let handler = Arc::new(Mutex::new(handler::Indenter::new(Some(2))));
@@ -17,7 +17,7 @@
 //!     br#""password": "0000", "name": "second}]}"#.to_vec(),
 //! ] {
 //!     for converted_data in all.process(&input).unwrap() {
-//!         println!("{:?} (len {})", converted_data, converted_data.len());
+//!         println!("{:?}", converted_data);
 //!     }
 //! }
 //! ```
@@ -208,7 +208,7 @@ impl Handler for Indenter {
 #[cfg(test)]
 mod tests {
     use super::Indenter;
-    use crate::strategy::All;
+    use crate::strategy::{All, OutputConverter, Strategy};
     use rstest::*;
     use std::sync::{Arc, Mutex};
 
@@ -244,7 +244,10 @@ mod tests {
         final_input.extend(before);
         final_input.extend(input);
         final_input.extend(after);
-        assert_eq!(Some(output.to_vec()), all.process(&final_input).unwrap());
+        let result = OutputConverter::new().convert(&all.process(&final_input).unwrap());
+
+        assert_eq!(result.len(), 1);
+        assert_eq!((None, output.to_vec()), result[0]);
     }
 
     #[test]
@@ -255,21 +258,21 @@ mod tests {
         let mut all = make_all_with_spaces(None);
         assert_eq!(
             br#"[3,null,true,false,"10"]"#.to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // No indentation
         let mut all = make_all_with_spaces(Some(0));
         assert_eq!(
             b"[\n3,\nnull,\ntrue,\nfalse,\n\"10\"\n]\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // 2 indentation
         let mut all = make_all_with_spaces(Some(2));
         assert_eq!(
             b"[\n  3,\n  null,\n  true,\n  false,\n  \"10\"\n]\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
     }
 
@@ -281,21 +284,21 @@ mod tests {
         let mut all = make_all_with_spaces(None);
         assert_eq!(
             br#"[[3],[],null,[[]],"10",[[[]]]]"#.to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // No indentation
         let mut all = make_all_with_spaces(Some(0));
         assert_eq!(
             b"[\n[\n3\n],\n[],\nnull,\n[\n[]\n],\n\"10\",\n[\n[\n[]\n]\n]\n]\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // 2 indentation
         let mut all = make_all_with_spaces(Some(2));
         assert_eq!(
             b"[\n  [\n    3\n  ],\n  [],\n  null,\n  [\n    []\n  ],\n  \"10\",\n  [\n    [\n      []\n    ]\n  ]\n]\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
     }
 
@@ -308,21 +311,21 @@ mod tests {
         let mut all = make_all_with_spaces(None);
         assert_eq!(
             br#"{"1":1,"2":"2","3":null,"4":false}"#.to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // No indentation
         let mut all = make_all_with_spaces(Some(0));
         assert_eq!(
             b"{\n\"1\": 1,\n\"2\": \"2\",\n\"3\": null,\n\"4\": false\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // 2 indentation
         let mut all = make_all_with_spaces(Some(2));
         assert_eq!(
             b"{\n  \"1\": 1,\n  \"2\": \"2\",\n  \"3\": null,\n  \"4\": false\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
     }
 
@@ -335,21 +338,21 @@ mod tests {
         let mut all = make_all_with_spaces(None);
         assert_eq!(
             br#"{"1":{},"2":{"2a":{}},"3":null,"4":{"4a":{"4aa":{}}}}"#.to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // No indentation
         let mut all = make_all_with_spaces(Some(0));
         assert_eq!(
             b"{\n\"1\": {},\n\"2\": {\n\"2a\": {}\n},\n\"3\": null,\n\"4\": {\n\"4a\": {\n\"4aa\": {}\n}\n}\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // 2 indentation
         let mut all = make_all_with_spaces(Some(2));
         assert_eq!(
             b"{\n  \"1\": {},\n  \"2\": {\n    \"2a\": {}\n  },\n  \"3\": null,\n  \"4\": {\n    \"4a\": {\n      \"4aa\": {}\n    }\n  }\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
     }
 
@@ -362,21 +365,21 @@ mod tests {
         let mut all = make_all_with_spaces(None);
         assert_eq!(
             br#"{"1":[],"2":{"2a":[]},"3":null,"4":[{"4aa":{}}]}"#.to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // No indentation
         let mut all = make_all_with_spaces(Some(0));
         assert_eq!(
             b"{\n\"1\": [],\n\"2\": {\n\"2a\": []\n},\n\"3\": null,\n\"4\": [\n{\n\"4aa\": {}\n}\n]\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
 
         // 2 indentation
         let mut all = make_all_with_spaces(Some(2));
         assert_eq!(
             b"{\n  \"1\": [],\n  \"2\": {\n    \"2a\": []\n  },\n  \"3\": null,\n  \"4\": [\n    {\n      \"4aa\": {}\n    }\n  ]\n}\n".to_vec(),
-            all.process(&input).unwrap().unwrap()
+            OutputConverter::new().convert(&all.process(&input).unwrap())[0].1
         );
     }
 }

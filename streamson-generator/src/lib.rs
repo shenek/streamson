@@ -9,7 +9,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use streamson_lib::{error::General as StreamsonError, handler, matcher, strategy};
+use streamson_lib::{
+    error::General as StreamsonError,
+    handler, matcher,
+    strategy::{self, Strategy},
+};
 
 /// Wraps streamson extraction around a generator
 ///
@@ -116,7 +120,7 @@ where
                 GeneratorState::Yielded(bytes) => {
                     let process_res = self.trigger.lock().unwrap().process(&bytes);
                     match process_res {
-                        Ok(()) => continue,
+                        Ok(_) => continue,
                         Err(err) => {
                             self.error_occured = true;
                             return GeneratorState::Yielded(Err(err));

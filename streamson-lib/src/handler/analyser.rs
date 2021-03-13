@@ -61,7 +61,10 @@ impl Analyser {
 #[cfg(test)]
 mod tests {
     use super::Analyser;
-    use crate::{matcher::All, strategy::Trigger};
+    use crate::{
+        matcher::All,
+        strategy::{Strategy, Trigger},
+    };
     use std::sync::{Arc, Mutex};
 
     #[test]
