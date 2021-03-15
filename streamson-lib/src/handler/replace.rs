@@ -27,6 +27,7 @@
 
 use super::Handler;
 use crate::{error, path::Path, streamer::Token};
+use std::str::FromStr;
 
 /// Replace handler which converts matched data to fixed output
 #[derive(Debug)]
@@ -39,6 +40,13 @@ impl Replace {
     /// Creates a new handler which replaces matched data by fixed output
     pub fn new(new_data: Vec<u8>) -> Self {
         Self { new_data }
+    }
+}
+
+impl FromStr for Replace {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        Ok(Self::new(input.to_string().into_bytes()))
     }
 }
 

@@ -30,6 +30,7 @@ use crate::{
     streamer::{ParsedKind, Token},
     Path,
 };
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum State {
@@ -60,6 +61,13 @@ impl Unstringify {
     /// Creates a new handler which unstringifies matched data
     pub fn new() -> Self {
         Default::default()
+    }
+}
+
+impl FromStr for Unstringify {
+    type Err = error::Handler;
+    fn from_str(_input: &str) -> Result<Self, Self::Err> {
+        Ok(Self::default())
     }
 }
 

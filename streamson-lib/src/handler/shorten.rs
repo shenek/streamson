@@ -25,8 +25,9 @@
 //! }
 //! ```
 
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
+use std::str::FromStr;
 
 /// Handler which shortens the matched data
 ///
@@ -50,6 +51,21 @@ impl Shorten {
             max_length,
             terminator,
             used: 0,
+        }
+    }
+}
+
+impl FromStr for Shorten {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        if splitted.len() == 2 {
+            Ok(Self::new(
+                splitted[0].parse().map_err(|e| error::Handler::new(e))?,
+                splitted[1].to_string(),
+            ))
+        } else {
+            Err(error::Handler::new("Failed to parse"))
         }
     }
 }

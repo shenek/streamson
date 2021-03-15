@@ -1,6 +1,6 @@
 //! Handler which stores matched paths
 
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use super::Handler;
 use crate::{
@@ -39,6 +39,13 @@ impl Handler for Analyser {
     }
 }
 
+impl FromStr for Analyser {
+    type Err = error::Handler;
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Ok(Self::new())
+    }
+}
+
 impl Analyser {
     /// Creates a new handler analyser
     /// Which stores paths to analyse the structure of the JSON
@@ -68,7 +75,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     #[test]
-    fn indexer_handler() {
+    fn analyser_handler() {
         let mut trigger = Trigger::new();
 
         let analyser_handler = Arc::new(Mutex::new(Analyser::new()));

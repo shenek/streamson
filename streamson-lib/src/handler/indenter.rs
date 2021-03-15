@@ -28,6 +28,7 @@ use crate::{
     path::{Element, Path},
     streamer::{ParsedKind, Token},
 };
+use std::str::FromStr;
 
 /// Handler which alters indentation of matched data
 #[derive(Debug)]
@@ -55,6 +56,21 @@ impl Indenter {
             for _ in 0..(stack.len() - 1) * self.spaces.unwrap_or(0) {
                 buff.push(b' ');
             }
+        }
+    }
+}
+
+impl FromStr for Indenter {
+    type Err = error::Handler;
+    fn from_str(intend_str: &str) -> Result<Self, Self::Err> {
+        if intend_str.is_empty() {
+            Ok(Self::new(None))
+        } else {
+            Ok(Self::new(Some(
+                intend_str
+                    .parse::<usize>()
+                    .map_err(|e| error::Handler::new(e))?,
+            )))
         }
     }
 }

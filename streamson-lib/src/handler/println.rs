@@ -1,8 +1,8 @@
 //! Handler which puts output into stdout
 //!
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::str;
+use std::str::{self, FromStr};
 
 /// Handler responsible for sending data to stdout.
 pub struct PrintLn {
@@ -24,6 +24,21 @@ impl Default for PrintLn {
             use_path: false,
             separator: "\n".into(),
             buffer: vec![],
+        }
+    }
+}
+
+impl FromStr for PrintLn {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            0 => Ok(Self::default()),
+            1 => Ok(Self::default().set_separator(splitted[0])),
+            2 => Ok(Self::default()
+                .set_separator(splitted[1])
+                .set_use_path(FromStr::from_str(splitted[1]).map_err(|e| error::Handler::new(e))?)),
+            _ => Err(error::Handler::new("Failed to parse")),
         }
     }
 }

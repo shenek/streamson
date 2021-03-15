@@ -25,9 +25,9 @@
 //! }
 //! ```
 
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::str;
+use std::{str, str::FromStr};
 
 /// Regex to match and string to convert to
 type Replacement = (regex::Regex, String, usize);
@@ -73,6 +73,27 @@ impl Handler for Regex {
 
     fn is_converter(&self) -> bool {
         true
+    }
+}
+
+impl FromStr for Regex {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            e if e % 2 == 0 => {
+                let mut regex = Self::new();
+                for item in splitted.chunks(2) {
+                    regex = regex.add_regex(
+                        regex::Regex::new(item[0]).map_err(|e| error::Handler::new(e))?,
+                        item[1].to_string(),
+                        0,
+                    );
+                }
+                Ok(regex)
+            }
+            _ => Err(error::Handler::new("Failed to parse")),
+        }
     }
 }
 

@@ -27,9 +27,9 @@
 //! }
 //! ```
 
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::collections::VecDeque;
+use std::{collections::VecDeque, str::FromStr};
 
 /// Buffer handler responsible for storing slitted JSONs into memory
 #[derive(Debug)]
@@ -66,6 +66,24 @@ impl Default for Buffer {
             buffer_idx: 0,
             buffer_parts: vec![],
             results: VecDeque::new(),
+        }
+    }
+}
+
+impl FromStr for Buffer {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            0 => Ok(Self::default()),
+            1 => Ok(Self::default()
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)),
+            2 => Ok(Self::default()
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)
+                .set_max_buffer_size(Some(
+                    FromStr::from_str(splitted[1]).map_err(|e| error::Handler::new(e))?,
+                ))),
+            _ => Err(error::Handler::new("Failed to parse")),
         }
     }
 }

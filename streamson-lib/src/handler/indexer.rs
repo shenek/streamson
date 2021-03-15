@@ -28,9 +28,9 @@
 //! }
 //! ```
 
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::collections::VecDeque;
+use std::{collections::VecDeque, str::FromStr};
 
 /// Indexer handler responsible for storing index of the matches
 #[derive(Debug)]
@@ -47,6 +47,19 @@ impl Default for Indexer {
         Self {
             stored: VecDeque::new(),
             use_path: false,
+        }
+    }
+}
+
+impl FromStr for Indexer {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            0 => Ok(Self::default()),
+            1 => Ok(Self::default()
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)),
+            _ => Err(error::Handler::new("Failed to parse")),
         }
     }
 }

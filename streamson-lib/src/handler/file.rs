@@ -1,8 +1,8 @@
 //! Handler which puts output into a file
 
-use super::Handler;
+use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{fs, io::Write};
+use std::{fs, io::Write, str::FromStr};
 
 /// File handler responsible for storing data to a file.
 pub struct File {
@@ -77,6 +77,19 @@ impl File {
     {
         self.separator = separator.to_string();
         self
+    }
+}
+
+impl FromStr for File {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            1 => Ok(Self::new(splitted[0])?),
+            2 => Ok(Self::new(splitted[0])?
+                .set_use_path(FromStr::from_str(splitted[1]).map_err(|e| error::Handler::new(e))?)),
+            _ => Err(error::Handler::new("Failed to parse")),
+        }
     }
 }
 
