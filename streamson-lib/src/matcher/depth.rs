@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use super::MatchMaker;
+use super::Matcher;
 use crate::{error, path::Path, streamer::ParsedKind};
 
 /// Based on actual path depth
@@ -25,7 +25,7 @@ impl Depth {
     }
 }
 
-impl MatchMaker for Depth {
+impl Matcher for Depth {
     fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         let depth = path.depth();
         if let Some(max) = self.max {
@@ -63,7 +63,7 @@ impl FromStr for Depth {
 
 #[cfg(test)]
 mod tests {
-    use super::{Depth, MatchMaker};
+    use super::{Depth, Matcher};
     use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 

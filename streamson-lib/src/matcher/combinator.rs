@@ -2,7 +2,7 @@
 
 use std::{ops, sync::Arc};
 
-use super::MatchMaker;
+use super::Matcher;
 use crate::{path::Path, streamer::ParsedKind};
 
 #[derive(Debug, Clone)]
@@ -14,7 +14,7 @@ use crate::{path::Path, streamer::ParsedKind};
 /// * `comb1 | comb2` at least one should pass
 pub enum Combinator {
     /// Represents the actual underlying matcher
-    Matcher(Arc<dyn MatchMaker + Sync>),
+    Matcher(Arc<dyn Matcher + Sync>),
     /// Negates the expression
     Not(Box<Combinator>),
     /// Both expressions should be valid
@@ -23,7 +23,7 @@ pub enum Combinator {
     Or(Box<Combinator>, Box<Combinator>),
 }
 
-impl MatchMaker for Combinator {
+impl Matcher for Combinator {
     fn match_path(&self, path: &Path, kind: ParsedKind) -> bool {
         match self {
             Self::Matcher(matcher) => matcher.match_path(path, kind),
@@ -43,7 +43,7 @@ impl Combinator {
     ///
     /// # Arguments
     /// * `matcher` - matcher to be wrapped
-    pub fn new(matcher: impl MatchMaker + 'static + Sync) -> Self {
+    pub fn new(matcher: impl Matcher + 'static + Sync) -> Self {
         Self::Matcher(Arc::new(matcher))
     }
 }
@@ -72,7 +72,7 @@ impl ops::BitOr for Combinator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Combinator, MatchMaker};
+    use super::{Combinator, Matcher};
     use crate::{
         matcher::{Depth, Simple},
         path::Path,

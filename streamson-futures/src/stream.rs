@@ -57,7 +57,7 @@ where
     /// # Arguments
     /// * `input` - input stram to be matched
     /// * `matcher` - matcher which will be used for the extraction
-    pub fn new(input: I, matcher: Box<dyn matcher::MatchMaker>) -> Self {
+    pub fn new(input: I, matcher: Box<dyn matcher::Matcher>) -> Self {
         let trigger = Arc::new(Mutex::new(strategy::Trigger::new()));
         let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
         trigger.lock().unwrap().add_matcher(matcher, buffer.clone());

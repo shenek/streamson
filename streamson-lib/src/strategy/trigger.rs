@@ -9,7 +9,7 @@
 use crate::{
     error,
     handler::Handler,
-    matcher::MatchMaker,
+    matcher::Matcher,
     streamer::{Streamer, Token},
 };
 use std::sync::{Arc, Mutex};
@@ -25,7 +25,7 @@ struct StackItem {
 }
 
 /// Item in matcher list
-type MatcherItem = (Box<dyn MatchMaker>, Arc<Mutex<dyn Handler>>);
+type MatcherItem = (Box<dyn Matcher>, Arc<Mutex<dyn Handler>>);
 
 /// Processes data from input and triggers handlers
 pub struct Trigger {
@@ -134,7 +134,7 @@ impl Trigger {
     ///     Arc::new(Mutex::new(handler))
     /// );
     /// ```
-    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>, handler: Arc<Mutex<dyn Handler>>) {
+    pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>, handler: Arc<Mutex<dyn Handler>>) {
         self.matchers.push((matcher, handler));
     }
 

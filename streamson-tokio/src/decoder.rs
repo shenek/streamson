@@ -44,7 +44,7 @@ impl Extractor {
     /// # Arguments
     /// * `matcher` - matcher to be used for extractions (see `streamson_lib::matcher`)
     /// * `include_path` - will path be included in output
-    pub fn new(matcher: impl matcher::MatchMaker + 'static, include_path: bool) -> Self {
+    pub fn new(matcher: impl matcher::Matcher + 'static, include_path: bool) -> Self {
         // TODO limit max length and fail when reached
         let handler = Arc::new(Mutex::new(
             handler::Buffer::new().set_use_path(include_path),

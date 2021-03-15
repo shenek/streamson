@@ -6,7 +6,7 @@
 use crate::{
     error,
     handler::Handler,
-    matcher::MatchMaker,
+    matcher::Matcher,
     path::Path,
     streamer::{Streamer, Token},
 };
@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{Output, Strategy};
 
-type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
+type MatcherItem = (Box<dyn Matcher>, Option<Arc<Mutex<dyn Handler>>>);
 
 pub struct Extract {
     /// Export path as well
@@ -165,7 +165,7 @@ impl Extract {
     /// ```
     pub fn add_matcher(
         &mut self,
-        matcher: Box<dyn MatchMaker>,
+        matcher: Box<dyn Matcher>,
         handler: Option<Arc<Mutex<dyn Handler>>>,
     ) {
         self.matchers.push((matcher, handler));

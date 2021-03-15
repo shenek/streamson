@@ -1,6 +1,6 @@
 //! Simple path matcher
 
-use super::MatchMaker;
+use super::Matcher;
 use crate::{
     error,
     path::{Element, Path},
@@ -135,7 +135,7 @@ enum SimpleMatcherStates {
     ObjectEnd,
 }
 
-impl MatchMaker for Simple {
+impl Matcher for Simple {
     fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         // If no AnyWildcard present and length differs
         // return false right away
@@ -296,7 +296,7 @@ impl Simple {
 
 #[cfg(test)]
 mod tests {
-    use super::{MatchMaker, Simple};
+    use super::{Matcher, Simple};
     use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 

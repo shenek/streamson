@@ -20,7 +20,7 @@ pub use self::simple::Simple;
 use crate::path::Path;
 
 /// Common Matcher trait
-pub trait MatchMaker: fmt::Debug + Send {
+pub trait Matcher: fmt::Debug + Send {
     /// Check whether the path matches
     /// # Arguments
     /// * `path` - path to be matched (has to be a valid path)

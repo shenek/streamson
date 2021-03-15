@@ -76,7 +76,7 @@ impl<G> StreamsonGenerator<G>
 where
     G: Generator<Yield = Vec<u8>, Return = ()> + Unpin,
 {
-    pub fn new(input_generator: G, matcher: Box<dyn matcher::MatchMaker>) -> Self {
+    pub fn new(input_generator: G, matcher: Box<dyn matcher::Matcher>) -> Self {
         let mut trigger = strategy::Trigger::new();
         let buffer = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
         trigger.add_matcher(matcher, buffer.clone());

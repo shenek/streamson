@@ -21,7 +21,7 @@ impl Letter {
     }
 }
 
-impl matcher::MatchMaker for Letter {
+impl matcher::Matcher for Letter {
     fn match_path(&self, path: &Path, _kind: ParsedKind) -> bool {
         path.to_string().chars().any(|c| c == self.letter)
     }

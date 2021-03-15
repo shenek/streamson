@@ -285,7 +285,7 @@ use streamson_lib::{matcher, Path, streamer::ParsedKind};
 #[derive(Debug)]
 struct CustomMatcher;
 
-impl matcher::MatchMaker for CustomMatcher {
+impl matcher::Matcher for CustomMatcher {
 	fn match_path(&self, _: &Path, _: ParsedKind) -> bool { todo!() }
 }
 ```

@@ -4,7 +4,7 @@
 
 use std::str::FromStr;
 
-use super::MatchMaker;
+use super::Matcher;
 use crate::{error, path::Path, streamer::ParsedKind};
 
 /// AllMatch to match array elements
@@ -24,7 +24,7 @@ impl FromStr for All {
     }
 }
 
-impl MatchMaker for All {
+impl Matcher for All {
     fn match_path(&self, _: &Path, _: ParsedKind) -> bool {
         true
     }
@@ -32,7 +32,7 @@ impl MatchMaker for All {
 
 #[cfg(test)]
 mod tests {
-    use super::{All, MatchMaker};
+    use super::{All, Matcher};
     use crate::{path::Path, streamer::ParsedKind};
     use std::{convert::TryFrom, str::FromStr};
 

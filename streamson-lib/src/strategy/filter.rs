@@ -12,14 +12,14 @@ use std::{
 use crate::{
     error,
     handler::Handler,
-    matcher::MatchMaker,
+    matcher::Matcher,
     path::Path,
     streamer::{Streamer, Token},
 };
 
 use super::{Output, Strategy};
 
-type MatcherItem = (Box<dyn MatchMaker>, Option<Arc<Mutex<dyn Handler>>>);
+type MatcherItem = (Box<dyn Matcher>, Option<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
 pub struct Filter {
@@ -193,7 +193,7 @@ impl Filter {
     /// ```
     pub fn add_matcher(
         &mut self,
-        matcher: Box<dyn MatchMaker>,
+        matcher: Box<dyn Matcher>,
         handler: Option<Arc<Mutex<dyn Handler>>>,
     ) {
         self.matchers.push((matcher, handler));

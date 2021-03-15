@@ -9,14 +9,14 @@ use super::{Output, Strategy};
 use crate::{
     error,
     handler::Handler,
-    matcher::MatchMaker,
+    matcher::Matcher,
     path::Path,
     streamer::{Streamer, Token},
 };
 use std::sync::{Arc, Mutex};
 
 /// Item in matcher list
-type MatcherItem = (Box<dyn MatchMaker>, Arc<Mutex<dyn Handler>>);
+type MatcherItem = (Box<dyn Matcher>, Arc<Mutex<dyn Handler>>);
 
 /// Processes data from input and triggers handler
 pub struct Convert {
@@ -184,7 +184,7 @@ impl Convert {
     ///     Arc::new(Mutex::new(handler::Replace::new(vec![b'"', b'*', b'*', b'*', b'"']))),
     /// );
     /// ```
-    pub fn add_matcher(&mut self, matcher: Box<dyn MatchMaker>, handler: Arc<Mutex<dyn Handler>>) {
+    pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>, handler: Arc<Mutex<dyn Handler>>) {
         self.matchers.push((matcher, handler));
     }
 }
