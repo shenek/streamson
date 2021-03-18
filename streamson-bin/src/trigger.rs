@@ -2,36 +2,16 @@ use std::{
     collections::HashMap,
     error::Error,
     io::{stdin, stdout, Read, Write},
-    str::FromStr,
     sync::{Arc, Mutex},
 };
 
 use clap::{App, Arg, ArgMatches};
 use streamson_lib::{
-    error, handler, matcher,
+    handler,
     strategy::{self, Strategy},
 };
 
-fn make_matcher(
-    matcher_name: &str,
-    matcher_string: &str,
-) -> Result<matcher::Combinator, Box<dyn Error>> {
-    match matcher_name {
-        "depth" => Ok(matcher::Combinator::new(matcher::Depth::from_str(
-            matcher_string,
-        )?)),
-        "simple" => Ok(matcher::Combinator::new(matcher::Simple::from_str(
-            matcher_string,
-        )?)),
-        "regex" => Ok(matcher::Combinator::new(matcher::Regex::from_str(
-            matcher_string,
-        )?)),
-        _ => Err(Box::new(error::Matcher::Parse(format!(
-            "Unknown type {}",
-            matcher_name
-        )))),
-    }
-}
+use crate::matchers;
 
 pub fn prepare_trigger_subcommand() -> App<'static> {
     App::new("trigger")
@@ -43,8 +23,8 @@ pub fn prepare_trigger_subcommand() -> App<'static> {
                 .long("print")
                 .multiple(true)
                 .takes_value(true)
-                .number_of_values(2)
-                .value_names(&["MATCHER_NAME", "MATCH"])
+                .number_of_values(1)
+                .value_names(&["GROUP_NAME"])
                 .required(false),
         )
         .arg(
@@ -54,8 +34,8 @@ pub fn prepare_trigger_subcommand() -> App<'static> {
                 .long("print-with-header")
                 .multiple(true)
                 .takes_value(true)
-                .number_of_values(2)
-                .value_names(&["MATCHER_NAME", "MATCH"])
+                .number_of_values(1)
+                .value_names(&["GROUP_NAME"])
                 .required(false),
         )
         .arg(
@@ -65,91 +45,70 @@ pub fn prepare_trigger_subcommand() -> App<'static> {
                 .long("file")
                 .multiple(true)
                 .takes_value(true)
-                .number_of_values(3)
-                .value_names(&["MATCHER_NAME", "MATCH", "FILE"])
+                .number_of_values(2)
+                .value_names(&["GROUP_NAME", "FILE"])
                 .required(false),
         )
-        .arg(
-            Arg::new("struct")
-                .about("Goes through a json and prints JSON structure at the end of processing.")
-                .short('s')
-                .long("struct")
-                .takes_value(false)
-                .required(false),
-        )
-}
-
-fn prepare_matcher_from_list(input: Vec<String>) -> Result<matcher::Combinator, Box<dyn Error>> {
-    Ok(input
-        .chunks(2)
-        .map(|parts| make_matcher(&parts[0], &parts[1]))
-        .collect::<Result<Vec<matcher::Combinator>, Box<dyn Error>>>()?
-        .into_iter()
-        .fold(None, |res, new| {
-            if let Some(cmb) = res {
-                Some(cmb | new)
-            } else {
-                Some(new)
-            }
-        })
-        .unwrap())
+        .arg(matchers::matchers_arg())
 }
 
 pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut trigger = strategy::Trigger::new();
-    let print_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
-    let print_with_header_handler =
-        Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
 
     let mut printing = false; // printing something to stdout
+    let mut handlers: HashMap<String, Arc<Mutex<handler::Group>>> = HashMap::new();
 
-    if let Some(simple_matches) = matches.values_of("print") {
-        printing = true;
-        let matcher = prepare_matcher_from_list(simple_matches.map(String::from).collect())?;
-        trigger.add_matcher(Box::new(matcher), print_handler);
+    // Prepare print handlers
+    if let Some(prints) = matches.values_of("print") {
+        for print in prints {
+            printing = true;
+            handlers
+                .entry(print.to_string())
+                .or_insert(Arc::new(Mutex::new(handler::Group::new())))
+                .lock()
+                .unwrap()
+                .add_handler_mut(Arc::new(Mutex::new(handler::PrintLn::new())));
+        }
     }
 
-    if let Some(simple_matches) = matches.values_of("print_with_header") {
-        printing = true;
-        let matcher = prepare_matcher_from_list(simple_matches.map(String::from).collect())?;
-        trigger.add_matcher(Box::new(matcher), print_with_header_handler);
+    // Prepare print with header handlers
+    if let Some(prints) = matches.values_of("print_with_header") {
+        for print in prints {
+            printing = true;
+            handlers
+                .entry(print.to_string())
+                .or_insert(Arc::new(Mutex::new(handler::Group::new())))
+                .lock()
+                .unwrap()
+                .add_handler_mut(Arc::new(Mutex::new(
+                    handler::PrintLn::new().set_use_path(true),
+                )));
+        }
     }
 
+    // Prepare file handlers
     if let Some(file_matches) = matches.values_of("file") {
-        let mut file_handler_map: HashMap<String, matcher::Combinator> = HashMap::new();
-
         // prepare matchers
-        for parts in file_matches
+        for file in file_matches
             .map(String::from)
             .collect::<Vec<String>>()
-            .chunks(3)
+            .chunks(2)
         {
-            let new_matcher = make_matcher(&parts[0], &parts[1])?;
-            let matcher = if let Some(matcher) = file_handler_map.remove(&parts[2]) {
-                matcher | new_matcher
-            } else {
-                new_matcher
-            };
-            file_handler_map.insert(parts[2].clone(), matcher);
-        }
-
-        // prepare handlers
-        for (filename, matcher) in file_handler_map.into_iter() {
-            let handler = Arc::new(Mutex::new(handler::File::new(&filename)?));
-            trigger.add_matcher(Box::new(matcher), handler);
+            handlers
+                .entry(file[0].to_string())
+                .or_insert(Arc::new(Mutex::new(handler::Group::new())))
+                .lock()
+                .unwrap()
+                .add_handler_mut(Arc::new(Mutex::new(handler::File::new(&file[1])?)));
         }
     }
 
-    let analyser_handler = if matches.is_present("struct") {
-        printing = true;
-        let matcher = matcher::All::default();
-        let handler = Arc::new(Mutex::new(handler::Analyser::new()));
-        trigger.add_matcher(Box::new(matcher), handler.clone());
-
-        Some(handler)
-    } else {
-        None
-    };
+    // Prepare matchers
+    for (group, matcher) in matchers::parse_matchers(matches)? {
+        if let Some(handler) = handlers.get(&group) {
+            trigger.add_matcher(Box::new(matcher), handler.clone());
+        }
+    }
 
     let mut buffer = vec![];
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
@@ -163,17 +122,6 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
             stdout().write_all(&buffer[..size])?;
         }
         buffer.clear();
-    }
-
-    if let Some(analyser_handler) = analyser_handler {
-        println!("JSON structure:");
-        for (path, count) in analyser_handler.lock().unwrap().results() {
-            println!(
-                "  {}: {}",
-                if path.is_empty() { "<root>" } else { &path },
-                count
-            );
-        }
     }
 
     Ok(())

@@ -1,48 +1,17 @@
 use std::{
     error::Error,
     io::{stdin, stdout, Read, Write},
-    str::FromStr,
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::{
-    matcher,
-    strategy::{self, Strategy},
-};
+use streamson_lib::strategy::{self, Strategy};
+
+use crate::matchers;
 
 pub fn prepare_extract_subcommand() -> App<'static> {
     App::new("extract")
         .about("Passes only matched parts of JSON")
-        .arg(
-            Arg::new("simple")
-                .about("Match by simple match")
-                .short('s')
-                .long("simple")
-                .multiple(true)
-                .takes_value(true)
-                .value_name("SIMPLE_MATCH")
-                .required(false),
-        )
-        .arg(
-            Arg::new("depth")
-                .about("Match by depth")
-                .short('d')
-                .long("depth")
-                .multiple(true)
-                .takes_value(true)
-                .value_name("DEPTH_MATCH")
-                .required(false),
-        )
-        .arg(
-            Arg::new("regex")
-                .about("Match by regex")
-                .short('x')
-                .long("regex")
-                .multiple(true)
-                .takes_value(true)
-                .value_name("REGEX")
-                .required(false),
-        )
+        .arg(matchers::matchers_arg())
         .arg(
             Arg::new("separator")
                 .about("Separator which will be inserted between matched parts")
@@ -76,51 +45,12 @@ fn str_to_vec(input: &str) -> Vec<u8> {
 pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut extract = strategy::Extract::new();
 
-    let mut matcher: Option<matcher::Combinator> = None;
-
     let separator = str_to_vec(matches.value_of("separator").unwrap_or(""));
     let before = str_to_vec(matches.value_of("before").unwrap_or(""));
     let after = str_to_vec(matches.value_of("after").unwrap_or(""));
 
-    if let Some(matches) = matches.values_of("simple") {
-        for matcher_str in matches {
-            if let Some(old_matcher) = matcher {
-                matcher = Some(
-                    old_matcher | matcher::Combinator::new(matcher::Simple::new(matcher_str)?),
-                );
-            } else {
-                matcher = Some(matcher::Combinator::new(matcher::Simple::new(matcher_str)?));
-            }
-        }
-    }
-
-    if let Some(matches) = matches.values_of("depth") {
-        for matcher_str in matches {
-            if let Some(old_matcher) = matcher {
-                matcher = Some(
-                    old_matcher | matcher::Combinator::new(matcher::Depth::from_str(matcher_str)?),
-                );
-            } else {
-                matcher = Some(matcher::Combinator::new(matcher::Depth::from_str(
-                    matcher_str,
-                )?));
-            }
-        }
-    }
-
-    if let Some(matches) = matches.values_of("regex") {
-        for matcher_str in matches {
-            if let Some(old_matcher) = matcher {
-                matcher = Some(
-                    old_matcher | matcher::Combinator::new(matcher::Regex::from_str(matcher_str)?),
-                );
-            } else {
-                matcher = Some(matcher::Combinator::new(matcher::Regex::from_str(
-                    matcher_str,
-                )?));
-            }
-        }
-    }
+    let mut matchers = matchers::parse_matchers(matches)?;
+    let matcher = matchers.remove(&String::new()); // only default for now
 
     if let Some(matcher_to_add) = matcher {
         extract.add_matcher(Box::new(matcher_to_add), None);
