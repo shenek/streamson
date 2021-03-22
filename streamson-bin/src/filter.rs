@@ -1,26 +1,35 @@
 use std::{
     error::Error,
     io::{stdin, stdout, Read, Write},
+    sync::{Arc, Mutex},
 };
 
 use clap::{App, ArgMatches};
 use streamson_lib::strategy::{self, Strategy};
 
-use crate::matchers;
+use crate::{handlers, matchers};
 
 pub fn prepare_filter_subcommand() -> App<'static> {
     App::new("filter")
         .about("Removes matched parts of JSON")
         .arg(matchers::matchers_arg())
+        .arg(handlers::handlers_arg())
 }
 
 pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut filter = strategy::Filter::new();
 
-    let mut matchers = matchers::parse_matchers(matches)?;
-    let matcher = matchers.remove(&String::new()); // only default for now
-    if let Some(matcher_to_add) = matcher {
-        filter.add_matcher(Box::new(matcher_to_add), None);
+    let hndlrs = handlers::parse_handlers(matches)?;
+
+    for (group, matcher) in matchers::parse_matchers(matches)? {
+        if let Some(handler) = hndlrs.get(&group) {
+            filter.add_matcher(
+                Box::new(matcher),
+                Some(Arc::new(Mutex::new(handler.clone()))),
+            );
+        } else {
+            filter.add_matcher(Box::new(matcher), None);
+        }
     }
 
     let mut buffer = vec![];

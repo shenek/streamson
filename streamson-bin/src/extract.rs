@@ -1,17 +1,19 @@
 use std::{
     error::Error,
     io::{stdin, stdout, Read, Write},
+    sync::{Arc, Mutex},
 };
 
 use clap::{App, Arg, ArgMatches};
 use streamson_lib::strategy::{self, Strategy};
 
-use crate::matchers;
+use crate::{handlers, matchers};
 
 pub fn prepare_extract_subcommand() -> App<'static> {
     App::new("extract")
         .about("Passes only matched parts of JSON")
         .arg(matchers::matchers_arg())
+        .arg(handlers::handlers_arg())
         .arg(
             Arg::new("separator")
                 .about("Separator which will be inserted between matched parts")
@@ -22,7 +24,7 @@ pub fn prepare_extract_subcommand() -> App<'static> {
         )
         .arg(
             Arg::new("before")
-                .about("Will be print to stdout before first match")
+                .about("Will be printed to stdout before first match")
                 .short('b')
                 .long("before")
                 .takes_value(true)
@@ -30,7 +32,7 @@ pub fn prepare_extract_subcommand() -> App<'static> {
         )
         .arg(
             Arg::new("after")
-                .about("Will be print to stdout after last match")
+                .about("Will be printed to stdout after last match")
                 .short('a')
                 .long("after")
                 .takes_value(true)
@@ -49,12 +51,19 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     let before = str_to_vec(matches.value_of("before").unwrap_or(""));
     let after = str_to_vec(matches.value_of("after").unwrap_or(""));
 
-    let mut matchers = matchers::parse_matchers(matches)?;
-    let matcher = matchers.remove(&String::new()); // only default for now
+    let hndlrs = handlers::parse_handlers(matches)?;
 
-    if let Some(matcher_to_add) = matcher {
-        extract.add_matcher(Box::new(matcher_to_add), None);
+    for (group, matcher) in matchers::parse_matchers(matches)? {
+        if let Some(handler) = hndlrs.get(&group) {
+            extract.add_matcher(
+                Box::new(matcher),
+                Some(Arc::new(Mutex::new(handler.clone()))),
+            );
+        } else {
+            extract.add_matcher(Box::new(matcher), None);
+        }
     }
+
     let mut buffer = vec![];
     let mut first = true;
     let mut out = stdout();
