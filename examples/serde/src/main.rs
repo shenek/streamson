@@ -4,7 +4,10 @@ use streamson_lib::{
     strategy::{self, Strategy},
 };
 
-use std::sync::{Arc, Mutex};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 /// User instance
 #[derive(Serialize, Deserialize, Debug)]
@@ -34,6 +37,10 @@ impl handler::Handler for UserHandler {
         let new_user = serde_json::from_slice(data).map_err(error::Handler::new)?;
         self.users.push(new_user);
         Ok(None)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

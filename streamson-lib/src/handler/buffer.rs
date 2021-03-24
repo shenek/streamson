@@ -29,7 +29,7 @@
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{collections::VecDeque, str::FromStr};
+use std::{any::Any, collections::VecDeque, str::FromStr};
 
 /// Buffer handler responsible for storing slitted JSONs into memory
 #[derive(Debug)]
@@ -183,6 +183,10 @@ impl Handler for Buffer {
         token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self._end(_path, _matcher_idx, token)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

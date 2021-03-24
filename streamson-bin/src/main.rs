@@ -1,3 +1,4 @@
+mod all;
 mod convert;
 mod extract;
 mod filter;
@@ -14,6 +15,7 @@ use clap_generate::{generate, Generator};
 use lazy_static::lazy_static;
 
 use crate::{
+    all::{prepare_all_subcommand, process_all},
     convert::{prepare_convert_subcommand, process_convert},
     extract::{prepare_extract_subcommand, process_extract},
     filter::{prepare_filter_subcommand, process_filter},
@@ -42,10 +44,11 @@ fn prepare_app() -> App<'static> {
                 .default_value(&DEFAULT_BUFFER_SIZE_STRING)
                 .required(false),
         )
+        .subcommand(prepare_all_subcommand())
+        .subcommand(prepare_convert_subcommand())
         .subcommand(prepare_extract_subcommand())
         .subcommand(prepare_filter_subcommand())
         .subcommand(prepare_trigger_subcommand())
-        .subcommand(prepare_convert_subcommand())
         .subcommand(
             App::new("completion").about("completions generator").arg(
                 Arg::new("shell")
@@ -68,6 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let arg_matches = app.clone().get_matches();
     let buffer_size: usize = arg_matches.value_of("buffer_size").unwrap().parse()?;
     match arg_matches.subcommand() {
+        Some(("all", matches)) => process_all(matches, buffer_size),
         Some(("convert", matches)) => process_convert(matches, buffer_size),
         Some(("extract", matches)) => process_extract(matches, buffer_size),
         Some(("filter", matches)) => process_filter(matches, buffer_size),

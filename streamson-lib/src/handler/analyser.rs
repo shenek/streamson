@@ -1,6 +1,6 @@
 //! Handler which stores matched paths
 
-use std::{collections::HashMap, str::FromStr};
+use std::{any::Any, collections::HashMap, str::FromStr};
 
 use super::Handler;
 use crate::{
@@ -36,6 +36,10 @@ impl Handler for Analyser {
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         *self.paths.entry(to_recuded_array_str(path)).or_insert(0) += 1;
         Ok(None)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

@@ -27,7 +27,7 @@
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{str, str::FromStr};
+use std::{any::Any, str, str::FromStr};
 
 /// Regex to match and string to convert to
 type Replacement = (regex::Regex, String, usize);
@@ -73,6 +73,10 @@ impl Handler for Regex {
 
     fn is_converter(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

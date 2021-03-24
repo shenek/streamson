@@ -161,7 +161,10 @@ mod tests {
         test::{Single, Splitter, Window},
     };
     use rstest::*;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        any::Any,
+        sync::{Arc, Mutex},
+    };
 
     #[derive(Default)]
     struct TestHandler {
@@ -197,6 +200,10 @@ mod tests {
             self.data.push(self.current.clone());
             self.current.clear();
             Ok(None)
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 

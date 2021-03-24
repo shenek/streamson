@@ -27,7 +27,7 @@
 
 use super::Handler;
 use crate::{error, path::Path, streamer::Token};
-use std::str::FromStr;
+use std::{any::Any, str::FromStr};
 
 /// Replace handler which converts matched data to fixed output
 #[derive(Debug)]
@@ -62,5 +62,9 @@ impl Handler for Replace {
 
     fn is_converter(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

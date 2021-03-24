@@ -27,7 +27,7 @@
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::str::FromStr;
+use std::{any::Any, str::FromStr};
 
 /// Handler which shortens the matched data
 ///
@@ -113,6 +113,10 @@ impl Handler for Shorten {
 
     fn is_converter(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

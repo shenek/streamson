@@ -2,7 +2,7 @@
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{fs, io::Write, str::FromStr};
+use std::{any::Any, fs, io::Write, str::FromStr};
 
 /// File handler responsible for storing data to a file.
 pub struct File {
@@ -130,6 +130,10 @@ impl Handler for File {
             .write(separator.as_bytes())
             .map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(None)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

@@ -2,7 +2,10 @@
 //!
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::str::{self, FromStr};
+use std::{
+    any::Any,
+    str::{self, FromStr},
+};
 
 /// Handler responsible for sending data to stdout.
 pub struct PrintLn {
@@ -111,5 +114,9 @@ impl Handler for PrintLn {
         print!("{}", self.separator);
         self.buffer.clear();
         Ok(None)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

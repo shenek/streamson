@@ -30,7 +30,7 @@ use crate::{
     streamer::{ParsedKind, Token},
     Path,
 };
-use std::str::FromStr;
+use std::{any::Any, str::FromStr};
 
 #[derive(Debug)]
 pub enum State {
@@ -137,6 +137,10 @@ impl Handler for Unstringify {
             return Err(error::Handler::new("String does not ended"));
         }
         Ok(None)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

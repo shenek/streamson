@@ -30,7 +30,11 @@
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{collections::VecDeque, str::FromStr};
+use std::{
+    any::Any,
+    collections::VecDeque,
+    str::{self, FromStr},
+};
 
 /// Indexer handler responsible for storing index of the matches
 #[derive(Debug)]
@@ -89,6 +93,10 @@ impl Handler for Indexer {
         token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         self.start(path, matcher_idx, token) // same as start
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

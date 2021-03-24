@@ -24,7 +24,10 @@
 //! ```
 //!
 
-use std::sync::{Arc, Mutex};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 use crate::{error, path::Path, streamer::Token};
 
@@ -59,6 +62,11 @@ impl Group {
     /// * `handler` - handler to add
     pub fn add_handler_mut(&mut self, handler: Arc<Mutex<dyn Handler>>) {
         self.handlers.push(handler);
+    }
+
+    /// Iterates through handlers
+    pub fn subhandlers(&self) -> &[Arc<Mutex<dyn Handler>>] {
+        &self.handlers
     }
 }
 
@@ -152,6 +160,10 @@ impl Handler for Group {
         self.handlers
             .iter()
             .any(|e| e.lock().unwrap().is_converter())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

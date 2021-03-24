@@ -28,7 +28,7 @@ use crate::{
     path::{Element, Path},
     streamer::{ParsedKind, Token},
 };
-use std::str::FromStr;
+use std::{any::Any, str::FromStr};
 
 /// Handler which alters indentation of matched data
 #[derive(Debug)]
@@ -218,6 +218,10 @@ impl Handler for Indenter {
 
     fn is_converter(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

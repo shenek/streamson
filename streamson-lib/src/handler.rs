@@ -14,6 +14,8 @@ pub mod replace;
 pub mod shorten;
 pub mod unstringify;
 
+use std::any::Any;
+
 use crate::{error, path::Path, streamer::Token};
 
 pub use self::analyser::Analyser;
@@ -32,7 +34,7 @@ pub use self::unstringify::Unstringify;
 pub const FROMSTR_DELIM: char = ',';
 
 /// Common handler trait
-pub trait Handler: Send {
+pub trait Handler: Any + Send {
     /// Is called when a path is matched
     ///
     /// # Arguments
@@ -95,4 +97,7 @@ pub trait Handler: Send {
     fn is_converter(&self) -> bool {
         false
     }
+
+    /// Function to allow downcasting
+    fn as_any(&self) -> &dyn Any;
 }
