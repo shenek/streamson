@@ -46,6 +46,7 @@ where
     input: I,
     trigger: Arc<Mutex<strategy::Trigger>>,
     buffer: Arc<Mutex<handler::Buffer>>,
+    terminated: bool,
 }
 
 impl<I> BufferStream<I>
@@ -65,6 +66,7 @@ where
             input,
             trigger,
             buffer,
+            terminated: false,
         }
     }
 }
@@ -76,6 +78,9 @@ where
     type Item = Result<(String, Bytes), StreamsonError>;
     fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         loop {
+            if self.terminated {
+                return Poll::Ready(None);
+            }
             // Check whether there are data in the buffer
             if let Some((path, data)) = self.buffer.lock().unwrap().pop() {
                 return Poll::Ready(Some(Ok((path.unwrap(), Bytes::from(data)))));
@@ -86,7 +91,12 @@ where
                     self.trigger.lock().unwrap().process(&bytes)?;
                 }
                 Poll::Ready(None) => {
-                    return Poll::Ready(None);
+                    self.terminated = true;
+                    match self.trigger.lock().unwrap().terminate() {
+                        Err(err) => return Poll::Ready(Some(Err(err))),
+                        _ => {}
+                    }
+                    continue;
                 }
                 Poll::Pending => return Poll::Pending,
             }

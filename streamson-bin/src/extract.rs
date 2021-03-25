@@ -91,6 +91,17 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
             }
         }
     }
+
+    // Input terminated try to hit strategy termination
+    let output = strategy::OutputConverter::new()
+        .convert(&extract.terminate()?)
+        .into_iter()
+        .map(|e| e.1)
+        .collect::<Vec<Vec<u8>>>();
+    for data in &output {
+        stdout().write_all(data)?;
+    }
+
     out.write_all(&after)?;
 
     Ok(())

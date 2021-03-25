@@ -37,27 +37,28 @@ pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<d
         }
         all.process(&buffer[..size])?;
         stdout().write_all(&buffer[..size])?;
+    }
 
-        for handler in hndlrs.clone() {
-            for sub_handler in handler.lock().unwrap().subhandlers() {
-                if let Some(analyser) = sub_handler
-                    .lock()
-                    .unwrap()
-                    .as_any()
-                    .downcast_ref::<handler::Analyser>()
-                {
-                    eprintln!("JSON structure:");
-                    for (path, count) in analyser.results() {
-                        eprintln!(
-                            "  {}: {}",
-                            if path.is_empty() { "<root>" } else { &path },
-                            count
-                        );
-                    }
+    for handler in hndlrs.clone() {
+        for sub_handler in handler.lock().unwrap().subhandlers() {
+            if let Some(analyser) = sub_handler
+                .lock()
+                .unwrap()
+                .as_any()
+                .downcast_ref::<handler::Analyser>()
+            {
+                eprintln!("JSON structure:");
+                for (path, count) in analyser.results() {
+                    eprintln!(
+                        "  {}: {}",
+                        if path.is_empty() { "<root>" } else { &path },
+                        count
+                    );
                 }
             }
         }
     }
+    all.terminate()?;
 
     Ok(())
 }

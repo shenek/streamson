@@ -33,11 +33,12 @@ pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Bo
     }
 
     let mut buffer = vec![];
+    let mut converter = strategy::OutputConverter::new();
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
-        let output: Vec<u8> = strategy::OutputConverter::new()
+        let output: Vec<u8> = converter
             .convert(&filter.process(&buffer[..size])?)
             .into_iter()
             .map(|e| e.1)
@@ -45,6 +46,16 @@ pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Bo
             .collect();
         buffer.clear();
         stdout().write_all(&output)?;
+    }
+
+    // Input terminated try to hit strategy termination
+    let output = converter
+        .convert(&filter.terminate()?)
+        .into_iter()
+        .map(|e| e.1)
+        .collect::<Vec<Vec<u8>>>();
+    for data in &output {
+        stdout().write_all(data)?;
     }
 
     Ok(())

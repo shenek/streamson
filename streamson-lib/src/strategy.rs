@@ -76,6 +76,18 @@ pub trait Strategy {
     /// JSONs and if not, it still might be processed without an error.
     /// This is caused because streamson does not validate JSON.
     fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General>;
+
+    /// Should be called when input data terminates
+    ///
+    /// # Returns
+    /// * `Ok(_) processing passed
+    /// * `Err(_)` - error occured during processing
+    ///
+    /// # Errors
+    ///
+    /// Should return an error if strategy is in unterminated state
+    /// (still expects data in input)
+    fn terminate(&mut self) -> Result<Vec<Output>, error::General>;
 }
 
 #[cfg(test)]

@@ -94,6 +94,14 @@ impl Strategy for All {
             }
         }
     }
+
+    fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
+        if self.level == 0 {
+            Ok(vec![])
+        } else {
+            Err(error::InputTerminated::new(self.input_start).into())
+        }
+    }
 }
 
 impl All {

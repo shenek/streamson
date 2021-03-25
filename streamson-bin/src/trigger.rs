@@ -48,6 +48,7 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         }
         buffer.clear();
     }
+    trigger.terminate()?;
 
     Ok(())
 }

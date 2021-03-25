@@ -43,5 +43,15 @@ pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
         }
     }
 
+    // Input terminated try to hit strategy termination
+    let output = converter
+        .convert(&convert.terminate()?)
+        .into_iter()
+        .map(|e| e.1)
+        .collect::<Vec<Vec<u8>>>();
+    for data in &output {
+        stdout().write_all(data)?;
+    }
+
     Ok(())
 }

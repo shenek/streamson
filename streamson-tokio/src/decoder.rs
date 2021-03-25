@@ -3,7 +3,10 @@
 //!
 
 use bytes::{Bytes, BytesMut};
-use std::sync::{Arc, Mutex};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
 use streamson_lib::{
     error, handler, matcher,
     strategy::{self, Strategy},
@@ -75,6 +78,20 @@ impl Decoder for Extractor {
             }
             let data = buf.split_to(buf.len());
             self.trigger.process(&data[..])?;
+        }
+    }
+
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        self.trigger.terminate()?;
+        match self.decode(buf)? {
+            Some(frame) => Ok(Some(frame)),
+            None => {
+                if buf.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(io::Error::new(io::ErrorKind::Other, "bytes remaining on stream").into())
+                }
+            }
         }
     }
 }

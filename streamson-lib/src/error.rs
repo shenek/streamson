@@ -68,6 +68,26 @@ impl fmt::Display for IncorrectInput {
     }
 }
 
+/// Input data stream ended but data were still expected
+#[derive(Debug, PartialEq, Clone)]
+pub struct InputTerminated {
+    idx: usize,
+}
+
+impl InputTerminated {
+    pub fn new(idx: usize) -> Self {
+        Self { idx }
+    }
+}
+
+impl Error for InputTerminated {}
+
+impl fmt::Display for InputTerminated {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "InputTerminated (idx '{}')", self.idx)
+    }
+}
+
 /// Path related error
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
@@ -101,6 +121,7 @@ pub enum General {
     Matcher(Matcher),
     Utf8Error(Utf8Error),
     IncorrectInput(IncorrectInput),
+    InputTerminated(InputTerminated),
     IOError(io::Error),
 }
 
@@ -113,37 +134,26 @@ impl fmt::Display for General {
             Self::Matcher(err) => err.fmt(f),
             Self::Utf8Error(err) => err.fmt(f),
             Self::IncorrectInput(err) => err.fmt(f),
+            Self::InputTerminated(err) => err.fmt(f),
             Self::IOError(err) => err.fmt(f),
         }
     }
 }
 
-impl From<Handler> for General {
-    fn from(handler: Handler) -> Self {
-        Self::Handler(handler)
-    }
+macro_rules! impl_into_general {
+    ($tp:path, $inner: path) => {
+        impl From<$tp> for General {
+            fn from(entity: $tp) -> Self {
+                $inner(entity)
+            }
+        }
+    };
 }
 
-impl From<Matcher> for General {
-    fn from(matcher: Matcher) -> Self {
-        Self::Matcher(matcher)
-    }
-}
-
-impl From<Utf8Error> for General {
-    fn from(utf8: Utf8Error) -> Self {
-        Self::Utf8Error(utf8)
-    }
-}
-
-impl From<IncorrectInput> for General {
-    fn from(incorrect_input: IncorrectInput) -> Self {
-        Self::IncorrectInput(incorrect_input)
-    }
-}
-
-impl From<io::Error> for General {
-    fn from(io_error: io::Error) -> Self {
-        Self::IOError(io_error)
-    }
-}
+impl_into_general!(Path, Self::Path);
+impl_into_general!(Handler, Self::Handler);
+impl_into_general!(Matcher, Self::Matcher);
+impl_into_general!(Utf8Error, Self::Utf8Error);
+impl_into_general!(IncorrectInput, Self::IncorrectInput);
+impl_into_general!(InputTerminated, Self::InputTerminated);
+impl_into_general!(io::Error, Self::IOError);

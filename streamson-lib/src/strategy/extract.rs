@@ -27,6 +27,8 @@ pub struct Extract {
     matchers: Vec<MatcherItem>,
     /// Creates to token stream
     streamer: Streamer,
+    /// Current json level
+    level: usize,
 }
 
 impl Default for Extract {
@@ -37,6 +39,7 @@ impl Default for Extract {
             matches: None,
             matchers: vec![],
             streamer: Streamer::new(),
+            level: 0,
         }
     }
 }
@@ -55,6 +58,7 @@ impl Strategy for Extract {
         loop {
             match self.streamer.read()? {
                 Token::Start(idx, kind) => {
+                    self.level += 1;
                     if self.matches.is_none() {
                         let path = self.streamer.current_path();
 
@@ -101,6 +105,7 @@ impl Strategy for Extract {
                     return Ok(result);
                 }
                 Token::End(idx, kind) => {
+                    self.level -= 1;
                     if let Some((path, matched_indexes)) = self.matches.as_ref() {
                         // Put the data to results
                         if path == self.streamer.current_path() {
@@ -123,6 +128,14 @@ impl Strategy for Extract {
                 }
                 _ => {}
             }
+        }
+    }
+
+    fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
+        if self.level == 0 {
+            Ok(vec![])
+        } else {
+            Err(error::InputTerminated::new(self.input_start).into())
         }
     }
 }

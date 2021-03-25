@@ -34,7 +34,7 @@ pub use self::unstringify::Unstringify;
 pub const FROMSTR_DELIM: char = ',';
 
 /// Common handler trait
-pub trait Handler: Any + Send {
+pub trait Handler: Send {
     /// Is called when a path is matched
     ///
     /// # Arguments

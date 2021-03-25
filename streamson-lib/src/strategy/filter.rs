@@ -23,6 +23,8 @@ type MatcherItem = (Box<dyn Matcher>, Option<Arc<Mutex<dyn Handler>>>);
 
 /// Processes data from input and remove matched parts (and keeps the json valid)
 pub struct Filter {
+    /// Input idx against total idx
+    input_start: usize,
     /// Buffer idx against total idx
     buffer_idx: usize,
     /// Buffer use for input buffering
@@ -42,6 +44,7 @@ pub struct Filter {
 impl Default for Filter {
     fn default() -> Self {
         Self {
+            input_start: 0,
             buffer_idx: 0,
             buffer: VecDeque::new(),
             matchers: vec![],
@@ -134,6 +137,7 @@ impl Strategy for Filter {
                     }
                 }
                 Token::Pending => {
+                    self.input_start += input.len();
                     return Ok(result);
                 }
                 Token::Separator(idx) => {
@@ -145,6 +149,14 @@ impl Strategy for Filter {
                     }
                 }
             }
+        }
+    }
+
+    fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
+        if self.level == 0 {
+            Ok(vec![])
+        } else {
+            Err(error::InputTerminated::new(self.input_start).into())
         }
     }
 }

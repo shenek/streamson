@@ -37,6 +37,8 @@ pub struct Trigger {
     streamer: Streamer,
     /// Matched stack
     matched_stack: Vec<Vec<StackItem>>,
+    /// Current json level
+    level: usize,
 }
 
 impl Default for Trigger {
@@ -46,6 +48,7 @@ impl Default for Trigger {
             matchers: vec![],
             streamer: Streamer::new(),
             matched_stack: vec![],
+            level: 0,
         }
     }
 }
@@ -61,6 +64,7 @@ impl Strategy for Trigger {
         loop {
             match self.streamer.read()? {
                 Token::Start(idx, kind) => {
+                    self.level += 1;
                     // trigger handler for matched
                     let to = idx - self.input_start;
                     self.feed(&input[inner_idx..to])?;
@@ -82,6 +86,7 @@ impl Strategy for Trigger {
                     self.matched_stack.push(matched);
                 }
                 Token::End(idx, kind) => {
+                    self.level -= 1;
                     let to = idx - self.input_start;
                     self.feed(&input[inner_idx..to])?;
                     inner_idx = to;
@@ -101,6 +106,14 @@ impl Strategy for Trigger {
                 }
                 Token::Separator(_) => {}
             }
+        }
+    }
+
+    fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
+        if self.level == 0 {
+            Ok(vec![])
+        } else {
+            Err(error::InputTerminated::new(self.input_start).into())
         }
     }
 }

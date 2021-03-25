@@ -128,7 +128,15 @@ where
                     }
                 }
                 GeneratorState::Complete(_) => {
+                    let terminate_res = self.trigger.lock().unwrap().terminate();
                     self.exitting = true;
+                    match terminate_res {
+                        Ok(_) => continue,
+                        Err(err) => {
+                            self.error_occured = true;
+                            return GeneratorState::Yielded(Err(err));
+                        }
+                    }
                 }
             }
         }
