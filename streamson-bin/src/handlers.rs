@@ -13,9 +13,9 @@ pub fn handlers_arg() -> Arg<'static> {
         .short('h')
         .group("handlers")
         .multiple(true)
-        .value_names(&["NAME[:GROUP]", "DEFINITION"])
+        .value_name("NAME[.GROUP][:DEFINITION]")
         .takes_value(true)
-        .number_of_values(2)
+        .number_of_values(1)
 }
 
 pub fn parse_handlers(
@@ -24,22 +24,30 @@ pub fn parse_handlers(
     let mut res: HashMap<String, handler::Group> = HashMap::new();
 
     if let Some(handlers) = matches.values_of("handler") {
-        for parts in handlers
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .chunks(2)
-        {
-            let splitted = parts[0]
+        for handler_str in handlers {
+            let splitted = handler_str
                 .splitn(2, ':')
                 .map(String::from)
                 .collect::<Vec<String>>();
-            let (name, group) = match splitted.len() {
+
+            let (name_and_group, definition) = match splitted.len() {
                 1 => (splitted[0].clone(), String::default()),
                 2 => (splitted[0].clone(), splitted[1].clone()),
                 _ => unreachable!(),
             };
 
-            let new_handler = make_handler(&name, &parts[1])?;
+            let splitted2 = name_and_group
+                .splitn(2, '.')
+                .map(String::from)
+                .collect::<Vec<String>>();
+
+            let (name, group) = match splitted2.len() {
+                1 => (splitted[0].clone(), String::default()),
+                2 => (splitted[0].clone(), splitted[1].clone()),
+                _ => unreachable!(),
+            };
+
+            let new_handler = make_handler(&name, &definition)?;
 
             let group_handler = if let Some(hndl) = res.remove(&group) {
                 hndl.add_handler(new_handler)
