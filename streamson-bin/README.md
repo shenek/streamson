@@ -18,7 +18,7 @@ Consider following context of `input.json` file:
 
 ### Split each user into separate JSON
 ```
-cat input.json | streamson-bin extract --depth 2
+cat input.json | sson extract --depth 2
 ```
 
 Output:
@@ -29,8 +29,8 @@ Output:
 ### Mask password
 ```
 cat input.json | \
-	streamson-bin extract --depth 2 | \
-	streamson-bin convert --replace '"***"' --simple '{"password"}'
+	sson extract --depth 2 | \
+	sson convert --replace '"***"' --simple '{"password"}'
 ```
 
 Output:
@@ -41,9 +41,9 @@ Output:
 ### Remove groups
 ```
 cat input.json | \
-	streamson-bin extract --depth 2 | \
-	streamson-bin convert --replace '"***"' --simple '{"password"}' | \
-	streamson-bin filter --simple '{"groups"}'
+	sson extract --depth 2 | \
+	sson convert --replace '"***"' --simple '{"password"}' | \
+	sson filter --simple '{"groups"}'
 ```
 
 Output:
@@ -55,10 +55,10 @@ Output:
 ### Store names of users into a separate files
 ```
 cat input.json | \
-	streamson-bin extract --depth 2 | \
-	streamson-bin convert --replace '"***"' --simple '{"password"}' | \
-	streamson-bin filter --simple '{"groups"}' | \
-	streamson-bin trigger --file simple '{"name"}' names.out
+	sson extract --depth 2 | \
+	sson convert --replace '"***"' --simple '{"password"}' | \
+	sson filter --simple '{"groups"}' | \
+	sson trigger --file simple '{"name"}' names.out
 ```
 
 Output:
