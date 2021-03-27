@@ -13,11 +13,14 @@ fn filter(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("filter")
-        .arg("--depth")
+        .arg("-m")
+        .arg("depth")
         .arg("2")
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"logs"}"#)
-        .arg("--regex")
+        .arg("-m")
+        .arg("regex")
         .arg(r#"^\{"groups"\}"#)
         .write_stdin(INPUT_DATA)
         .assert()
@@ -36,11 +39,14 @@ fn extract(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("extract")
-        .arg("--depth")
+        .arg("-m")
+        .arg("depth")
         .arg("2")
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"logs"}"#)
-        .arg("--regex")
+        .arg("-m")
+        .arg("regex")
         .arg(r#"^\{"users"\}"#)
         .write_stdin(INPUT_DATA)
         .assert()
@@ -55,11 +61,14 @@ fn extract(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("extract")
-        .arg("--depth")
+        .arg("-m")
+        .arg("depth")
         .arg("2")
-        .arg("--regex")
+        .arg("-m")
+        .arg("regex")
         .arg(r#"^\{"logs"\}"#)
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"users"}"#)
         .arg("--separator")
         .arg(",\n")
@@ -85,14 +94,17 @@ fn convert(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("convert")
-        .arg("--depth")
+        .arg("-m")
+        .arg("depth")
         .arg("2")
-        .arg("--regex")
+        .arg("-m")
+        .arg("regex")
         .arg(r#"^\{"logs"\}"#)
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"users"}"#)
-        .arg("--replace")
-        .arg(r#""...""#)
+        .arg("-h")
+        .arg(r#"replace:"...""#)
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
@@ -110,11 +122,11 @@ fn convert(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("convert")
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"users"}[]{"name"}"#)
-        .arg("--shorten")
-        .arg(r#"1"#)
-        .arg(r#"..""#)
+        .arg("-h")
+        .arg(r#"shorten:1,..""#)
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
@@ -132,9 +144,11 @@ fn convert(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("convert")
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"logs"}[]"#)
-        .arg("--unstringify")
+        .arg("-h")
+        .arg("unstringify")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
@@ -152,11 +166,11 @@ fn convert(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("convert")
-        .arg("--simple")
+        .arg("-m")
+        .arg("simple")
         .arg(r#"{"users"}[]{"name"}"#)
-        .arg("--regex-convert")
-        .arg(r#"([a-z]+)"#)
-        .arg(r#"USER_$1"#)
+        .arg("-h")
+        .arg("regex:([a-z]+),USER_$1")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
@@ -176,30 +190,50 @@ fn trigger(cmd_str: &str) {
         .arg("-b")
         .arg("10")
         .arg("trigger")
-        .arg("--file")
-        .arg("simple")
+        .arg("-m")
+        .arg("simple:1")
         .arg(r#"{"logs"}[]"#)
-        .arg("/dev/stderr")
-        .arg("--print")
-        .arg("regex")
+        .arg("-h")
+        .arg("file.1:/dev/stderr")
+        .arg("-m")
+        .arg("regex:2")
         .arg(r#"^\{"users"\}$"#)
-        .arg("--print-with-header")
-        .arg("depth")
-        .arg("2")
-        .arg("-s")
+        .arg("-h")
+        .arg("file.2:/dev/stderr")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()
         .stdout(
-            r#"{"users"}[0]: {"name": "carl", "id": 1}
-{"users"}[1]: {"name": "paul", "id": 2}
-[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]
-{"groups"}[0]: {"name": "admin", "gid": 1}
-{"groups"}[1]: {"name": "staff", "gid": 2}
-{"logs"}[0]: "null"
-{"logs"}[1]: "{}"
-{"logs"}[2]: "[]"
-JSON structure:
+            r#"{
+    "users": [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": ["null", "{}", "[]"]
+}"#,
+        )
+        .stderr(
+            r#"[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]
+"null"
+"{}"
+"[]"
+"#,
+        );
+
+    println!("OK");
+}
+
+fn all(cmd_str: &str) {
+    print!("ALL ANALYSER");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("all")
+        .arg("-h")
+        .arg("analyser")
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stderr(
+            r#"JSON structure:
   <root>: 1
   {"groups"}: 1
   {"groups"}[]: 2
@@ -213,11 +247,12 @@ JSON structure:
   {"users"}[]{"name"}: 2
 "#,
         )
-        .stderr(
-            r#""null"
-"{}"
-"[]"
-"#,
+        .stdout(
+            r#"{
+    "users": [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": ["null", "{}", "[]"]
+}"#,
         );
 
     println!("OK");
@@ -230,4 +265,5 @@ fn main() {
     extract(&args[1]);
     convert(&args[1]);
     trigger(&args[1]);
+    all(&args[1]);
 }

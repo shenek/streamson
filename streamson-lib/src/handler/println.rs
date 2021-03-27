@@ -37,10 +37,11 @@ impl FromStr for PrintLn {
         let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
         match splitted.len() {
             0 => Ok(Self::default()),
-            1 => Ok(Self::default().set_separator(splitted[0])),
+            1 => Ok(Self::default()
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)),
             2 => Ok(Self::default()
-                .set_separator(splitted[1])
-                .set_use_path(FromStr::from_str(splitted[1]).map_err(|e| error::Handler::new(e))?)),
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)
+                .set_separator(splitted[1])),
             _ => Err(error::Handler::new("Failed to parse")),
         }
     }
@@ -114,6 +115,10 @@ impl Handler for PrintLn {
         print!("{}", self.separator);
         self.buffer.clear();
         Ok(None)
+    }
+
+    fn is_converter(&self) -> bool {
+        true
     }
 
     fn as_any(&self) -> &dyn Any {

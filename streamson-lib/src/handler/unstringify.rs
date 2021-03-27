@@ -139,6 +139,10 @@ impl Handler for Unstringify {
         Ok(None)
     }
 
+    fn is_converter(&self) -> bool {
+        true
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

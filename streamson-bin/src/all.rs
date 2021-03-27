@@ -37,6 +37,7 @@ pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<d
         }
         all.process(&buffer[..size])?;
         stdout().write_all(&buffer[..size])?;
+        buffer.clear();
     }
 
     for handler in hndlrs.clone() {

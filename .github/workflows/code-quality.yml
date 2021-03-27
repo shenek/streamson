@@ -108,4 +108,4 @@ jobs:
       - name: Run binaries tests
         run: |
             export PATH="${PATH}:~/.cargo/bin"
-            streamson-bin-test streamson-bin
+            streamson-bin-test sson

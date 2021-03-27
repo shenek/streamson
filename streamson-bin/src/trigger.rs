@@ -5,7 +5,10 @@ use std::{
 };
 
 use clap::{App, ArgMatches};
-use streamson_lib::strategy::{self, Strategy};
+use streamson_lib::{
+    handler::Handler,
+    strategy::{self, Strategy},
+};
 
 use crate::{handlers, matchers};
 
@@ -20,17 +23,11 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     let mut trigger = strategy::Trigger::new();
 
     let mut printing = false; // printing something to stdout
-    if let Some(handlers) = matches.values_of("handler") {
-        printing = handlers
-            .map(|e| e.to_string())
-            .collect::<Vec<String>>()
-            .iter()
-            .any(|e| e == "p" || e == "println");
-    }
     let hndlrs = handlers::parse_handlers(matches)?;
 
     for (group, matcher) in matchers::parse_matchers(matches)? {
         if let Some(handler) = hndlrs.get(&group) {
+            printing = printing || handler.is_converter();
             trigger.add_matcher(Box::new(matcher), Arc::new(Mutex::new(handler.clone())));
         }
     }

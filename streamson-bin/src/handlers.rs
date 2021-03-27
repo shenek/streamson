@@ -42,8 +42,8 @@ pub fn parse_handlers(
                 .collect::<Vec<String>>();
 
             let (name, group) = match splitted2.len() {
-                1 => (splitted[0].clone(), String::default()),
-                2 => (splitted[0].clone(), splitted[1].clone()),
+                1 => (splitted2[0].clone(), String::default()),
+                2 => (splitted2[0].clone(), splitted2[1].clone()),
                 _ => unreachable!(),
             };
 
@@ -87,7 +87,7 @@ pub fn make_handler(
         "s" | "shorten" => Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
             handler_string,
         )?))),
-        "u" | "unstringify" => Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
+        "u" | "unstringify" => Ok(Arc::new(Mutex::new(handler::Unstringify::from_str(
             handler_string,
         )?))),
         _ => Err(error::Handler::new(format!(
