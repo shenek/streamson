@@ -62,7 +62,7 @@ impl FromStr for Indexer {
         match splitted.len() {
             0 => Ok(Self::default()),
             1 => Ok(Self::default()
-                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)),
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(error::Handler::new)?)),
             _ => Err(error::Handler::new("Failed to parse")),
         }
     }

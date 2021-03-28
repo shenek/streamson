@@ -61,7 +61,7 @@ impl FromStr for Shorten {
         let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
         if splitted.len() == 2 {
             Ok(Self::new(
-                splitted[0].parse().map_err(|e| error::Handler::new(e))?,
+                splitted[0].parse().map_err(error::Handler::new)?,
                 splitted[1].to_string(),
             ))
         } else {

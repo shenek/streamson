@@ -67,9 +67,7 @@ impl FromStr for Indenter {
             Ok(Self::new(None))
         } else {
             Ok(Self::new(Some(
-                intend_str
-                    .parse::<usize>()
-                    .map_err(|e| error::Handler::new(e))?,
+                intend_str.parse::<usize>().map_err(error::Handler::new)?,
             )))
         }
     }

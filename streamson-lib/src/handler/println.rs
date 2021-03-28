@@ -38,9 +38,9 @@ impl FromStr for PrintLn {
         match splitted.len() {
             0 => Ok(Self::default()),
             1 => Ok(Self::default()
-                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)),
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(error::Handler::new)?)),
             2 => Ok(Self::default()
-                .set_use_path(FromStr::from_str(splitted[0]).map_err(|e| error::Handler::new(e))?)
+                .set_use_path(FromStr::from_str(splitted[0]).map_err(error::Handler::new)?)
                 .set_separator(splitted[1])),
             _ => Err(error::Handler::new("Failed to parse")),
         }

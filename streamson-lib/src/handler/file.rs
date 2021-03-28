@@ -87,7 +87,7 @@ impl FromStr for File {
         match splitted.len() {
             1 => Ok(Self::new(splitted[0])?),
             2 => Ok(Self::new(splitted[0])?
-                .set_use_path(FromStr::from_str(splitted[1]).map_err(|e| error::Handler::new(e))?)),
+                .set_use_path(FromStr::from_str(splitted[1]).map_err(error::Handler::new)?)),
             _ => Err(error::Handler::new("Failed to parse")),
         }
     }

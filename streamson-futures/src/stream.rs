@@ -92,9 +92,8 @@ where
                 }
                 Poll::Ready(None) => {
                     self.terminated = true;
-                    match self.trigger.lock().unwrap().terminate() {
-                        Err(err) => return Poll::Ready(Some(Err(err))),
-                        _ => {}
+                    if let Err(err) = self.trigger.lock().unwrap().terminate() {
+                        return Poll::Ready(Some(Err(err)));
                     }
                     continue;
                 }

@@ -89,7 +89,7 @@ impl FromStr for Regex {
                 let mut regex = Self::new();
                 for item in splitted.chunks(2) {
                     regex = regex.add_regex(
-                        regex::Regex::new(item[0]).map_err(|e| error::Handler::new(e))?,
+                        regex::Regex::new(item[0]).map_err(error::Handler::new)?,
                         item[1].to_string(),
                         0,
                     );

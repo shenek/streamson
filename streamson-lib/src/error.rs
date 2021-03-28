@@ -122,7 +122,7 @@ pub enum General {
     Utf8Error(Utf8Error),
     IncorrectInput(IncorrectInput),
     InputTerminated(InputTerminated),
-    IOError(io::Error),
+    IoError(io::Error),
 }
 
 impl Error for General {}
@@ -135,7 +135,7 @@ impl fmt::Display for General {
             Self::Utf8Error(err) => err.fmt(f),
             Self::IncorrectInput(err) => err.fmt(f),
             Self::InputTerminated(err) => err.fmt(f),
-            Self::IOError(err) => err.fmt(f),
+            Self::IoError(err) => err.fmt(f),
         }
     }
 }
@@ -156,4 +156,4 @@ impl_into_general!(Matcher, Self::Matcher);
 impl_into_general!(Utf8Error, Self::Utf8Error);
 impl_into_general!(IncorrectInput, Self::IncorrectInput);
 impl_into_general!(InputTerminated, Self::InputTerminated);
-impl_into_general!(io::Error, Self::IOError);
+impl_into_general!(io::Error, Self::IoError);

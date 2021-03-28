@@ -120,14 +120,12 @@ impl Strategy for Convert {
                         if !clear {
                             self.matched = Some((matched_path, matcher_idx));
                         }
-                    } else {
-                        if self.level == 0 {
-                            // Finish the output before Output::End
-                            let to = idx - self.input_start;
-                            let data = &input[inner_idx..to];
-                            inner_idx = to;
-                            result.push(Output::Data(data.to_vec()));
-                        }
+                    } else if self.level == 0 {
+                        // Finish the output before Output::End
+                        let to = idx - self.input_start;
+                        let data = &input[inner_idx..to];
+                        inner_idx = to;
+                        result.push(Output::Data(data.to_vec()));
                     }
 
                     if self.level == 0 {
