@@ -7,6 +7,8 @@ use std::{
 
 use streamson_lib::{error, handler};
 
+use crate::utils::split_argument;
+
 pub fn handlers_arg() -> Arg<'static> {
     Arg::new("handler")
         .about("Handler which will be triggered on matched data")
@@ -25,27 +27,7 @@ pub fn parse_handlers(
 
     if let Some(handlers) = matches.values_of("handler") {
         for handler_str in handlers {
-            let splitted = handler_str
-                .splitn(2, ':')
-                .map(String::from)
-                .collect::<Vec<String>>();
-
-            let (name_and_group, definition) = match splitted.len() {
-                1 => (splitted[0].clone(), String::default()),
-                2 => (splitted[0].clone(), splitted[1].clone()),
-                _ => unreachable!(),
-            };
-
-            let splitted2 = name_and_group
-                .splitn(2, '.')
-                .map(String::from)
-                .collect::<Vec<String>>();
-
-            let (name, group) = match splitted2.len() {
-                1 => (splitted2[0].clone(), String::default()),
-                2 => (splitted2[0].clone(), splitted2[1].clone()),
-                _ => unreachable!(),
-            };
+            let (name, group, definition) = split_argument(handler_str);
 
             let new_handler = make_handler(&name, &definition)?;
 

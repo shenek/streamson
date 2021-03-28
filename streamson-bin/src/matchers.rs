@@ -3,15 +3,17 @@ use std::{collections::HashMap, str::FromStr};
 
 use streamson_lib::{error, matcher};
 
+use crate::utils::split_argument;
+
 pub fn matchers_arg() -> Arg<'static> {
     Arg::new("matcher")
         .about("Matches path in JSON")
         .short('m')
         .group("matchers")
         .multiple(true)
-        .value_names(&["NAME[:GROUP]", "DEFINITION"])
+        .value_name("NAME[.GROUP][:DEFINITION]")
         .takes_value(true)
-        .number_of_values(2)
+        .number_of_values(1)
 }
 
 pub fn parse_matchers(
@@ -19,19 +21,10 @@ pub fn parse_matchers(
 ) -> Result<HashMap<String, matcher::Combinator>, error::Matcher> {
     let mut res: HashMap<String, matcher::Combinator> = HashMap::new();
 
-    if let Some(matches) = matches.values_of("matcher") {
-        for parts in matches.map(String::from).collect::<Vec<String>>().chunks(2) {
-            let splitted = parts[0]
-                .splitn(2, ':')
-                .map(String::from)
-                .collect::<Vec<String>>();
-            let (name, group) = match splitted.len() {
-                1 => (splitted[0].clone(), String::default()),
-                2 => (splitted[0].clone(), splitted[1].clone()),
-                _ => unreachable!(),
-            };
-
-            let new_matcher = make_matcher(&name, &parts[1])?;
+    if let Some(matchers) = matches.values_of("matcher") {
+        for matcher_str in matchers {
+            let (name, group, definition) = split_argument(matcher_str);
+            let new_matcher = make_matcher(&name, &definition)?;
 
             let matcher = if let Some(mtch) = res.remove(&group) {
                 mtch | new_matcher
