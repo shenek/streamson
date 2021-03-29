@@ -85,9 +85,9 @@ Matches path based on regex.
 ```rust
 use streamson_lib::{handler, strategy::{self, Strategy}, matcher};
 
-use std::{str::FromStr, sync::{Arc, Mutex}};
+use std::{io, str::FromStr, sync::{Arc, Mutex}};
 
-let handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+let handler = Arc::new(Mutex::new(handler::Output::new(io::stdout())));
 let matcher = matcher::Regex::from_str(r#"\{"[Uu]ser"\}\[\]"#).unwrap();
 
 let mut trigger = strategy::Trigger::new();
@@ -118,14 +118,11 @@ Stores matched paths to analyze JSON structure
 ### Buffer
 Buffers matched data which can be manually extracted later
 
-### File
-Stores matched data into a file
+### Output
+Writes matched data into given output (e.g. file or stdout)
 
 ### Indexer
 Store indexes of the matched data
-
-### PrintLn
-Prints matched data to stdout
 
 ### Regex
 Converts data based on regex.
@@ -164,12 +161,12 @@ Unstringifies matched data
 ## Examples
 ### Trigger
 ```rust
-use streamson_lib::{strategy::{self, Strategy}, error::General, handler::PrintLn, matcher::Simple};
+use streamson_lib::{strategy::{self, Strategy}, error::General, handler::Output, matcher::Simple};
 use std::sync::{Arc, Mutex};
-use std::io::prelude::*;
+use std::{io::prelude::*, io};
 
 let mut trigger = strategy::Trigger::new();
-let handler = Arc::new(Mutex::new(PrintLn::new()));
+let handler = Arc::new(Mutex::new(Output::new(io::stdout())));
 let matcher = Simple::new(r#"{"users"}[]"#).unwrap();
 trigger.add_matcher(Box::new(matcher), handler);
 

@@ -9,12 +9,13 @@
 //! # Examples
 //! ```
 //! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{self, Strategy}};
-//! use std::sync::{Arc, Mutex};
+//! use std::{io, fs, sync::{Arc, Mutex}};
 //!
-//! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//! let stdout_handler = Arc::new(Mutex::new(handler::Output::new(io::stdout())));
 //!
+//! let file = fs::File::create("out.txt").unwrap();
 //! let handler = handler::Group::new()
-//!     .add_handler(Arc::new(Mutex::new(handler::File::new("out.txt").unwrap())))
+//!     .add_handler(Arc::new(Mutex::new(handler::Output::new(file))))
 //!     .add_handler(stdout_handler.clone());
 //!
 //! let first_matcher = matcher::Simple::new(r#"{"users"}[]"#).unwrap();
@@ -44,12 +45,13 @@
 //!
 //! ```
 //! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{Strategy, self}};
-//! use std::sync::{Arc, Mutex};
+//! use std::{fs, io, sync::{Arc, Mutex}};
 //!
+//! let file = fs::File::create("out.txt").unwrap();
 //! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("out.txt").unwrap())
+//!     Mutex::new(handler::Output::new(file))
 //! );
-//! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//! let stdout_handler = Arc::new(Mutex::new(handler::Output::new(io::stdout())));
 //! let handler = handler::Group::new()
 //!     .add_handler(stdout_handler)
 //!     .add_handler(file_handler);
@@ -77,12 +79,13 @@
 //!
 //! ```
 //! use streamson_lib::{handler::{self, Handler}, matcher, strategy::{Strategy, self}};
-//! use std::sync::{Arc, Mutex};
+//! use std::{io, fs, sync::{Arc, Mutex}};
 //!
+//! let file = fs::File::create("out.txt").unwrap();
 //! let file_handler = Arc::new(
-//!     Mutex::new(handler::File::new("out.txt").unwrap())
+//!     Mutex::new(handler::Output::new(file))
 //! );
-//! let stdout_handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+//! let stdout_handler = Arc::new(Mutex::new(handler::Output::new(io::stdout())));
 //! let handler = handler::Group::new()
 //!     .add_handler(stdout_handler)
 //!     .add_handler(file_handler);

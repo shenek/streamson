@@ -3,12 +3,12 @@
 //!
 //! ```
 //! use streamson_lib::{handler, matcher, strategy::{self, Strategy}};
-//! use std::sync::{Arc, Mutex};
+//! use std::{io, sync::{Arc, Mutex}};
 //!
 //!
 //! let group_handler = handler::Group::new()
 //!     .add_handler(Arc::new(Mutex::new(handler::Unstringify::new())))
-//!     .add_handler(Arc::new(Mutex::new(handler::PrintLn::new())));
+//!     .add_handler(Arc::new(Mutex::new(handler::Output::new(io::stdout()))));
 //!
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //! let mut trigger = strategy::Trigger::new();

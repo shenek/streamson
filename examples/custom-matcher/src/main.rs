@@ -5,7 +5,10 @@ use streamson_lib::{
     streamer::ParsedKind,
 };
 
-use std::sync::{Arc, Mutex};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
 
 /// A custom matcher which matches the path which contains the
 /// letter
@@ -28,7 +31,9 @@ impl matcher::Matcher for Letter {
 }
 
 fn main() {
-    let handler = Arc::new(Mutex::new(handler::PrintLn::new().set_use_path(true)));
+    let handler = Arc::new(Mutex::new(
+        handler::Output::new(io::stdout()).set_write_path(true),
+    ));
     let matcher = Letter::new('l');
     let mut trigger = strategy::Trigger::new();
 

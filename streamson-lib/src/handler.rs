@@ -3,11 +3,10 @@
 
 pub mod analyser;
 pub mod buffer;
-pub mod file;
 pub mod group;
 pub mod indenter;
 pub mod indexer;
-pub mod println;
+pub mod output;
 #[cfg(feature = "with_regex")]
 pub mod regex;
 pub mod replace;
@@ -20,11 +19,10 @@ use crate::{error, path::Path, streamer::Token};
 
 pub use self::analyser::Analyser;
 pub use self::buffer::Buffer;
-pub use self::file::File;
 pub use self::group::Group;
 pub use self::indenter::Indenter;
 pub use self::indexer::Indexer;
-pub use self::println::PrintLn;
+pub use self::output::Output;
 #[cfg(feature = "with_regex")]
 pub use self::regex::Regex;
 pub use self::replace::Replace;

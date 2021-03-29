@@ -1,43 +1,60 @@
-//! Handler which puts output into a file
+//! Handler which puts output into writeable struct
 
 use super::{Handler, FROMSTR_DELIM};
 use crate::{error, path::Path, streamer::Token};
-use std::{any::Any, fs, io::Write, str::FromStr};
+use std::{any::Any, fs, io, str::FromStr};
 
 /// File handler responsible for storing data to a file.
-pub struct File {
-    /// Opened file structure for storing output
-    file: fs::File,
+pub struct Output<W>
+where
+    W: io::Write,
+{
+    /// writable output
+    output: W,
 
     /// Indicator whether the path will be displayed
     /// e.g. `{"items"}: {"sub": 4}` vs `{"sub": 4}`
-    use_path: bool,
+    write_path: bool,
 
     /// String which will be appended to the end of each record
     /// to separate it with the next record (default '#')
     separator: String,
 }
 
-impl File {
-    /// Creates new File handler
+impl FromStr for Output<fs::File> {
+    type Err = error::Handler;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        match splitted.len() {
+            1 => {
+                let file = fs::File::create(splitted[0]).map_err(error::Handler::new)?;
+                Ok(Self::new(file))
+            }
+            2 => {
+                let file = fs::File::create(splitted[0]).map_err(error::Handler::new)?;
+                Ok(Self::new(file)
+                    .set_write_path(FromStr::from_str(splitted[1]).map_err(error::Handler::new)?))
+            }
+            _ => Err(error::Handler::new("Failed to parse")),
+        }
+    }
+}
+
+impl<W> Output<W>
+where
+    W: io::Write,
+{
+    /// Creates new Output handler
     ///
     /// # Arguments
-    /// * `fs_path` - path to a file in the file system (will be truncated)
+    /// * `output` - structur which implements `io::Write`
     ///
-    /// # Returns
-    /// * `Ok(File)` - Handler was successfully created
-    /// * `Err(_)` - Failed to create handler
-    ///
-    /// # Errors
-    ///
-    /// Error might occur when the file fails to open
-    pub fn new(fs_path: &str) -> Result<Self, error::Handler> {
-        let file = fs::File::create(fs_path).map_err(|err| error::Handler::new(err.to_string()))?;
-        Ok(Self {
-            file,
-            use_path: false,
+    pub fn new(output: W) -> Self {
+        Self {
+            output,
+            write_path: false,
             separator: "\n".into(),
-        })
+        }
     }
 
     /// Set whether to show path
@@ -47,13 +64,13 @@ impl File {
     ///
     /// # Example
     /// ```
+    /// use std::io::stdout;
     /// use streamson_lib::handler;
-    /// let file = handler::File::new("output.txt")
-    ///     .unwrap()
-    ///     .set_use_path(true);
+    /// let output = handler::Output::new(stdout())
+    ///     .set_write_path(true);
     /// ```
-    pub fn set_use_path(mut self, use_path: bool) -> Self {
-        self.use_path = use_path;
+    pub fn set_write_path(mut self, write_path: bool) -> Self {
+        self.write_path = write_path;
         self
     }
 
@@ -66,9 +83,9 @@ impl File {
     ///
     /// # Example
     /// ```
+    /// use std::io::stdout;
     /// use streamson_lib::handler;
-    /// let file = handler::File::new("output.txt")
-    ///     .unwrap()
+    /// let output = handler::Output::new(stdout())
     ///     .set_separator("######\n");
     /// ```
     pub fn set_separator<S>(mut self, separator: S) -> Self
@@ -80,28 +97,18 @@ impl File {
     }
 }
 
-impl FromStr for File {
-    type Err = error::Handler;
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
-        match splitted.len() {
-            1 => Ok(Self::new(splitted[0])?),
-            2 => Ok(Self::new(splitted[0])?
-                .set_use_path(FromStr::from_str(splitted[1]).map_err(error::Handler::new)?)),
-            _ => Err(error::Handler::new("Failed to parse")),
-        }
-    }
-}
-
-impl Handler for File {
+impl<W> Handler for Output<W>
+where
+    W: io::Write + Send + 'static,
+{
     fn start(
         &mut self,
         path: &Path,
         _matcher_idx: usize,
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        if self.use_path {
-            self.file
+        if self.write_path {
+            self.output
                 .write(format!("{}: ", path).as_bytes())
                 .map_err(|err| error::Handler::new(err.to_string()))?;
         }
@@ -113,7 +120,7 @@ impl Handler for File {
         data: &[u8],
         _matcher_idx: usize,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
-        self.file
+        self.output
             .write(data)
             .map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(None)
@@ -126,7 +133,7 @@ impl Handler for File {
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let separator = self.separator.to_string();
-        self.file
+        self.output
             .write(separator.as_bytes())
             .map_err(|err| error::Handler::new(err.to_string()))?;
         Ok(None)
@@ -152,7 +159,7 @@ mod tests {
     fn make_output(
         path: &str,
         matcher: matcher::Simple,
-        handler: handler::File,
+        handler: handler::Output<fs::File>,
         input: &[u8],
     ) -> String {
         let handler = Arc::new(Mutex::new(handler));
@@ -169,7 +176,8 @@ mod tests {
         let str_path = tmp_path.to_str().unwrap();
 
         let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
-        let handler = handler::File::new(str_path).unwrap();
+        let file = fs::File::create(str_path).unwrap();
+        let handler = handler::Output::new(file);
 
         let output = make_output(
             str_path,
@@ -196,7 +204,8 @@ mod tests {
         let str_path = tmp_path.to_str().unwrap();
 
         let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
-        let handler = handler::File::new(str_path).unwrap().set_separator("XXX");
+        let file = fs::File::create(str_path).unwrap();
+        let handler = handler::Output::new(file).set_separator("XXX");
 
         let output = make_output(
             str_path,
@@ -214,7 +223,8 @@ mod tests {
         let str_path = tmp_path.to_str().unwrap();
 
         let matcher = matcher::Simple::new(r#"{"aa"}[]"#).unwrap();
-        let handler = handler::File::new(str_path).unwrap().set_use_path(true);
+        let file = fs::File::create(str_path).unwrap();
+        let handler = handler::Output::new(file).set_write_path(true);
 
         let output = make_output(
             str_path,

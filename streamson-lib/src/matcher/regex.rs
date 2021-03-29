@@ -11,9 +11,9 @@ use crate::{error, matcher::Matcher, path::Path, streamer::ParsedKind};
 /// ```
 /// use streamson_lib::{handler, strategy::{self, Strategy}, matcher};
 ///
-/// use std::{str::FromStr, sync::{Arc, Mutex}};
+/// use std::{io, str::FromStr, sync::{Arc, Mutex}};
 ///
-/// let handler = Arc::new(Mutex::new(handler::PrintLn::new()));
+/// let handler = Arc::new(Mutex::new(handler::Output::new(io::stdout())));
 /// let matcher = matcher::Regex::from_str(r#"\{"[Uu]ser"\}\[\]"#).unwrap();
 ///
 /// let mut trigger = strategy::Trigger::new();

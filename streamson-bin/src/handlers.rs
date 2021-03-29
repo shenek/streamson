@@ -1,6 +1,7 @@
 use clap::{Arg, ArgMatches};
 use std::{
     collections::HashMap,
+    fs,
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -51,13 +52,10 @@ pub fn make_handler(
         "a" | "analyser" => Ok(Arc::new(Mutex::new(handler::Analyser::from_str(
             handler_string,
         )?))),
-        "f" | "file" => Ok(Arc::new(Mutex::new(handler::File::from_str(
+        "f" | "file" => Ok(Arc::new(Mutex::new(handler::Output::<fs::File>::from_str(
             handler_string,
         )?))),
         "d" | "indenter" => Ok(Arc::new(Mutex::new(handler::Indenter::from_str(
-            handler_string,
-        )?))),
-        "p" | "println" => Ok(Arc::new(Mutex::new(handler::PrintLn::from_str(
             handler_string,
         )?))),
         "x" | "regex" => Ok(Arc::new(Mutex::new(handler::Regex::from_str(

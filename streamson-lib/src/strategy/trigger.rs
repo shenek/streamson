@@ -137,10 +137,10 @@ impl Trigger {
     ///
     /// ```
     /// use streamson_lib::{strategy, matcher, handler};
-    /// use std::sync::{Arc, Mutex};
+    /// use std::{io, sync::{Arc, Mutex}};
     ///
     /// let mut trigger = strategy::Trigger::new();
-    /// let handler = handler::PrintLn::new();
+    /// let handler = handler::Output::new(io::stdout());
     /// let matcher = matcher::Simple::new(r#"{"list"}[]"#).unwrap();
     /// trigger.add_matcher(
     ///     Box::new(matcher),
