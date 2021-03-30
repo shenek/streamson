@@ -23,7 +23,7 @@ pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     let mut trigger = strategy::Trigger::new();
 
     let mut printing = false; // printing something to stdout
-    let hndlrs = handlers::parse_handlers(matches)?;
+    let hndlrs = handlers::parse_handlers(matches, "trigger")?;
 
     for (group, matcher) in matchers::parse_matchers(matches)? {
         if let Some(handler) = hndlrs.get(&group) {

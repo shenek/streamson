@@ -19,7 +19,7 @@ pub fn prepare_convert_subcommand() -> App<'static> {
 pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut convert = strategy::Convert::new();
 
-    let hndlrs = handlers::parse_handlers(matches)?;
+    let hndlrs = handlers::parse_handlers(matches, "convert")?;
     for (group, matcher) in matchers::parse_matchers(matches)? {
         if let Some(handler) = hndlrs.get(&group) {
             convert.add_matcher(Box::new(matcher), Arc::new(Mutex::new(handler.clone())));

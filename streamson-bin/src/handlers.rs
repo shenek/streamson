@@ -1,6 +1,6 @@
 use clap::{Arg, ArgMatches};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -23,6 +23,7 @@ pub fn handlers_arg() -> Arg<'static> {
 
 pub fn parse_handlers(
     matches: &ArgMatches,
+    strategy_name: &str,
 ) -> Result<HashMap<String, handler::Group>, error::Handler> {
     let mut res: HashMap<String, handler::Group> = HashMap::new();
 
@@ -30,7 +31,7 @@ pub fn parse_handlers(
         for handler_str in handlers {
             let (name, group, definition) = split_argument(handler_str);
 
-            let new_handler = make_handler(&name, &definition)?;
+            let new_handler = make_handler(&name, &definition, strategy_name)?;
 
             let group_handler = if let Some(hndl) = res.remove(&group) {
                 hndl.add_handler(new_handler)
@@ -44,30 +45,98 @@ pub fn parse_handlers(
     Ok(res)
 }
 
+fn alias_to_handler_name(name_or_alias: &str) -> &str {
+    match name_or_alias {
+        "a" | "analyser" => "analyser",
+        "f" | "file" => "file",
+        "d" | "indenter" => "indenter",
+        "x" | "regex" => "regex",
+        "r" | "replace" => "replace",
+        "s" | "shorten" => "shorten",
+        "u" | "unstringify" => "unstringify",
+        e => e,
+    }
+}
+
+fn handlers_for_strategy(strategy_name: &str) -> HashSet<&str> {
+    let mut res = HashSet::new();
+    match strategy_name {
+        "all" => {
+            res.insert("analyser");
+            res.insert("indenter");
+        }
+        "extract" => {
+            res.insert("file");
+            // The rests makes sense only if extracted data are strings
+            res.insert("regex");
+            res.insert("shorten");
+            res.insert("unstringify");
+        }
+        "filter" => {
+            // Note that filter strategy should contain at least one
+            // file handler to create a sink for other handlers
+            res.insert("file");
+            // The rests makes sense only if extracted data are strings
+            res.insert("regex");
+            res.insert("shorten");
+            res.insert("unstringify");
+        }
+        "convert" => {
+            res.insert("file");
+            // The rests makes sense only if extracted data are strings
+            res.insert("regex");
+            res.insert("replace");
+            res.insert("shorten");
+            res.insert("unstringify");
+        }
+        "trigger" => {
+            // Note that filter strategy should contain at least one
+            // file handler to create a sink for other handlers
+            res.insert("file");
+            // The rests makes sense only if extracted data are strings
+            res.insert("regex");
+            res.insert("shorten");
+            res.insert("unstringify");
+        }
+        _ => unreachable!(),
+    }
+    res
+}
+
 pub fn make_handler(
     handler_name: &str,
     handler_string: &str,
+    strategy_name: &str,
 ) -> Result<Arc<Mutex<dyn handler::Handler>>, error::Handler> {
-    match handler_name {
-        "a" | "analyser" => Ok(Arc::new(Mutex::new(handler::Analyser::from_str(
+    let real_name = alias_to_handler_name(handler_name);
+
+    if !handlers_for_strategy(strategy_name).contains(real_name) {
+        return Err(error::Handler::new(format!(
+            "handler `{}` can not be used in `{}` strategy.",
+            handler_name, strategy_name
+        )));
+    }
+
+    match real_name {
+        "analyser" => Ok(Arc::new(Mutex::new(handler::Analyser::from_str(
             handler_string,
         )?))),
-        "f" | "file" => Ok(Arc::new(Mutex::new(handler::Output::<fs::File>::from_str(
+        "file" => Ok(Arc::new(Mutex::new(handler::Output::<fs::File>::from_str(
             handler_string,
         )?))),
-        "d" | "indenter" => Ok(Arc::new(Mutex::new(handler::Indenter::from_str(
+        "indenter" => Ok(Arc::new(Mutex::new(handler::Indenter::from_str(
             handler_string,
         )?))),
-        "x" | "regex" => Ok(Arc::new(Mutex::new(handler::Regex::from_str(
+        "regex" => Ok(Arc::new(Mutex::new(handler::Regex::from_str(
             handler_string,
         )?))),
-        "r" | "replace" => Ok(Arc::new(Mutex::new(handler::Replace::from_str(
+        "replace" => Ok(Arc::new(Mutex::new(handler::Replace::from_str(
             handler_string,
         )?))),
-        "s" | "shorten" => Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
+        "shorten" => Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
             handler_string,
         )?))),
-        "u" | "unstringify" => Ok(Arc::new(Mutex::new(handler::Unstringify::from_str(
+        "unstringify" => Ok(Arc::new(Mutex::new(handler::Unstringify::from_str(
             handler_string,
         )?))),
         _ => Err(error::Handler::new(format!(

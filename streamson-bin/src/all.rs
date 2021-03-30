@@ -21,7 +21,7 @@ pub fn prepare_all_subcommand() -> App<'static> {
 pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut all = strategy::All::new();
 
-    let hndlrs: Vec<Arc<Mutex<handler::Group>>> = handlers::parse_handlers(matches)?
+    let hndlrs: Vec<Arc<Mutex<handler::Group>>> = handlers::parse_handlers(matches, "all")?
         .into_iter()
         .map(|(_, handler)| Arc::new(Mutex::new(handler)))
         .collect();

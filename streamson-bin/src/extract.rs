@@ -51,7 +51,7 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     let before = str_to_vec(matches.value_of("before").unwrap_or(""));
     let after = str_to_vec(matches.value_of("after").unwrap_or(""));
 
-    let hndlrs = handlers::parse_handlers(matches)?;
+    let hndlrs = handlers::parse_handlers(matches, "extract")?;
 
     for (group, matcher) in matchers::parse_matchers(matches)? {
         if let Some(handler) = hndlrs.get(&group) {

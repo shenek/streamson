@@ -281,6 +281,22 @@ fn all(cmd_str: &str) {
 "#,
         );
     println!("OK");
+
+    print!("ALL SHORTEN ");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("all")
+        .arg("-h")
+        .arg("shorten:5")
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .failure()
+        .stderr(
+            r#"Error: Handler { reason: "handler `shorten` can not be used in `all` strategy." }
+"#,
+        );
+    println!("OK (failed)");
 }
 
 fn main() {

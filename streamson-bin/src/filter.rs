@@ -19,7 +19,7 @@ pub fn prepare_filter_subcommand() -> App<'static> {
 pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {
     let mut filter = strategy::Filter::new();
 
-    let hndlrs = handlers::parse_handlers(matches)?;
+    let hndlrs = handlers::parse_handlers(matches, "filter")?;
 
     for (group, matcher) in matchers::parse_matchers(matches)? {
         if let Some(handler) = hndlrs.get(&group) {
