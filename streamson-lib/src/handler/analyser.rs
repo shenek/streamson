@@ -72,23 +72,18 @@ impl Analyser {
 #[cfg(test)]
 mod tests {
     use super::Analyser;
-    use crate::{
-        matcher::All,
-        strategy::{Strategy, Trigger},
-    };
+    use crate::strategy::{All, Strategy};
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn analyser_handler() {
-        let mut trigger = Trigger::new();
+        let mut all = All::new();
 
         let analyser_handler = Arc::new(Mutex::new(Analyser::new()));
 
-        let matcher = All::default();
+        all.add_handler(analyser_handler.clone());
 
-        trigger.add_matcher(Box::new(matcher), analyser_handler.clone());
-
-        trigger.process(br#"{"elements": [1, 2, 3, [41, 42, {"sub1": {"subsub": 1}, "sub2": null}]], "after": true, "last": [{"aaa": 1, "cc": "dd"}, {"aaa": 2, "extra": false}]}"#).unwrap();
+        all.process(br#"{"elements": [1, 2, 3, [41, 42, {"sub1": {"subsub": 1}, "sub2": null}]], "after": true, "last": [{"aaa": 1, "cc": "dd"}, {"aaa": 2, "extra": false}]}"#).unwrap();
 
         // Test analyser handler
         let results = analyser_handler.lock().unwrap().results();

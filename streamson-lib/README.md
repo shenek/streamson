@@ -72,12 +72,6 @@ Simple path `*{"name"}` would match `"carl"`, `"bob"`, `"admins"` and `"staff"`.
 Matches depth in JSON path. It has min length and max length ranges (max is optional).
 
 
-### All
-
-It matches any JSON element.
-It is used only for some specific purpuses (such as JSON analysis).
-
-
 ### Regex
 Matches path based on regex.
 
