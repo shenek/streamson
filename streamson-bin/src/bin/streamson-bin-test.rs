@@ -239,6 +239,48 @@ fn all(cmd_str: &str) {
         );
 
     println!("OK");
+
+    print!("ALL INDENTER ");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("all")
+        .arg("-h")
+        .arg("indenter:2")
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stdout(
+            r#"{
+  "users": [
+    {
+      "name": "carl",
+      "id": 1
+    },
+    {
+      "name": "paul",
+      "id": 2
+    }
+  ],
+  "groups": [
+    {
+      "name": "admin",
+      "gid": 1
+    },
+    {
+      "name": "staff",
+      "gid": 2
+    }
+  ],
+  "logs": [
+    "null",
+    "{}",
+    "[]"
+  ]
+}
+"#,
+        );
+    println!("OK");
 }
 
 fn main() {
