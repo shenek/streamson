@@ -1,6 +1,6 @@
 //! Handler which puts output into writeable struct
 
-use super::{Handler, FROMSTR_DELIM};
+use super::Handler;
 use crate::{error, path::Path, streamer::Token};
 use std::{any::Any, fs, io, str::FromStr};
 
@@ -17,26 +17,16 @@ where
     write_path: bool,
 
     /// String which will be appended to the end of each record
-    /// to separate it with the next record (default '#')
+    /// to separate it with the next record (default '\n')
     separator: String,
 }
 
 impl FromStr for Output<fs::File> {
     type Err = error::Handler;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
-        match splitted.len() {
-            1 => {
-                let file = fs::File::create(splitted[0]).map_err(error::Handler::new)?;
-                Ok(Self::new(file))
-            }
-            2 => {
-                let file = fs::File::create(splitted[0]).map_err(error::Handler::new)?;
-                Ok(Self::new(file)
-                    .set_write_path(FromStr::from_str(splitted[1]).map_err(error::Handler::new)?))
-            }
-            _ => Err(error::Handler::new("Failed to parse")),
-        }
+        Ok(Self::new(
+            fs::File::create(input).map_err(error::Handler::new)?,
+        ))
     }
 }
 

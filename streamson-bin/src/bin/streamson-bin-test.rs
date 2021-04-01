@@ -155,7 +155,7 @@ fn convert(cmd_str: &str) {
         .arg("-m")
         .arg(r#"simple:{"users"}[]{"name"}"#)
         .arg("-h")
-        .arg("regex:([a-z]+),USER_$1")
+        .arg("regex:s/([a-z]+)/USER_$1/")
         .write_stdin(INPUT_DATA)
         .assert()
         .success()

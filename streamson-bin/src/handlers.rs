@@ -16,7 +16,7 @@ pub fn handlers_arg() -> Arg<'static> {
         .short('h')
         .group("handlers")
         .multiple(true)
-        .value_name("NAME[.GROUP][:DEFINITION]")
+        .value_name("NAME[.GROUP][,OPTION[,OPTION]][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
 }
@@ -29,9 +29,9 @@ pub fn parse_handlers(
 
     if let Some(handlers) = matches.values_of("handler") {
         for handler_str in handlers {
-            let (name, group, definition) = split_argument(handler_str);
+            let (name, group, options, definition) = split_argument(handler_str);
 
-            let new_handler = make_handler(&name, &definition, strategy_name)?;
+            let new_handler = make_handler(&name, &definition, &options, strategy_name)?;
 
             let group_handler = if let Some(hndl) = res.remove(&group) {
                 hndl.add_handler(new_handler)
@@ -106,6 +106,7 @@ fn handlers_for_strategy(strategy_name: &str) -> HashSet<&str> {
 pub fn make_handler(
     handler_name: &str,
     handler_string: &str,
+    options: &[String],
     strategy_name: &str,
 ) -> Result<Arc<Mutex<dyn handler::Handler>>, error::Handler> {
     let real_name = alias_to_handler_name(handler_name);
@@ -117,28 +118,72 @@ pub fn make_handler(
         )));
     }
 
+    let wrong_number_of_options_error = error::Handler::new(format!(
+        "Wrong file handler options number {}",
+        options.len()
+    ));
+
     match real_name {
-        "analyser" => Ok(Arc::new(Mutex::new(handler::Analyser::from_str(
-            handler_string,
-        )?))),
-        "file" => Ok(Arc::new(Mutex::new(handler::Output::<fs::File>::from_str(
-            handler_string,
-        )?))),
-        "indenter" => Ok(Arc::new(Mutex::new(handler::Indenter::from_str(
-            handler_string,
-        )?))),
-        "regex" => Ok(Arc::new(Mutex::new(handler::Regex::from_str(
-            handler_string,
-        )?))),
-        "replace" => Ok(Arc::new(Mutex::new(handler::Replace::from_str(
-            handler_string,
-        )?))),
-        "shorten" => Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
-            handler_string,
-        )?))),
-        "unstringify" => Ok(Arc::new(Mutex::new(handler::Unstringify::from_str(
-            handler_string,
-        )?))),
+        "analyser" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Analyser::from_str(
+                handler_string,
+            )?)))
+        }
+        "file" => {
+            if options.len() > 1 {
+                return Err(wrong_number_of_options_error);
+            }
+            let mut handler = handler::Output::<fs::File>::from_str(handler_string)?;
+            if !options.is_empty() {
+                let write_path: bool = options[0].parse().map_err(error::Handler::new)?;
+                handler = handler.set_write_path(write_path);
+            }
+            // print path option
+            Ok(Arc::new(Mutex::new(handler)))
+        }
+        "indenter" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Indenter::from_str(
+                handler_string,
+            )?)))
+        }
+        "regex" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Regex::from_str(
+                handler_string,
+            )?)))
+        }
+        "replace" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Replace::from_str(
+                handler_string,
+            )?)))
+        }
+        "shorten" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Shorten::from_str(
+                handler_string,
+            )?)))
+        }
+        "unstringify" => {
+            if !options.is_empty() {
+                return Err(wrong_number_of_options_error);
+            }
+            Ok(Arc::new(Mutex::new(handler::Unstringify::from_str(
+                handler_string,
+            )?)))
+        }
         _ => Err(error::Handler::new(format!(
             "Unknown handler type {}",
             handler_name

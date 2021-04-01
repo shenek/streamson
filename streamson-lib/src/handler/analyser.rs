@@ -45,8 +45,12 @@ impl Handler for Analyser {
 
 impl FromStr for Analyser {
     type Err = error::Handler;
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Ok(Self::new())
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        if input.is_empty() {
+            Ok(Self::new())
+        } else {
+            Err(error::Handler::new("Analyser handler accepts no argument"))
+        }
     }
 }
 

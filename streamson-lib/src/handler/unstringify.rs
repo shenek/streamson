@@ -66,8 +66,12 @@ impl Unstringify {
 
 impl FromStr for Unstringify {
     type Err = error::Handler;
-    fn from_str(_input: &str) -> Result<Self, Self::Err> {
-        Ok(Self::default())
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        if input.is_empty() {
+            Ok(Self::default())
+        } else {
+            Err(error::Handler::new("Analyser handler accepts no argument"))
+        }
     }
 }
 

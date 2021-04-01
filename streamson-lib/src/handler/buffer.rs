@@ -27,7 +27,7 @@
 //! }
 //! ```
 
-use super::{Handler, FROMSTR_DELIM};
+use super::Handler;
 use crate::{error, path::Path, streamer::Token};
 use std::{any::Any, collections::VecDeque, str::FromStr};
 
@@ -73,7 +73,7 @@ impl Default for Buffer {
 impl FromStr for Buffer {
     type Err = error::Handler;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        let splitted: Vec<_> = input.split(',').collect();
         match splitted.len() {
             0 => Ok(Self::default()),
             1 => Ok(Self::default()

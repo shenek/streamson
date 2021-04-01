@@ -29,8 +29,6 @@ pub use self::replace::Replace;
 pub use self::shorten::Shorten;
 pub use self::unstringify::Unstringify;
 
-pub const FROMSTR_DELIM: char = ',';
-
 /// Common handler trait
 pub trait Handler: Send {
     /// Is called when a path is matched

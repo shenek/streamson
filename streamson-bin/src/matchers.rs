@@ -23,7 +23,7 @@ pub fn parse_matchers(
 
     if let Some(matchers) = matches.values_of("matcher") {
         for matcher_str in matchers {
-            let (name, group, definition) = split_argument(matcher_str);
+            let (name, group, _, definition) = split_argument(matcher_str);
             let new_matcher = make_matcher(&name, &definition)?;
 
             let matcher = if let Some(mtch) = res.remove(&group) {

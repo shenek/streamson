@@ -7,7 +7,7 @@
 //! use regex;
 //!
 //! let converter =
-//! Arc::new(Mutex::new(handler::Regex::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
+//! Arc::new(Mutex::new(handler::Regex::new().add_regex("s/bad/good/g".to_string())));
 //! let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 //!
 //! let mut convert = strategy::Convert::new();
@@ -25,18 +25,15 @@
 //! }
 //! ```
 
-use super::{Handler, FROMSTR_DELIM};
+use super::Handler;
 use crate::{error, path::Path, streamer::Token};
 use std::{any::Any, str, str::FromStr};
 
-/// Regex to match and string to convert to
-type Replacement = (regex::Regex, String, usize);
-
 /// Converts data using regex
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Regex {
-    /// All replacements which will be triggered
-    replacements: Vec<Replacement>,
+    /// All replacements (sed string)
+    replacements: Vec<String>,
     /// Buffer to collect input
     buffer: Vec<u8>,
 }
@@ -60,10 +57,9 @@ impl Handler for Regex {
         let mut output: String = str::from_utf8(&self.buffer)
             .map_err(|e| error::Handler::new(e.to_string()))?
             .to_string();
-        for (regex, into, limit) in &self.replacements {
-            let str_to_replace: &str = &into;
-            output = regex.replacen(&output, *limit, str_to_replace).to_string();
-        }
+        output = sedregex::find_and_replace(&output, &self.replacements)
+            .map_err(error::Handler::new)?
+            .to_string();
 
         // Clear the buffer so it can be reused later
         self.buffer.clear();
@@ -83,21 +79,11 @@ impl Handler for Regex {
 impl FromStr for Regex {
     type Err = error::Handler;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
-        match splitted.len() {
-            e if e % 2 == 0 => {
-                let mut regex = Self::new();
-                for item in splitted.chunks(2) {
-                    regex = regex.add_regex(
-                        regex::Regex::new(item[0]).map_err(error::Handler::new)?,
-                        item[1].to_string(),
-                        0,
-                    );
-                }
-                Ok(regex)
-            }
-            _ => Err(error::Handler::new("Failed to parse")),
-        }
+        // Check format
+        sedregex::ReplaceCommand::new(input).map_err(error::Handler::new)?;
+        let mut new = Regex::new();
+        new = new.add_regex(input.to_string());
+        Ok(new)
     }
 }
 
@@ -110,10 +96,9 @@ impl Regex {
     /// Adds new regex conversion which will be applied
     ///
     /// # Arguments
-    /// * `regex` - regex which will be used
-    /// * `into` - regex replacement
-    pub fn add_regex(mut self, regex: regex::Regex, into: String, limit: usize) -> Self {
-        self.replacements.push((regex, into, limit));
+    /// * `sedregex` - sed regex used to convert the data
+    pub fn add_regex(mut self, sedregex: String) -> Self {
+        self.replacements.push(sedregex);
         self
     }
 }
@@ -125,18 +110,14 @@ mod tests {
         matcher::Simple,
         strategy::{Convert, OutputConverter, Strategy},
     };
-    use regex::Regex;
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn regex_converter() {
         let mut convert = Convert::new();
 
-        let regex_converter = handler::Regex::new().add_regex(
-            Regex::new("[Uu]ser([0-9]+)").unwrap(),
-            "user$1".to_string(),
-            1,
-        );
+        let regex_converter =
+            handler::Regex::new().add_regex("s/[Uu]ser([0-9]+)/user$1/".to_string());
 
         let matcher = Simple::new(r#"[]{"name"}"#).unwrap();
         convert.add_matcher(Box::new(matcher), Arc::new(Mutex::new(regex_converter)));

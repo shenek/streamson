@@ -128,7 +128,7 @@ use std::sync::{Arc, Mutex};
 use regex;
 
 let converter =
-Arc::new(Mutex::new(handler::Regex::new().add_regex(regex::Regex::new("User").unwrap(), "user".to_string(), 0)));
+Arc::new(Mutex::new(handler::Regex::new().add_regex("s/User/user/".to_string())));
 let matcher = matcher::Simple::new(r#"{"users"}[]{"name"}"#).unwrap();
 let mut convert = strategy::Convert::new();
 // Set the matcher for convert strategy

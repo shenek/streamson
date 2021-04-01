@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use super::{Handler, FROMSTR_DELIM};
+use super::Handler;
 use crate::{error, path::Path, streamer::Token};
 use std::{any::Any, str::FromStr};
 
@@ -58,7 +58,7 @@ impl Shorten {
 impl FromStr for Shorten {
     type Err = error::Handler;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let splitted: Vec<_> = input.split(FROMSTR_DELIM).collect();
+        let splitted: Vec<_> = input.split(',').collect();
         if splitted.len() == 2 {
             Ok(Self::new(
                 splitted[0].parse().map_err(error::Handler::new)?,
