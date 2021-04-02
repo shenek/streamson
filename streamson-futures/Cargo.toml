@@ -1,6 +1,6 @@
 [package]
 name = "streamson-futures"
-version = "6.3.1"
+version = "7.0.0"
 authors = ["Stepan Henek <stepan@henek.name>"]
 edition = "2018"
 description = "A library which integrates streamson with futures stream"
@@ -16,7 +16,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 bytes = "0.5"
 futures = "~0.3.5"
-streamson-lib = { version = "6.3.1", path = "../streamson-lib/" }
+streamson-lib = { version = "7.0.0", path = "../streamson-lib/" }
 
 [dev-dependencies]
 tokio = { version = "0.2", features = ["full"]  }

@@ -1,3 +1,24 @@
+7.0.0 (2020-04-03)
+------------------
+
+* Remove all matcher (there is all strategy now)
+* Limit handlers for strategies in streamson-bin
+* Unite PrintLn and File handlers into Output handler
+* Use nicer name of main binary `streamson-bin` -> `sson`
+* Added terminate function for strategies (can be used to flush handlers)
+* Unite handler args for streamson-bin
+* Unite matcher args for streamson-bin
+* New indenter handler (reformats JSON to be more/less readable)
+* New `All` strategy (matches everything, handlers only)
+* Data splitting functions for tests
+* Handlers can be used for extract strategy
+* Handlers can be used for filter strategy
+* Added handler group (way to group multiple handlers together)
+* Huge refactoring of handlers so they are used in streaming mode now
+* Export matched kind for matcher
+* Export matched kind for handler
+* Merged streamson-extra-matchers with streamson-lib (regex feature)
+
 6.3.1 (2020-12-08)
 ------------------
 
