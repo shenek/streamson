@@ -30,7 +30,3 @@ a single json file.
 
 Tools present in this repository are able to help you e.g.
 to split it into a several files according to it's path machter.
-
-For example:
-* `{"access_logs"}[]` will extract array from `"access_logs"`.
-* `{"users"}[]{"name"}` will extract all user names.

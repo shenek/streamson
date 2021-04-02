@@ -2,39 +2,48 @@
 
 # Streamson Lib
 
-Rust library to handle large JSONs.
+Rust library to handle large JSONs. It aims to be memory efficient as well as fast.
 
 Note that it doesn't fully validates whether the input JSON is valid.
 This means that invalid JSONs might pass without an error.
 
 ## Strategies
 
-| Strategy | Processes data | Buffers matched data | Nested matches | Uses handlers |
-| -------- | -------------- | -------------------- | -------------- | ------------- |
-| Trigger  | No             | Yes                  | Yes            | Yes           |
-| Filter   | Yes            | No                   | No             | No            |
-| Extract  | Yes            | Yes                  | No             | No            |
-| Convert  | Yes            | Yes                  | No             | Yes           |
+| Strategy | Converts data | Buffers matched data | Nested matches | Uses handlers | Uses matchers |
+| -------- | ------------- | -------------------- | -------------- | ------------- | ------------- |
+| Trigger  | No            | No                   | Yes            | Yes           | Yes           |
+| Filter   | Yes           | No                   | No             | Yes           | Yes           |
+| Extract  | Yes           | No                   | No             | Yes           | Yes           |
+| Convert  | Yes           | No                   | No             | Yes           | Yes           |
+| All      | Yes/No        | No                   | No             | Yes           | No            |
 
 
 ### Trigger strategy
 
-It doesn't actually perform parses json into data. It just takes JSON parts and triggers handlers when a path is matched.
+It triggers handlers on matched JSON parts. It doesn't return data as output.
 
 
 ### Filter strategy
 
-It actually alters the JSON. If the path is matched the matched part should be removed from output json.
+It actually alters the JSON. If the path is matched the matched part should be removed from output JSON.
+Handlers can be used here to e.g. store removed parts into a file.
 
 
 ### Extract strategy
 
-Only extracts matched data, nothing else.
+Alters the JSON as well. It returns only the matched parts as output.
+Handlers can be used to e.g. convert extracted parts.
 
 
 ### Convert strategy
 
-Alters the JSON by calling convert functions to matched parts.
+Alters the JSON by calling convert handlers to matched parts.
+
+
+### All strategy
+
+Matches all data. Handlers can be used to convert the content of entire JSON or to perform
+some kind of analysis.
 
 
 ## Matchers
@@ -106,17 +115,20 @@ Wraps one or two matchers. It implements basic logic operators (`NOT`, `OR` and 
 
 ## Handlers
 
-### Analyzer
-Stores matched paths to analyze JSON structure
+### Analyser
+Stores matched paths to analyze JSON structure.
 
 ### Buffer
-Buffers matched data which can be manually extracted later
+Buffers matched data which can be manually extracted later.
 
 ### Output
-Writes matched data into given output (e.g. file or stdout)
+Writes matched data into given output (e.g. file or stdout).
+
+### Indenter
+Converts indentation of the matched data.
 
 ### Indexer
-Store indexes of the matched data
+Store indexes of the matched data.
 
 ### Regex
 Converts data based on regex.
@@ -144,13 +156,13 @@ for input in vec![
 ```
 
 ### Replace
-Replaces matched output by fixed data
+Replaces matched output by fixed data.
 
 ### Shorten
 Shortens matched data
 
 ### Unstringify
-Unstringifies matched data
+Unstringifies matched data.
 
 ## Examples
 ### Trigger
@@ -236,6 +248,30 @@ while let Ok(size) = input.read(&mut buffer[..]) {
 }
 ```
 
+### All
+```rust
+use streamson_lib::{strategy::{self, Strategy}, matcher, handler};
+use std::sync::{Arc, Mutex};
+use std::io::prelude::*;
+
+let mut all = strategy::All::new();
+
+let analyser = Arc::new(Mutex::new(handler::Analyser::new()));
+
+all.add_handler(analyser.clone());
+
+let mut buffer = [0; 2048];
+let mut input = "<input data>".as_bytes();
+while let Ok(size) = input.read(&mut buffer[..]) {
+	if !size > 0 {
+		break;
+	}
+	all.process(&buffer[..size]);
+}
+
+println!("{:?}", analyser.lock().unwrap().results())
+```
+
 
 ## Traits
 ### Custom Handlers
@@ -252,23 +288,27 @@ impl handler::Handler for CustomHandler {
 	fn start(
 		&mut self, _: &Path, _: usize, _: Token 
 	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
-			todo!()
+		todo!()
 	}
 
 	fn feed(
 		&mut self, _: &[u8], _: usize,
 	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
-			todo!()
+		todo!()
 	}
 
 	fn end(
 		&mut self, _: &Path, _: usize, _: Token
 	) -> Result<Option<std::vec::Vec<u8>>, error::Handler> { 
-			todo!()
+		todo!()
 	}
 	
 	fn as_any(&self) -> &dyn Any {
 		self
+	}
+
+	fn is_converter(&self) -> bool {
+		todo!()
 	}
 }
 
