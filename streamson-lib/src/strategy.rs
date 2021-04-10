@@ -55,9 +55,6 @@ impl OutputConverter {
 }
 
 pub trait Strategy {
-    /// Get whether a path should be exported as well
-    fn get_export_path(&self) -> bool;
-
     /// Processes input data
     ///
     /// # Arguments

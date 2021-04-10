@@ -45,10 +45,6 @@ impl Default for Extract {
 }
 
 impl Strategy for Extract {
-    fn get_export_path(&self) -> bool {
-        self.export_path
-    }
-
     fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         self.streamer.feed(input);
 
@@ -148,7 +144,9 @@ impl Extract {
         Self::default()
     }
 
-    /// Sets whether path should be exported with data
+    /// Sets whether matched path should be exported with data
+    /// Output data will be enriched with the path from were the data
+    /// were extracted
     ///
     /// if path is not exported extraction can be a bit faster
     pub fn set_export_path(mut self, export: bool) -> Self {

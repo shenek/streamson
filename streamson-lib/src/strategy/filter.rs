@@ -57,10 +57,6 @@ impl Default for Filter {
 }
 
 impl Strategy for Filter {
-    fn get_export_path(&self) -> bool {
-        false
-    }
-
     fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         // Feed the streamer
         self.streamer.feed(input);

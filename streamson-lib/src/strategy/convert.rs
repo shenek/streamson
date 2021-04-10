@@ -45,10 +45,6 @@ impl Default for Convert {
 }
 
 impl Strategy for Convert {
-    fn get_export_path(&self) -> bool {
-        false
-    }
-
     fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         self.streamer.feed(input);
         let mut inner_idx = 0;

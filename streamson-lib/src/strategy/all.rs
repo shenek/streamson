@@ -27,10 +27,6 @@ pub struct All {
 }
 
 impl Strategy for All {
-    fn get_export_path(&self) -> bool {
-        false
-    }
-
     fn process(&mut self, input: &[u8]) -> Result<Vec<Output>, error::General> {
         self.streamer.feed(input);
         let mut inner_idx = 0;
