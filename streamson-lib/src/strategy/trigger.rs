@@ -12,7 +12,10 @@ use crate::{
     matcher::Matcher,
     streamer::{Streamer, Token},
 };
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 use super::{Output, Strategy};
 
@@ -152,10 +155,14 @@ impl Trigger {
     }
 
     fn feed(&mut self, data: &[u8]) -> Result<(), error::Handler> {
+        // feed only once in case that there is some nested matcher
+        let mut seen_match_idx = HashSet::<usize>::new();
         for matched_items in &self.matched_stack {
             for matched_item in matched_items {
-                let mut guard = self.matchers[matched_item.match_idx].1.lock().unwrap();
-                guard.feed(data, matched_item.match_idx)?;
+                if seen_match_idx.insert(matched_item.match_idx) {
+                    let mut guard = self.matchers[matched_item.match_idx].1.lock().unwrap();
+                    guard.feed(data, matched_item.match_idx)?;
+                }
             }
         }
         Ok(())
@@ -262,7 +269,7 @@ mod tests {
 
             let guard = handler.lock().unwrap();
             assert_eq!(guard.paths.len(), 4);
-            //assert_eq!(guard.data.len(), 4);
+
             assert_eq!(guard.paths[0], r#"{"elements"}[0]"#);
             assert_eq!(guard.data[0], br#"1"#.to_vec());
 

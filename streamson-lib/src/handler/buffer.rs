@@ -124,6 +124,7 @@ trait Buff: Handler {
                 }
             }
             self.buffer().extend(data);
+            dbg!(String::from_utf8(data.to_vec()).unwrap());
             *self.current_buffer_size() += data.len();
         }
 
@@ -268,8 +269,12 @@ impl Buffer {
     /// ```
     pub fn pop(&mut self) -> Option<(Option<String>, Vec<u8>)> {
         let popped = self.results.pop_front();
-        if let Some((_, buffer)) = popped.as_ref() {
-            self.current_buffer_size -= buffer.len();
+        if popped.is_some() {
+            // recalculate buffer size
+            // note that due to nested matches you can't simply substract
+            // length of popped data
+            self.current_buffer_size =
+                self.results.iter().fold(0, |e, y| e + y.1.len()) + self.buffer.len();
         }
         popped
     }
@@ -288,7 +293,7 @@ impl Buffer {
 mod tests {
     use super::Buffer;
     use crate::{
-        matcher::Simple,
+        matcher::{Combinator, Simple},
         strategy::{Strategy, Trigger},
     };
     use std::sync::{Arc, Mutex};
@@ -332,5 +337,26 @@ mod tests {
             buffer_handler.lock().unwrap().pop().unwrap(),
             (None, br#""too long description""#.to_vec())
         );
+    }
+
+    #[test]
+    fn nested_matches() {
+        let mut trigger = Trigger::new();
+        let buffer_handler = Arc::new(Mutex::new(Buffer::new()));
+        let matcher = Combinator::new(Simple::new(r#"{"nested"}"#).unwrap())
+            | Combinator::new(Simple::new(r#"{"nested"}[]"#).unwrap());
+
+        trigger.add_matcher(Box::new(matcher), buffer_handler.clone());
+        assert!(trigger.process(br#"{"nested": ["1", "2", "3"]}"#).is_ok());
+
+        let mut guard = buffer_handler.lock().unwrap();
+        assert_eq!(String::from_utf8(guard.pop().unwrap().1).unwrap(), r#""1""#);
+        assert_eq!(String::from_utf8(guard.pop().unwrap().1).unwrap(), r#""2""#);
+        assert_eq!(String::from_utf8(guard.pop().unwrap().1).unwrap(), r#""3""#);
+        assert_eq!(
+            String::from_utf8(guard.pop().unwrap().1).unwrap(),
+            r#"["1", "2", "3"]"#
+        );
+        assert_eq!(guard.pop(), None);
     }
 }
