@@ -173,7 +173,7 @@ mod tests {
     use crate::{
         handler::{Buffer, Replace, Shorten},
         matcher::Simple,
-        strategy::{Convert, Filter, OutputConverter, Strategy, Trigger},
+        strategy::{Convert, Extract, Filter, OutputConverter, Strategy, Trigger},
     };
     use std::sync::{Arc, Mutex};
 
@@ -373,6 +373,63 @@ mod tests {
 
     #[test]
     fn test_extract() {
-        // TODO finish once extract can trigger handlers
+        let mut extract = Extract::new();
+        let (buffer1, buffer2, buffer3, replace, shorten) = prepare_handlers();
+        let matcher = Simple::new(r#"[]{"desc"}"#).unwrap();
+        let group = Group::new()
+            .add_handler(buffer1.clone())
+            .add_handler(replace.clone())
+            .add_handler(buffer2.clone())
+            .add_handler(shorten.clone())
+            .add_handler(buffer3.clone());
+
+        extract.add_matcher(Box::new(matcher), Some(Arc::new(Mutex::new(group))));
+
+        let output: Vec<u8> = OutputConverter::new()
+            .convert(
+                &extract
+                    .process(br#"[{"desc": "aa"}, {"desc": "bbbbbb"}]"#)
+                    .unwrap(),
+            )
+            .into_iter()
+            .map(|e| e.1)
+            .flatten()
+            .collect();
+
+        // output
+        assert_eq!(String::from_utf8(output).unwrap(), r#""aa""bbbbbb""#);
+
+        // buffer1
+        assert_eq!(
+            String::from_utf8(buffer1.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""aa""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer1.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""bbbbbb""#
+        );
+        assert!(buffer1.lock().unwrap().pop().is_none());
+
+        // buffer2
+        assert_eq!(
+            String::from_utf8(buffer2.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccccc""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer2.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccccc""#
+        );
+        assert!(buffer2.lock().unwrap().pop().is_none());
+
+        // buffer3
+        assert_eq!(
+            String::from_utf8(buffer3.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccc..""#
+        );
+        assert_eq!(
+            String::from_utf8(buffer3.lock().unwrap().pop().unwrap().1).unwrap(),
+            r#""ccc..""#
+        );
+        assert!(buffer3.lock().unwrap().pop().is_none());
     }
 }
