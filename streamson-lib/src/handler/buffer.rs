@@ -124,7 +124,6 @@ trait Buff: Handler {
                 }
             }
             self.buffer().extend(data);
-            dbg!(String::from_utf8(data.to_vec()).unwrap());
             *self.current_buffer_size() += data.len();
         }
 

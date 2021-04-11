@@ -198,7 +198,6 @@ mod tests {
                     result.extend(data.1);
                 }
             }
-            dbg!(String::from_utf8(result.clone()).unwrap());
 
             assert_eq!(result, br#"..........."#);
         }

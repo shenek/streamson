@@ -217,7 +217,6 @@ mod tests {
             .process(br#"[{"id": 1, "password": "secret1"}, {"id": 2, "password": "secret2"}]"#)
             .unwrap();
 
-        dbg!(&output);
         assert_eq!(output.len(), 7);
         assert_eq!(output.remove(0), Output::Start(None),);
         assert_eq!(
@@ -253,7 +252,6 @@ mod tests {
             let mut converter = OutputConverter::new();
             for part in parts {
                 let converted = convert.process(&part).unwrap();
-                dbg!(&converted);
                 let output = converter.convert(&converted);
                 result.extend(output.into_iter().map(|e| e.1));
             }
