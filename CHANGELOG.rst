@@ -1,3 +1,11 @@
+7.0.1 (2020-04-15)
+------------------
+
+* fix building release in Github Actions
+* fix buffer handler in nested mode
+* export path only for extract strategy
+* less strict streamson-bin-test stderr checks
+
 7.0.0 (2020-04-03)
 ------------------
 
