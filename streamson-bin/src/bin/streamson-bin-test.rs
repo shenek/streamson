@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use predicates::prelude::*;
 use std::env;
 
 const INPUT_DATA: &str = r#"{
@@ -292,10 +293,9 @@ fn all(cmd_str: &str) {
         .write_stdin(INPUT_DATA)
         .assert()
         .failure()
-        .stderr(
-            r#"Error: Handler { reason: "handler `shorten` can not be used in `all` strategy." }
-"#,
-        );
+        .stderr(predicate::str::contains(
+            "handler `shorten` can not be used in `all` strategy.",
+        ));
     println!("OK (failed)");
 }
 

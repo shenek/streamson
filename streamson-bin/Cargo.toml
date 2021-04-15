@@ -12,7 +12,7 @@ categories = ["parsing", "command-line-utilities"]
 
 [features]
 default = []
-test = ["assert_cmd"]
+test = ["assert_cmd", "predicates"]
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -23,6 +23,8 @@ clap_generate = "3.0.0-beta"
 lazy_static = "1.4"
 streamson-lib = { version = "7.0.0", path = "../streamson-lib/" }
 assert_cmd = { version = "~1.0.1", optional = true }
+predicates = { version = "~1.0.7", optional = true }
+
 
 [[bin]]
 bench = false
