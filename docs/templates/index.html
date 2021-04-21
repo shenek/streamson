@@ -1,0 +1,57 @@
+{% extends "juice/templates/index.html" %}
+
+{% block head %}
+<link rel="icon" type="image/svg+xml" href="{{ get_url(path="streamson.svg") }}">
+{% endblock head %}
+
+{% block hero %}
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+    <section class="text-center">
+        <h1 class="heading-text">
+            {{ config.extra.hero_text | markdown | safe }}
+        </h1>
+        <div>
+            <a class="github-button" href="https://github.com/shenek/streamson" data-size="small" data-show-count="true" aria-label="Star streamson on GitHub">streamson</a>
+            <a href="https://crates.io/crates/streamson">
+                <img src="https://img.shields.io/crates/v/streamson-lib.svg?color=brightgreen&style=flat-square"/>
+            </a>
+            <img src="https://img.shields.io/crates/d/streamson-lib?label=downloads&style=flat-square"/>
+            <img src="https://img.shields.io/github/license/shenek/streamson?style=flat-square"/>
+            <br/>
+            <br/>
+            <a class="github-button" href="https://github.com/shenek/python-streamson" data-size="small" data-show-count="true" aria-label="Star python-streamson on GitHub">python-streamson</a>
+            <a href="https://pypi.org/project/streamson-python">
+                <img src="https://img.shields.io/pypi/v/streamson-python.svg?label=pypi.org&color=brightgreen&style=flat-square"/>
+            </a>
+            <img src="https://img.shields.io/pypi/dm/streamson-python?label=downloads&style=flat-square"/>
+            <img src="https://img.shields.io/github/license/shenek/python-streamson?style=flat-square"/>
+        </div>
+    </section>
+    <img class="hero-image" style="width: 50%" src="{{ get_url(path="streamson.svg") }}">
+
+    <style>
+        .hero section {
+            padding: 0 5rem;
+        }
+
+        @media screen and (max-width: 768px) {
+            .hero section {
+                padding: 0 2rem;
+            }
+
+            .hero-image {
+                display: none
+            }
+        }
+    </style>
+{% endblock hero %}
+
+{% block footer %}
+<footer>
+    <p>
+        <small class="subtext text-center">
+            <a href="https://github.com/shenek/streamson">Streamson Maintainer</a> © 2021
+        </small>
+    </p>
+</footer>
+{% endblock footer %}

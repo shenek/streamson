@@ -1,0 +1,23 @@
+base_url = "https://shenek.github.io/streamson"
+
+compile_sass = true
+build_search_index = true
+
+title = "Streamson - large JSON processing"
+description = ""
+
+theme = "juice"
+default_language = "en"
+
+[markdown]
+highlight_code = true
+highlight_theme = "inspired-github"
+enable_strikethrough = true
+
+[extra]
+hero_text = "~~Swiss~~ Sweedish army knife for large JSON processing"
+juice_logo_name = "Streamson"
+juice_logo_path = "streamson.svg"
+juice_extra_menu = [
+    { title = "Github", link = "https://github.com/shenek/streamson" }
+]
