@@ -5,7 +5,7 @@ sort_by = "weight"
 
 
 # What it is
-Streamson is a tool to process large JSON inputs.
+Streamson is a tool to process large JSON inputs (the input can be a stream of JSONs as well).
 It tries to be memory efficient and it assumes that entire JSON won't fit into memory.
 
 
