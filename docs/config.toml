@@ -15,7 +15,7 @@ highlight_theme = "inspired-github"
 enable_strikethrough = true
 
 [extra]
-hero_text = "~~Swiss~~ Sweedish army knife for large JSON processing"
+hero_text = "~~Swiss~~ Swedish army knife for large JSON processing"
 juice_logo_name = "Streamson"
 juice_logo_path = "streamson.svg"
 juice_extra_menu = [
