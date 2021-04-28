@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::{App, Arg, ArgMatches};
-use streamson_lib::strategy::{self, Strategy};
+use streamson_lib::strategy::{self, Output, Strategy};
 
 use crate::{handlers, matchers};
 
@@ -93,13 +93,10 @@ pub fn process_extract(matches: &ArgMatches, buffer_size: usize) -> Result<(), B
     }
 
     // Input terminated try to hit strategy termination
-    let output = strategy::OutputConverter::new()
-        .convert(&extract.terminate()?)
-        .into_iter()
-        .map(|e| e.1)
-        .collect::<Vec<Vec<u8>>>();
-    for data in &output {
-        stdout().write_all(data)?;
+    for output in extract.terminate()? {
+        if let Output::Data(data) = output {
+            stdout().write_all(&data)?;
+        }
     }
 
     out.write_all(&after)?;

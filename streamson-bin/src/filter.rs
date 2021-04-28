@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::{App, ArgMatches};
-use streamson_lib::strategy::{self, Strategy};
+use streamson_lib::strategy::{self, Output, Strategy};
 
 use crate::{handlers, matchers};
 
@@ -33,29 +33,24 @@ pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Bo
     }
 
     let mut buffer = vec![];
-    let mut converter = strategy::OutputConverter::new();
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
-        let output: Vec<u8> = converter
-            .convert(&filter.process(&buffer[..size])?)
-            .into_iter()
-            .map(|e| e.1)
-            .flatten()
-            .collect();
+
+        for output in filter.process(&buffer[..size])? {
+            if let Output::Data(data) = output {
+                stdout().write_all(&data)?;
+            }
+        }
         buffer.clear();
-        stdout().write_all(&output)?;
     }
 
     // Input terminated try to hit strategy termination
-    let output = converter
-        .convert(&filter.terminate()?)
-        .into_iter()
-        .map(|e| e.1)
-        .collect::<Vec<Vec<u8>>>();
-    for data in &output {
-        stdout().write_all(data)?;
+    for output in filter.terminate()? {
+        if let Output::Data(data) = output {
+            stdout().write_all(&data)?;
+        }
     }
 
     Ok(())

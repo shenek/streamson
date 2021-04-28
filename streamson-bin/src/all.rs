@@ -7,7 +7,7 @@ use std::{
 use clap::{App, ArgMatches};
 use streamson_lib::{
     handler::{self, Handler},
-    strategy::{self, Strategy},
+    strategy::{self, Output, Strategy},
 };
 
 use crate::handlers;
@@ -36,21 +36,19 @@ pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<d
     }
 
     let mut buffer = vec![];
-    let mut output_conv = strategy::OutputConverter::new();
     while let Ok(size) = stdin().take(buffer_size as u64).read_to_end(&mut buffer) {
         if size == 0 {
             break;
         }
 
         let output = all.process(&buffer[..size])?;
+
         if converter {
-            let output: Vec<u8> = output_conv
-                .convert(&output)
-                .into_iter()
-                .map(|e| e.1)
-                .flatten()
-                .collect();
-            stdout().write_all(&output)?;
+            for out in output {
+                if let Output::Data(data) = out {
+                    stdout().write_all(&data)?;
+                }
+            }
         } else {
             stdout().write_all(&buffer[..size])?;
         }
@@ -60,14 +58,10 @@ pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<d
 
     if converter {
         // Input terminated try to hit strategy termination
-        let output = output_conv
-            .convert(&all.terminate()?)
-            .into_iter()
-            .map(|e| e.1)
-            .collect::<Vec<Vec<u8>>>();
-
-        for data in output {
-            stdout().write_all(&data)?;
+        for out in all.terminate()? {
+            if let Output::Data(data) = out {
+                stdout().write_all(&data)?;
+            }
         }
     }
 
