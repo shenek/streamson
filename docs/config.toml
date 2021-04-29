@@ -1,4 +1,4 @@
-base_url = "https://shenek.github.io/streamson"
+base_url = "https://streamson.henek.name/"
 
 compile_sass = true
 build_search_index = true
