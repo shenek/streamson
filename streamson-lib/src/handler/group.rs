@@ -26,6 +26,7 @@
 
 use std::{
     any::Any,
+    ops,
     sync::{Arc, Mutex},
 };
 
@@ -164,6 +165,21 @@ impl Handler for Group {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl ops::Add for Group {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut joined = Self::new();
+        self.subhandlers()
+            .iter()
+            .for_each(|h| joined.add_handler_mut(h.clone()));
+        rhs.subhandlers()
+            .iter()
+            .for_each(|h| joined.add_handler_mut(h.clone()));
+
+        joined
     }
 }
 
