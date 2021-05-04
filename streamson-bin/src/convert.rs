@@ -13,7 +13,7 @@ pub fn prepare_convert_subcommand() -> App<'static> {
     App::new("convert")
         .about("Converts parts of JSON")
         .arg(matchers::matchers_arg())
-        .arg(handlers::handlers_arg())
+        .arg(handlers::handlers_arg("convert"))
 }
 
 pub fn process_convert(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {

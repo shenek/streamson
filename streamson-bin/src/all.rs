@@ -15,7 +15,7 @@ use crate::handlers;
 pub fn prepare_all_subcommand() -> App<'static> {
     App::new("all")
         .about("Strategy which matches all elements (no need to set matchers)")
-        .arg(handlers::handlers_arg())
+        .arg(handlers::handlers_arg("all"))
 }
 
 pub fn process_all(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {

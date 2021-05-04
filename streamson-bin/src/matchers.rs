@@ -3,9 +3,10 @@ use std::{collections::HashMap, str::FromStr};
 
 use streamson_lib::{error, matcher};
 
-use crate::utils::split_argument;
+use crate::{docs, utils::split_argument};
 
 pub fn matchers_arg() -> Arg<'static> {
+    let about = docs::make_docs(&docs::matchers::MAP, None);
     Arg::new("matcher")
         .about("Matches path in JSON")
         .short('m')
@@ -14,6 +15,7 @@ pub fn matchers_arg() -> Arg<'static> {
         .value_name("NAME[.GROUP][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
+        .about(Box::leak(Box::new(about)))
 }
 
 pub fn parse_matchers(

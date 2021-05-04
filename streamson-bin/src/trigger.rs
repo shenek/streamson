@@ -13,7 +13,7 @@ pub fn prepare_trigger_subcommand() -> App<'static> {
     App::new("trigger")
         .about("Triggers command on matched input")
         .arg(matchers::matchers_arg())
-        .arg(handlers::handlers_arg())
+        .arg(handlers::handlers_arg("trigger"))
 }
 
 pub fn process_trigger(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {

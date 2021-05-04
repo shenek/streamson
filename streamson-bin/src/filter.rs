@@ -13,7 +13,7 @@ pub fn prepare_filter_subcommand() -> App<'static> {
     App::new("filter")
         .about("Removes matched parts of JSON")
         .arg(matchers::matchers_arg())
-        .arg(handlers::handlers_arg())
+        .arg(handlers::handlers_arg("filter"))
 }
 
 pub fn process_filter(matches: &ArgMatches, buffer_size: usize) -> Result<(), Box<dyn Error>> {

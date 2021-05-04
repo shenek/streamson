@@ -1,5 +1,6 @@
 mod all;
 mod convert;
+mod docs;
 mod extract;
 mod filter;
 mod handlers;
@@ -10,8 +11,11 @@ mod utils;
 use std::{error::Error, io, process};
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
-use clap_generate::generators::{Bash, Elvish, Fish, PowerShell, Zsh};
-use clap_generate::{generate, Generator};
+use clap_generate::{
+    generate,
+    generators::{Bash, Elvish, Fish, PowerShell, Zsh},
+    Generator,
+};
 use lazy_static::lazy_static;
 
 use crate::{

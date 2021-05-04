@@ -8,9 +8,14 @@ use std::{
 
 use streamson_lib::{error, handler};
 
-use crate::utils::split_argument;
+use crate::{docs, utils::split_argument};
 
-pub fn handlers_arg() -> Arg<'static> {
+pub fn handlers_arg(strategy_name: &str) -> Arg<'static> {
+    let handler_names = handlers_for_strategy(strategy_name);
+    let about = docs::make_docs(
+        &docs::handlers::MAP,
+        Some(&handler_names.into_iter().collect::<Vec<&str>>()),
+    );
     Arg::new("handler")
         .about("Handler which will be triggered on matched data")
         .short('h')
@@ -19,6 +24,7 @@ pub fn handlers_arg() -> Arg<'static> {
         .value_name("NAME[.GROUP][,OPTION[,OPTION]][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
+        .about(Box::leak(Box::new(about)))
 }
 
 pub fn parse_handlers(

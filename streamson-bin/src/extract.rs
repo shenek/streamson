@@ -13,7 +13,7 @@ pub fn prepare_extract_subcommand() -> App<'static> {
     App::new("extract")
         .about("Passes only matched parts of JSON")
         .arg(matchers::matchers_arg())
-        .arg(handlers::handlers_arg())
+        .arg(handlers::handlers_arg("extract"))
         .arg(
             Arg::new("separator")
                 .about("Separator which will be inserted between matched parts")
