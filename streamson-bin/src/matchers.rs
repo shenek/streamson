@@ -6,13 +6,13 @@ use streamson_lib::{error, matcher};
 use crate::{docs, utils::split_argument};
 
 pub fn matchers_arg() -> Arg<'static> {
-    let about = docs::make_docs(&docs::matchers::MAP, None);
+    let about = docs::make_about(&docs::matchers::MAP, None);
     Arg::new("matcher")
         .about("Matches path in JSON")
         .short('m')
         .group("matchers")
         .multiple(true)
-        .value_name("NAME[.GROUP][:DEFINITION]")
+        //.value_name("NAME[.GROUP][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
         .about(Box::leak(Box::new(about)))

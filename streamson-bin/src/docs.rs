@@ -7,18 +7,27 @@ pub trait Element: AsRef<str> + Sync {
     fn names(&self) -> &[&str];
     fn description(&self) -> &str;
     fn metavar(&self) -> Option<&str>;
+    fn idented_description(&self) -> String {
+        let mut output = "  ".to_string();
+        for chr in self.description().chars() {
+            output += &chr.to_string();
+            if chr == '\n' {
+                output += "  ";
+            }
+        }
+        output
+    }
 
     fn make_doc(&self) -> String {
         format!(
-            "{} {}\naliases: {}\n{}",
-            self.as_ref(),
-            self.metavar().unwrap_or(""),
+            "({}){}\n{}",
             self.names()
                 .iter()
                 .map(|e| e.to_string())
                 .collect::<Vec<String>>()
-                .join(","),
-            self.description(),
+                .join("|"),
+            self.metavar().unwrap_or(""),
+            self.idented_description(),
         )
     }
 }
@@ -50,7 +59,7 @@ macro_rules! create_doc_element {
     };
 }
 
-pub fn make_docs(
+pub fn make_about(
     map: &HashMap<&'static str, &'static dyn Element>,
     names: Option<&[&str]>,
 ) -> String {
@@ -58,13 +67,15 @@ pub fn make_docs(
         names
             .iter()
             .filter_map(|n| map.get(n))
-            .map(|e| e.make_doc())
+            .map(|e| e.make_doc() + "\n\n")
             .collect::<Vec<String>>()
-            .join("\n\n")
+            .join("")
+            + "\n"
     } else {
         map.values()
-            .map(|e| e.make_doc())
+            .map(|e| e.make_doc() + "\n\n")
             .collect::<Vec<String>>()
-            .join("\n\n")
+            .join("")
+            + "\n"
     }
 }

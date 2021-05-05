@@ -12,7 +12,7 @@ use crate::{docs, utils::split_argument};
 
 pub fn handlers_arg(strategy_name: &str) -> Arg<'static> {
     let handler_names = handlers_for_strategy(strategy_name);
-    let about = docs::make_docs(
+    let about = docs::make_about(
         &docs::handlers::MAP,
         Some(&handler_names.into_iter().collect::<Vec<&str>>()),
     );
@@ -21,7 +21,6 @@ pub fn handlers_arg(strategy_name: &str) -> Arg<'static> {
         .short('h')
         .group("handlers")
         .multiple(true)
-        .value_name("NAME[.GROUP][,OPTION[,OPTION]][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
         .about(Box::leak(Box::new(about)))
