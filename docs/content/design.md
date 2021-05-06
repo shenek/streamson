@@ -61,15 +61,6 @@ Its definition is very similar to [**path**](#path). But it contains a few addit
 ## Depth
 You can match based on the [**path**](#path) depth.
 
-## Combinator
-It is also possible to combine two matchers together or to negate the matcher.
-These matchers need to be wrapped by Combinator matcher.
-
-Combinator itself supports following operations:
-* negate (e.g. `~<matcher>`)
-* or (e.g. `<matcher1> || <matcher2>`)
-* and (e.g. `<matcher1> && <matcher2>`)
-
 ##### Examples 
 * `2` would match `{"a"}[1]`, `{"a"}[1]{"b"}`, but would not match `{"a"}`
 * `2-2` would match `{"a"}[1]`, but would not match `{"a"}[1]{"b"}` nor `{"a"}`
@@ -79,6 +70,15 @@ You can match [**path**](#path) base on regular expression as well.
 
 ##### Examples 
 * `^\{"[Uu][Ss][Ee][Rr][Ss]"\}$` would match `{"user"}`, `{"User"}`, `{"USER"}`, ...
+
+## Combinator
+It is also possible to combine two matchers together or to negate the matcher.
+These matchers need to be wrapped by Combinator matcher.
+
+Combinator itself supports following operations:
+* negate (e.g. `~<matcher>`)
+* or (e.g. `<matcher1> || <matcher2>`)
+* and (e.g. `<matcher1> && <matcher2>`)
 
 
 # Handlers
