@@ -1,6 +1,6 @@
 use clap::{Arg, ArgMatches};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -8,7 +8,7 @@ use std::{
 
 use streamson_lib::{error, handler};
 
-use crate::{docs, utils::split_argument};
+use crate::{docs, rules::handlers_for_strategy, utils::split_argument};
 
 pub fn handlers_arg(strategy_name: &str) -> Arg<'static> {
     let handler_names = handlers_for_strategy(strategy_name);
@@ -61,51 +61,6 @@ fn alias_to_handler_name(name_or_alias: &str) -> &str {
         "u" | "unstringify" => "unstringify",
         e => e,
     }
-}
-
-fn handlers_for_strategy(strategy_name: &str) -> HashSet<&str> {
-    let mut res = HashSet::new();
-    match strategy_name {
-        "all" => {
-            res.insert("analyser");
-            res.insert("indenter");
-        }
-        "extract" => {
-            res.insert("file");
-            // The rests makes sense only if extracted data are strings
-            res.insert("regex");
-            res.insert("shorten");
-            res.insert("unstringify");
-        }
-        "filter" => {
-            // Note that filter strategy should contain at least one
-            // file handler to create a sink for other handlers
-            res.insert("file");
-            // The rests makes sense only if extracted data are strings
-            res.insert("regex");
-            res.insert("shorten");
-            res.insert("unstringify");
-        }
-        "convert" => {
-            res.insert("file");
-            // The rests makes sense only if extracted data are strings
-            res.insert("regex");
-            res.insert("replace");
-            res.insert("shorten");
-            res.insert("unstringify");
-        }
-        "trigger" => {
-            // Note that filter strategy should contain at least one
-            // file handler to create a sink for other handlers
-            res.insert("file");
-            // The rests makes sense only if extracted data are strings
-            res.insert("regex");
-            res.insert("shorten");
-            res.insert("unstringify");
-        }
-        _ => unreachable!(),
-    }
-    res
 }
 
 pub fn make_handler(

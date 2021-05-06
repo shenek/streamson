@@ -13,6 +13,7 @@ categories = ["parsing", "command-line-utilities"]
 [features]
 default = []
 test = ["assert_cmd", "predicates"]
+manpage = ["man"]
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -24,7 +25,11 @@ lazy_static = "1.4"
 streamson-lib = { version = "7.0.1", path = "../streamson-lib/" }
 assert_cmd = { version = "~1.0.1", optional = true }
 predicates = { version = "~1.0.7", optional = true }
+man = { version = "~0.3.0", optional = true }
 
+[build-dependencies]
+man = { version = "~0.3.0", optional = true }
+lazy_static = { version ="1.4", optional = true }
 
 [[bin]]
 bench = false

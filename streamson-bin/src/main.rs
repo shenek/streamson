@@ -5,6 +5,7 @@ mod extract;
 mod filter;
 mod handlers;
 mod matchers;
+mod rules;
 mod trigger;
 mod utils;
 
