@@ -12,7 +12,6 @@ pub fn matchers_arg() -> Arg<'static> {
         .short('m')
         .group("matchers")
         .multiple(true)
-        //.value_name("NAME[.GROUP][:DEFINITION]")
         .takes_value(true)
         .number_of_values(1)
         .about(Box::leak(Box::new(about)))
