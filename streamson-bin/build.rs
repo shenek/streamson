@@ -8,7 +8,7 @@ include!("src/rules.rs");
 #[cfg(feature = "man")]
 fn root_page() -> man::Manual {
     Manual::new("sson")
-        .about("TODO")
+        .about("A memory efficient tool to process large JSONs data.")
         .flag(
             Flag::new()
                 .short("-h")
@@ -52,7 +52,7 @@ fn all_page() -> man::Manual {
     );
 
     Manual::new("sson-all")
-        .about("TODO")
+        .about(strategies::All.description())
         .flag(Flag::new().long("--help").help("Prints help information"))
         .flag(
             Flag::new()
@@ -83,7 +83,7 @@ fn convert_page() -> man::Manual {
     let matchers_section = make_man_section(&matchers::MAP, None, "matchers");
 
     Manual::new("sson-convert")
-        .about("TODO")
+        .about(strategies::Convert.description())
         .flag(Flag::new().long("--help").help("Prints help information"))
         .flag(
             Flag::new()
@@ -121,7 +121,7 @@ fn extract_page() -> man::Manual {
     let matchers_section = make_man_section(&matchers::MAP, None, "matchers");
 
     Manual::new("sson-extract")
-        .about("TODO")
+        .about(strategies::Extract.description())
         .flag(Flag::new().long("--help").help("Prints help information"))
         .flag(
             Flag::new()
@@ -177,7 +177,7 @@ fn filter_page() -> man::Manual {
     let matchers_section = make_man_section(&matchers::MAP, None, "matchers");
 
     Manual::new("sson-filter")
-        .about("TODO")
+        .about(strategies::Filter.description())
         .flag(Flag::new().long("--help").help("Prints help information"))
         .flag(
             Flag::new()
@@ -215,7 +215,7 @@ fn trigger_page() -> man::Manual {
     let matchers_section = make_man_section(&matchers::MAP, None, "matchers");
 
     Manual::new("sson-trigger")
-        .about("TODO")
+        .about(strategies::Trigger.description())
         .flag(Flag::new().long("--help").help("Prints help information"))
         .flag(
             Flag::new()

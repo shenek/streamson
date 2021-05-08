@@ -242,3 +242,61 @@ pub mod matchers {
         };
     }
 }
+
+pub mod strategies {
+    use super::Element;
+    use lazy_static::lazy_static;
+    use std::collections::HashMap;
+
+    create_doc_element!(
+        All,
+        "all",
+        &["all"],
+        None,
+        "Strategy which matches all elements (no need to set matchers)"
+    );
+
+    create_doc_element!(
+        Convert,
+        "convert",
+        &["convert"],
+        None,
+        "Converts parts of JSON"
+    );
+
+    create_doc_element!(
+        Extract,
+        "extract",
+        &["extract"],
+        None,
+        "Passes only matched parts of JSON"
+    );
+
+    create_doc_element!(
+        Filter,
+        "filter",
+        &["filter"],
+        None,
+        "Removes matched parts of JSON"
+    );
+
+    create_doc_element!(
+        Trigger,
+        "trigger",
+        &["trigger"],
+        None,
+        "Triggers command on matched input"
+    );
+
+    lazy_static! {
+        pub static ref MAP: HashMap<&'static str, &'static dyn Element> = {
+            let mut res: HashMap<&'static str, &'static dyn Element> = HashMap::new();
+            res.insert(All.as_ref(), &All as &dyn Element);
+            res.insert(Convert.as_ref(), &Convert as &dyn Element);
+            res.insert(Extract.as_ref(), &Extract as &dyn Element);
+            res.insert(Filter.as_ref(), &Filter as &dyn Element);
+            res.insert(Trigger.as_ref(), &Trigger as &dyn Element);
+            res
+        };
+    }
+}

@@ -7,11 +7,14 @@ use std::{
 use clap::{App, ArgMatches};
 use streamson_lib::strategy::{self, Output, Strategy};
 
-use crate::{handlers, matchers};
+use crate::{
+    docs::{strategies, Element},
+    handlers, matchers,
+};
 
 pub fn prepare_filter_subcommand() -> App<'static> {
     App::new("filter")
-        .about("Removes matched parts of JSON")
+        .about(strategies::Filter.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("filter"))
 }

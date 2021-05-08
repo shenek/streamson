@@ -7,11 +7,14 @@ use std::{
 use clap::{App, ArgMatches};
 use streamson_lib::strategy::{self, Strategy};
 
-use crate::{handlers, matchers};
+use crate::{
+    docs::{strategies, Element},
+    handlers, matchers,
+};
 
 pub fn prepare_trigger_subcommand() -> App<'static> {
     App::new("trigger")
-        .about("Triggers command on matched input")
+        .about(strategies::Trigger.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("trigger"))
 }

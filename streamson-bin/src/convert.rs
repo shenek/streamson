@@ -7,11 +7,14 @@ use std::{
 use clap::{App, ArgMatches};
 use streamson_lib::strategy::{self, Output, Strategy};
 
-use crate::{handlers, matchers};
+use crate::{
+    docs::{strategies, Element},
+    handlers, matchers,
+};
 
 pub fn prepare_convert_subcommand() -> App<'static> {
     App::new("convert")
-        .about("Converts parts of JSON")
+        .about(strategies::Convert.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("convert"))
 }

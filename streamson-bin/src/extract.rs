@@ -7,11 +7,14 @@ use std::{
 use clap::{App, Arg, ArgMatches};
 use streamson_lib::strategy::{self, Output, Strategy};
 
-use crate::{handlers, matchers};
+use crate::{
+    docs::{strategies, Element},
+    handlers, matchers,
+};
 
 pub fn prepare_extract_subcommand() -> App<'static> {
     App::new("extract")
-        .about("Passes only matched parts of JSON")
+        .about(strategies::Extract.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("extract"))
         .arg(

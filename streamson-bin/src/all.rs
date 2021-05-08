@@ -10,11 +10,14 @@ use streamson_lib::{
     strategy::{self, Output, Strategy},
 };
 
-use crate::handlers;
+use crate::{
+    docs::{strategies, Element},
+    handlers,
+};
 
 pub fn prepare_all_subcommand() -> App<'static> {
     App::new("all")
-        .about("Strategy which matches all elements (no need to set matchers)")
+        .about(strategies::All.description())
         .arg(handlers::handlers_arg("all"))
 }
 
