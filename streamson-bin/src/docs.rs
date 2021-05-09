@@ -74,21 +74,22 @@ pub fn make_about(
     map: &HashMap<&'static str, &'static dyn Element>,
     names: Option<&[&str]>,
 ) -> String {
-    if let Some(names) = names {
+    let element_names = if let Some(names) = names {
+        let mut names: Vec<&str> = names.to_vec();
+        names.sort_unstable();
         names
-            .iter()
-            .filter_map(|n| map.get(n))
-            .map(|e| e.make_doc() + "\n\n")
-            .collect::<Vec<String>>()
-            .join("")
-            + "\n"
     } else {
-        map.values()
-            .map(|e| e.make_doc() + "\n\n")
-            .collect::<Vec<String>>()
-            .join("")
-            + "\n"
-    }
+        let mut keys: Vec<&str> = map.keys().copied().collect();
+        keys.sort_unstable();
+        keys
+    };
+    element_names
+        .iter()
+        .filter_map(|n| map.get(n))
+        .map(|e| e.make_doc() + "\n\n")
+        .collect::<Vec<String>>()
+        .join("")
+        + "\n"
 }
 
 #[cfg(feature = "man")]
@@ -98,16 +99,22 @@ pub fn make_man_section(
     names: Option<&[&str]>,
     section_name: &str,
 ) -> man::Section {
-    let section = man::Section::new(section_name);
-    if let Some(names) = names {
+    let element_names = if let Some(names) = names {
+        let mut names: Vec<&str> = names.to_vec();
+        names.sort_unstable();
         names
-            .iter()
-            .filter_map(|n| map.get(n))
-            .fold(section, |section, e| e.extend_man_section(section))
     } else {
-        map.values()
-            .fold(section, |section, e| e.extend_man_section(section))
-    }
+        let mut keys: Vec<&str> = map.keys().copied().collect();
+        keys.sort_unstable();
+        keys
+    };
+
+    let section = man::Section::new(section_name);
+
+    element_names
+        .into_iter()
+        .filter_map(|n| map.get(n))
+        .fold(section, |section, e| e.extend_man_section(section))
 }
 
 pub mod handlers {
