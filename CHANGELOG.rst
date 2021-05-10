@@ -1,3 +1,14 @@
+7.1.0 (2020-10-05)
+-----------------
+
+* fix memory inefficiencies in streamson-bin
+* a new documentation site added (hosted on netlify)
+  https://streamson.henek.name
+* added a code coverage info (codecov.io)
+* `+` operator for Group handler
+* manpages for sson
+
+
 7.0.1 (2020-04-15)
 ------------------
 
