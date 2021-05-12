@@ -45,6 +45,19 @@ impl Token {
     }
 }
 
+impl AsRef<str> for ParsedKind {
+    fn as_ref(&self) -> &str {
+        match self {
+            ParsedKind::Obj => "object",
+            ParsedKind::Arr => "array",
+            ParsedKind::Str => "string",
+            ParsedKind::Num => "number",
+            ParsedKind::Bool => "boolean",
+            ParsedKind::Null => "null",
+        }
+    }
+}
+
 /// Key parsing states
 #[derive(Debug)]
 enum ObjectKeyState {

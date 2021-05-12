@@ -126,8 +126,9 @@ pub mod handlers {
         Analyser,
         "analyser",
         &["analyser", "a"],
-        Some("[.group]"),
-        "Reads entire JSON and prints structure analysis to stderr"
+        Some("[.group][:group_types]"),
+        "Reads entire JSON and prints structure analysis to stderr\n\
+    `group_types` - should distinguish between types as well"
     );
     create_doc_element!(
         File,

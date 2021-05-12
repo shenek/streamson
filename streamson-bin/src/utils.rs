@@ -25,23 +25,32 @@ where
     };
 
     let splitted2 = name_group_options
+        .splitn(2, ',')
+        .map(String::from)
+        .collect::<Vec<String>>();
+
+    let (name_group, options) = match splitted2.len() {
+        1 => (splitted2[0].clone(), vec![]),
+        2 => (
+            splitted2[0].clone(),
+            splitted2[1]
+                .split(',')
+                .map(String::from)
+                .collect::<Vec<String>>(),
+        ),
+        _ => unreachable!(),
+    };
+
+    let splitted3 = name_group
         .splitn(2, '.')
         .map(String::from)
         .collect::<Vec<String>>();
 
-    let (name, group_options) = match splitted2.len() {
-        1 => (splitted2[0].clone(), String::default()),
-        2 => (splitted2[0].clone(), splitted2[1].clone()),
+    let (name, group) = match splitted3.len() {
+        1 => (splitted3[0].clone(), String::default()),
+        2 => (splitted3[0].clone(), splitted3[1].clone()),
         _ => unreachable!(),
     };
-
-    let mut splitted3 = group_options
-        .split(',')
-        .map(String::from)
-        .collect::<Vec<String>>();
-
-    let group = splitted3.remove(0);
-    let options = splitted3.to_vec();
 
     (name, group, options, definition)
 }
