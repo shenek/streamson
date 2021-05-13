@@ -110,6 +110,26 @@ jobs:
             export PATH="${PATH}:~/.cargo/bin"
             streamson-bin-test sson
 
+  benchmark-compile:
+    name: Compile benchmarks (without run)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Compile benchmarks
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
+          args: --no-run
+
   code-coverage:
     name: Run code coverage
     runs-on: ubuntu-latest
