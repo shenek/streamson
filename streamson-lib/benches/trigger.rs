@@ -1,6 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::sync::{Arc, Mutex};
-use streamson_lib::{handler, matcher, strategy};
+use streamson_lib::{
+    handler, matcher,
+    strategy::{self, Strategy},
+};
 
 const INPUT_BUFFER_SIZE: usize = 1024;
 const ITEM_COUNT: usize = 10_000;
@@ -60,8 +63,8 @@ pub fn simple(c: &mut Criterion) {
     let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#).unwrap();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
-    trigger.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher.clone()), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher.clone()), handler.clone());
 
     let mut group = get_benchmark_group(c);
     run_group(
@@ -77,8 +80,8 @@ pub fn simple(c: &mut Criterion) {
     let second_matcher = matcher::Simple::new(r#"{"logs"}[]"#).unwrap();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
 
-    trigger.add_matcher(Box::new(first_matcher), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher), handler.clone());
     run_group(
         &mut group,
         "Simple-Buffer(with path)",
@@ -91,8 +94,8 @@ pub fn simple(c: &mut Criterion) {
     let first_matcher = matcher::Simple::new(r#"{"not-found"}[]"#).unwrap();
     let second_matcher = matcher::Simple::new(r#"{"found-not"}[]"#).unwrap();
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
-    trigger.add_matcher(Box::new(first_matcher), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher), handler.clone());
     run_group(&mut group, "Simple-NoMatch", trigger, handler, 0);
 
     group.finish();
@@ -105,8 +108,8 @@ pub fn depth(c: &mut Criterion) {
     let second_matcher = matcher::Depth::new(1, Some(1));
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
-    trigger.add_matcher(Box::new(first_matcher.clone()), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher.clone()), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher.clone()), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher.clone()), handler.clone());
 
     let mut group = get_benchmark_group(c);
     run_group(
@@ -119,8 +122,8 @@ pub fn depth(c: &mut Criterion) {
 
     let mut trigger = strategy::Trigger::new();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-    trigger.add_matcher(Box::new(first_matcher), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher), handler.clone());
     run_group(
         &mut group,
         "Depth-Buffer(with path)",
@@ -133,8 +136,8 @@ pub fn depth(c: &mut Criterion) {
     let first_matcher = matcher::Depth::new(50, None);
     let second_matcher = matcher::Depth::new(40, Some(60));
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
-    trigger.add_matcher(Box::new(first_matcher), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_matcher), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_matcher), handler.clone());
+    trigger.add_matcher(Box::new(second_matcher), handler.clone());
     run_group(&mut group, "Depth-NoMatch", trigger, handler, 0);
 
     group.finish();
@@ -149,8 +152,8 @@ pub fn combinator(c: &mut Criterion) {
     let second_combo = first_matcher & !second_matcher;
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(false)));
 
-    trigger.add_matcher(Box::new(first_combo.clone()), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_combo.clone()), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_combo.clone()), handler.clone());
+    trigger.add_matcher(Box::new(second_combo.clone()), handler.clone());
 
     let mut group = get_benchmark_group(c);
     run_group(
@@ -163,8 +166,8 @@ pub fn combinator(c: &mut Criterion) {
 
     let mut trigger = strategy::Trigger::new();
     let handler = Arc::new(Mutex::new(handler::Buffer::new().set_use_path(true)));
-    trigger.add_matcher(Box::new(first_combo), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_combo), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_combo), handler.clone());
+    trigger.add_matcher(Box::new(second_combo), handler.clone());
     run_group(
         &mut group,
         "Combinator-Buffer(with path)",
@@ -179,8 +182,8 @@ pub fn combinator(c: &mut Criterion) {
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
     let handler = Arc::new(Mutex::new(handler::Buffer::new()));
-    trigger.add_matcher(Box::new(first_combo), &[handler.clone()]);
-    trigger.add_matcher(Box::new(second_combo), &[handler.clone()]);
+    trigger.add_matcher(Box::new(first_combo), handler.clone());
+    trigger.add_matcher(Box::new(second_combo), handler.clone());
     run_group(&mut group, "Combinator-NoMatch", trigger, handler, 0);
 
     group.finish();

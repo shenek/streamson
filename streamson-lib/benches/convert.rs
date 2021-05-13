@@ -1,6 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::sync::{Arc, Mutex};
-use streamson_lib::{handler, matcher, strategy};
+use streamson_lib::{
+    handler, matcher,
+    strategy::{self, Strategy},
+};
 
 const ITEM_COUNT: usize = 100;
 const INPUT_BUFFER_SIZE: usize = 1024;
@@ -55,11 +58,8 @@ pub fn combinator(c: &mut Criterion) {
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
 
-    convert.add_matcher(Box::new(first_combo.clone()), vec![replace_handler.clone()]);
-    convert.add_matcher(
-        Box::new(second_combo.clone()),
-        vec![replace_handler.clone()],
-    );
+    convert.add_matcher(Box::new(first_combo.clone()), replace_handler.clone());
+    convert.add_matcher(Box::new(second_combo.clone()), replace_handler.clone());
 
     let mut group = get_benchmark_group(c);
     run_group(&mut group, "Combinator", convert);
@@ -69,8 +69,8 @@ pub fn combinator(c: &mut Criterion) {
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"none"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
-    convert.add_matcher(Box::new(first_combo), vec![replace_handler.clone()]);
-    convert.add_matcher(Box::new(second_combo), vec![replace_handler.clone()]);
+    convert.add_matcher(Box::new(first_combo), replace_handler.clone());
+    convert.add_matcher(Box::new(second_combo), replace_handler.clone());
     run_group(&mut group, "Combinator-NoMatch", convert);
 
     group.finish();

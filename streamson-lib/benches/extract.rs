@@ -1,5 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use streamson_lib::{matcher, strategy};
+use streamson_lib::{
+    matcher,
+    strategy::{self, Strategy},
+};
 
 const ITEM_COUNT: usize = 10000;
 const INPUT_BUFFER_SIZE: usize = 1024;
@@ -51,8 +54,8 @@ pub fn combinator(c: &mut Criterion) {
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
 
-    extract.add_matcher(Box::new(first_combo.clone()));
-    extract.add_matcher(Box::new(second_combo.clone()));
+    extract.add_matcher(Box::new(first_combo.clone()), None);
+    extract.add_matcher(Box::new(second_combo.clone()), None);
 
     let mut group = get_benchmark_group(c);
     run_group(&mut group, "Combinator", extract);
@@ -62,8 +65,8 @@ pub fn combinator(c: &mut Criterion) {
     let second_matcher = matcher::Combinator::new(matcher::Simple::new(r#"{"none"}[]"#).unwrap());
     let first_combo = first_matcher.clone() | second_matcher.clone();
     let second_combo = first_matcher & !second_matcher;
-    extract.add_matcher(Box::new(first_combo));
-    extract.add_matcher(Box::new(second_combo));
+    extract.add_matcher(Box::new(first_combo), None);
+    extract.add_matcher(Box::new(second_combo), None);
     run_group(&mut group, "Combinator-NoMatch", extract);
 
     group.finish();
