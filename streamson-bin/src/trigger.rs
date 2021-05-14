@@ -13,7 +13,8 @@ use crate::{
 };
 
 pub fn prepare_trigger_subcommand() -> App<'static> {
-    App::new("trigger")
+    App::new(strategies::Trigger.as_ref())
+        .visible_aliases(&strategies::Trigger.aliases())
         .about(strategies::Trigger.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("trigger"))

@@ -16,7 +16,8 @@ use crate::{
 };
 
 pub fn prepare_all_subcommand() -> App<'static> {
-    App::new("all")
+    App::new(strategies::All.as_ref())
+        .visible_aliases(&strategies::All.aliases())
         .about(strategies::All.description())
         .arg(handlers::handlers_arg("all"))
 }

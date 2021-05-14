@@ -2,6 +2,13 @@ use std::collections::HashMap;
 
 pub trait Element: AsRef<str> + Sync {
     fn names(&self) -> &[&str];
+    fn aliases(&self) -> Vec<&str> {
+        self.names()
+            .iter()
+            .cloned()
+            .filter(|e| *e != self.as_ref())
+            .collect()
+    }
     fn description(&self) -> &str;
     fn metavar(&self) -> Option<&str>;
     fn idented_description(&self) -> String {
@@ -259,7 +266,7 @@ pub mod strategies {
     create_doc_element!(
         All,
         "all",
-        &["all"],
+        &["all", "a"],
         None,
         "Strategy which matches all elements (no need to set matchers)"
     );
@@ -267,7 +274,7 @@ pub mod strategies {
     create_doc_element!(
         Convert,
         "convert",
-        &["convert"],
+        &["convert", "c"],
         None,
         "Converts parts of JSON"
     );
@@ -275,7 +282,7 @@ pub mod strategies {
     create_doc_element!(
         Extract,
         "extract",
-        &["extract"],
+        &["extract", "e"],
         None,
         "Passes only matched parts of JSON"
     );
@@ -283,7 +290,7 @@ pub mod strategies {
     create_doc_element!(
         Filter,
         "filter",
-        &["filter"],
+        &["filter", "f"],
         None,
         "Removes matched parts of JSON"
     );
@@ -291,7 +298,7 @@ pub mod strategies {
     create_doc_element!(
         Trigger,
         "trigger",
-        &["trigger"],
+        &["trigger", "t"],
         None,
         "Triggers command on matched input"
     );

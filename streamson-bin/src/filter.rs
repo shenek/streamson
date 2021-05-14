@@ -13,7 +13,8 @@ use crate::{
 };
 
 pub fn prepare_filter_subcommand() -> App<'static> {
-    App::new("filter")
+    App::new(strategies::Filter.as_ref())
+        .visible_aliases(&strategies::Filter.aliases())
         .about(strategies::Filter.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("filter"))

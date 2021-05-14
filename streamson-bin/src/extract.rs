@@ -13,7 +13,8 @@ use crate::{
 };
 
 pub fn prepare_extract_subcommand() -> App<'static> {
-    App::new("extract")
+    App::new(strategies::Extract.as_ref())
+        .visible_aliases(&strategies::Extract.aliases())
         .about(strategies::Extract.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("extract"))

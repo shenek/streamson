@@ -13,7 +13,8 @@ use crate::{
 };
 
 pub fn prepare_convert_subcommand() -> App<'static> {
-    App::new("convert")
+    App::new(strategies::Convert.as_ref())
+        .visible_aliases(&strategies::Convert.aliases())
         .about(strategies::Convert.description())
         .arg(matchers::matchers_arg())
         .arg(handlers::handlers_arg("convert"))
