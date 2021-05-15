@@ -3,6 +3,7 @@
 
 pub mod analyser;
 pub mod buffer;
+pub mod csv;
 pub mod group;
 pub mod indenter;
 pub mod indexer;
