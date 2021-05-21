@@ -27,33 +27,30 @@
 //! }
 //! ```
 
-use super::Handler;
+use super::{Handler, HandlerOutput};
 use crate::{error, path::Path, streamer::Token};
 use std::{any::Any, collections::VecDeque, str::FromStr};
 
 /// Buffer handler responsible for storing slitted JSONs into memory
-#[derive(Debug)]
 pub struct Buffer {
     /// For storing unterminated data
     buffer: Vec<u8>,
-
     /// Buffer idx to total index
     buffer_idx: usize,
-
     /// Indexes for the Path and size
     buffer_parts: Vec<usize>,
-
     /// Queue with stored jsons in (path, data) format
     results: VecDeque<(Option<String>, Vec<u8>)>,
-
     /// Not to show path will spare some allocation
     use_path: bool,
-
     /// Current buffer size (in bytes)
     current_buffer_size: usize,
-
     /// Max buffer size
     max_buffer_size: Option<usize>,
+    /// Callback which is triggered when input stream finishes
+    input_finished_callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    /// Callback which is triggered entire JSON is processed from input
+    json_finished_callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
 }
 
 impl Default for Buffer {
@@ -66,6 +63,8 @@ impl Default for Buffer {
             buffer_idx: 0,
             buffer_parts: vec![],
             results: VecDeque::new(),
+            input_finished_callback: None,
+            json_finished_callback: None,
         }
     }
 }
@@ -159,34 +158,36 @@ trait Buff: Handler {
 }
 
 impl Handler for Buffer {
-    fn start(
-        &mut self,
-        _path: &Path,
-        _matcher_idx: usize,
-        token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn start(&mut self, _path: &Path, _matcher_idx: usize, token: Token) -> HandlerOutput {
         self._start(_path, _matcher_idx, token)
     }
 
-    fn feed(
-        &mut self,
-        data: &[u8],
-        _matcher_idx: usize,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn feed(&mut self, data: &[u8], _matcher_idx: usize) -> HandlerOutput {
         self._feed(data, _matcher_idx)
     }
 
-    fn end(
-        &mut self,
-        _path: &Path,
-        _matcher_idx: usize,
-        token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn end(&mut self, _path: &Path, _matcher_idx: usize, token: Token) -> HandlerOutput {
         self._end(_path, _matcher_idx, token)
     }
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn input_finished(&mut self) -> HandlerOutput {
+        if let Some(mut callback) = self.input_finished_callback.take() {
+            callback(self);
+            self.input_finished_callback = Some(callback);
+        }
+        Ok(None)
+    }
+
+    fn json_finished(&mut self) -> HandlerOutput {
+        if let Some(mut callback) = self.json_finished_callback.take() {
+            callback(self);
+            self.json_finished_callback = Some(callback);
+        }
+        Ok(None)
     }
 }
 
@@ -286,6 +287,32 @@ impl Buffer {
         self.max_buffer_size = max_size;
         self
     }
+
+    /// Adds a callback handler which is triggered entire input is processed
+    pub fn set_input_finished_callback(
+        &mut self,
+        callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    ) {
+        self.input_finished_callback = callback;
+    }
+
+    /// Adds a callback handler which is triggered entire JSON is read from input
+    pub fn set_json_finished_callback(
+        &mut self,
+        callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    ) {
+        self.json_finished_callback = callback;
+    }
+
+    /// returns how much items are currently present in the buffer
+    pub fn len(&self) -> usize {
+        self.results.len()
+    }
+
+    /// returns whether buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.results.is_empty()
+    }
 }
 
 #[cfg(test)]
@@ -293,7 +320,7 @@ mod tests {
     use super::Buffer;
     use crate::{
         matcher::{Combinator, Simple},
-        strategy::{Strategy, Trigger},
+        strategy::{Convert, Extract, Filter, Strategy, Trigger},
     };
     use std::sync::{Arc, Mutex};
 
@@ -357,5 +384,203 @@ mod tests {
             r#"["1", "2", "3"]"#
         );
         assert_eq!(guard.pop(), None);
+    }
+
+    #[test]
+    fn callbacks_convert() {
+        let mut convert = Convert::new();
+        let mut buffer_handler = Buffer::new();
+
+        let json_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = json_callbacks_data.clone();
+        buffer_handler.set_json_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let terminate_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = terminate_callbacks_data.clone();
+        buffer_handler.set_input_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let matcher = Combinator::new(Simple::new(r#"{"nested"}"#).unwrap())
+            | Combinator::new(Simple::new(r#"{"nested"}[1]"#).unwrap());
+
+        convert.add_matcher(Box::new(matcher), Arc::new(Mutex::new(buffer_handler)));
+
+        assert!(convert.process(br#"{"nested": ["1", "2", "3"]}"#).is_ok());
+        assert!(convert.process(br#"{"nested": ["4", "5", "6"]}"#).is_ok());
+        assert!(convert.process(br#"{"nested": ["1"]}"#).is_ok());
+        assert!(convert.terminate().is_ok());
+
+        let json_data: Vec<usize> = json_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(json_data.len(), 3);
+        assert_eq!(json_data[0], 1);
+        assert_eq!(json_data[1], 2);
+        assert_eq!(json_data[2], 3);
+
+        let terminate_data: Vec<usize> = terminate_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(terminate_data.len(), 1);
+        assert_eq!(terminate_data[0], 3);
+    }
+
+    #[test]
+    fn callbacks_extract() {
+        let mut extract = Extract::new();
+        let mut buffer_handler = Buffer::new();
+
+        let json_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = json_callbacks_data.clone();
+        buffer_handler.set_json_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let terminate_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = terminate_callbacks_data.clone();
+        buffer_handler.set_input_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let matcher = Combinator::new(Simple::new(r#"{"nested"}"#).unwrap())
+            | Combinator::new(Simple::new(r#"{"nested"}[1]"#).unwrap());
+
+        extract.add_matcher(
+            Box::new(matcher),
+            Some(Arc::new(Mutex::new(buffer_handler))),
+        );
+
+        assert!(extract.process(br#"{"nested": ["1", "2", "3"]}"#).is_ok());
+        assert!(extract.process(br#"{"nested": ["4", "5", "6"]}"#).is_ok());
+        assert!(extract.process(br#"{"nested": ["1"]}"#).is_ok());
+        assert!(extract.terminate().is_ok());
+
+        let json_data: Vec<usize> = json_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(json_data.len(), 3);
+        assert_eq!(json_data[0], 1);
+        assert_eq!(json_data[1], 2);
+        assert_eq!(json_data[2], 3);
+
+        let terminate_data: Vec<usize> = terminate_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(terminate_data.len(), 1);
+        assert_eq!(terminate_data[0], 3);
+    }
+
+    #[test]
+    fn callbacks_filter() {
+        let mut filter = Filter::new();
+        let mut buffer_handler = Buffer::new();
+
+        let json_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = json_callbacks_data.clone();
+        buffer_handler.set_json_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let terminate_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = terminate_callbacks_data.clone();
+        buffer_handler.set_input_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let matcher = Combinator::new(Simple::new(r#"{"nested"}"#).unwrap())
+            | Combinator::new(Simple::new(r#"{"nested"}[1]"#).unwrap());
+
+        filter.add_matcher(
+            Box::new(matcher),
+            Some(Arc::new(Mutex::new(buffer_handler))),
+        );
+
+        assert!(filter.process(br#"{"nested": ["1", "2", "3"]}"#).is_ok());
+        assert!(filter.process(br#"{"nested": ["4", "5", "6"]}"#).is_ok());
+        assert!(filter.process(br#"{"nested": ["1"]}"#).is_ok());
+        assert!(filter.terminate().is_ok());
+
+        let json_data: Vec<usize> = json_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(json_data.len(), 3);
+        assert_eq!(json_data[0], 1);
+        assert_eq!(json_data[1], 2);
+        assert_eq!(json_data[2], 3);
+
+        let terminate_data: Vec<usize> = terminate_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(terminate_data.len(), 1);
+        assert_eq!(terminate_data[0], 3);
+    }
+
+    #[test]
+    fn callbacks_trigger() {
+        let mut trigger = Trigger::new();
+        let mut buffer_handler = Buffer::new();
+
+        let json_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = json_callbacks_data.clone();
+        buffer_handler.set_json_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let terminate_callbacks_data = Arc::new(Mutex::new(vec![]));
+        let cloned = terminate_callbacks_data.clone();
+        buffer_handler.set_input_finished_callback(Some(Box::new(move |h: &mut Buffer| {
+            cloned.lock().unwrap().push(h.len());
+        })));
+
+        let matcher = Combinator::new(Simple::new(r#"{"nested"}"#).unwrap())
+            | Combinator::new(Simple::new(r#"{"nested"}[1]"#).unwrap());
+
+        trigger.add_matcher(Box::new(matcher), Arc::new(Mutex::new(buffer_handler)));
+
+        assert!(trigger.process(br#"{"nested": ["1", "2", "3"]}"#).is_ok());
+        assert!(trigger.process(br#"{"nested": ["4", "5", "6"]}"#).is_ok());
+        assert!(trigger.process(br#"{"nested": ["1"]}"#).is_ok());
+        assert!(trigger.terminate().is_ok());
+
+        let json_data: Vec<usize> = json_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(json_data.len(), 3);
+        assert_eq!(json_data[0], 2);
+        assert_eq!(json_data[1], 4);
+        assert_eq!(json_data[2], 5);
+
+        let terminate_data: Vec<usize> = terminate_callbacks_data
+            .lock()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(terminate_data.len(), 1);
+        assert_eq!(terminate_data[0], 5);
     }
 }

@@ -2,19 +2,33 @@
 
 use std::{any::Any, collections::HashMap, str::FromStr};
 
-use super::Handler;
+use super::{Handler, HandlerOutput};
 use crate::{
     error,
     path::{Element, Path},
     streamer::{ParsedKind, Token},
 };
 
-#[derive(Debug, Default)]
 pub struct Analyser {
     /// Stored paths with counts
     paths: HashMap<String, usize>,
     /// Group by types as well
     group_types: bool,
+    /// Callback which is triggered when input stream finishes
+    input_finished_callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    /// Callback which is triggered entire JSON is processed from input
+    json_finished_callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+}
+
+impl Default for Analyser {
+    fn default() -> Self {
+        Self {
+            paths: HashMap::default(),
+            group_types: false,
+            input_finished_callback: None,
+            json_finished_callback: None,
+        }
+    }
 }
 
 /// Converts Path to string reducing arrays to "[]"
@@ -58,6 +72,22 @@ impl Handler for Analyser {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn input_finished(&mut self) -> HandlerOutput {
+        if let Some(mut callback) = self.input_finished_callback.take() {
+            callback(self);
+            self.input_finished_callback = Some(callback);
+        }
+        Ok(None)
+    }
+
+    fn json_finished(&mut self) -> HandlerOutput {
+        if let Some(mut callback) = self.json_finished_callback.take() {
+            callback(self);
+            self.json_finished_callback = Some(callback);
+        }
+        Ok(None)
+    }
 }
 
 impl FromStr for Analyser {
@@ -98,6 +128,22 @@ impl Analyser {
             .collect();
         res.sort_by(|(a_path, _), (b_path, _)| a_path.cmp(b_path));
         res
+    }
+
+    /// Adds a callback handler which is triggered entire input is processed
+    pub fn set_input_finished_callback(
+        &mut self,
+        callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    ) {
+        self.input_finished_callback = callback;
+    }
+
+    /// Adds a callback handler which is triggered entire JSON is read from input
+    pub fn set_json_finished_callback(
+        &mut self,
+        callback: Option<Box<dyn FnMut(&mut Self) + Send>>,
+    ) {
+        self.json_finished_callback = callback;
     }
 }
 
@@ -181,5 +227,47 @@ mod tests {
             results[14],
             (r#"{"last"}[]{"extra"}<boolean>"#.to_string(), 1)
         );
+    }
+
+    #[test]
+    fn callbacks() {
+        let mut all = All::new();
+
+        let first_and_last = Arc::new(Mutex::new(Box::new(vec![])));
+        let cloned = first_and_last.clone();
+        let mut handler = Analyser::new();
+        handler.set_input_finished_callback(Some(Box::new(move |h: &mut Analyser| {
+            let results = h.results();
+            cloned.lock().unwrap().push(results[0].clone());
+            cloned
+                .lock()
+                .unwrap()
+                .push(results[results.len() - 1].clone());
+        })));
+
+        let lengths = Arc::new(Mutex::new(Box::new(vec![])));
+        let cloned = lengths.clone();
+        handler.set_json_finished_callback(Some(Box::new(move |h: &mut Analyser| {
+            cloned.lock().unwrap().push(h.results().len());
+        })));
+
+        let handler = Arc::new(Mutex::new(handler));
+        all.add_handler(handler.clone());
+        all.process(br#"{"elements": [1, 2, 3, [41, 42, {"sub1": {"subsub": 1}, "sub2": null}]], "after": true, "last": [{"aaa": 1, "cc": "dd"}, {"aaa": 2, "extra": false}]}"#).unwrap();
+        all.process(br#"{"elements": [1, 2, 3, [41, 42, {"sub1": {"subsub": 1}, "sub2": null}]], "after": true, "last": [{"aaa": 1, "cc": "dd"}, {"aaa": 2, "extra": false}]}"#).unwrap();
+        all.terminate().unwrap();
+
+        // Test finished nahdler analyser handler
+        let guard = first_and_last.lock().unwrap();
+        let results: Vec<_> = guard.iter().collect();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0], &(r#""#.to_string(), 2));
+        assert_eq!(results[1], &(r#"{"last"}[]{"extra"}"#.to_string(), 2));
+
+        let guard = lengths.lock().unwrap();
+        let lengths: Vec<_> = guard.iter().copied().collect();
+        assert_eq!(lengths.len(), 2);
+        assert_eq!(lengths[0], 13);
+        assert_eq!(lengths[1], 13);
     }
 }

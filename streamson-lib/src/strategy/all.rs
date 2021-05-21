@@ -72,7 +72,12 @@ impl Strategy for All {
                     }
                     inner_idx = to;
                     self.level -= 1;
+                    std::mem::drop(guard); // clear the guard so self can be reborrowed
                     if self.level == 0 {
+                        let json_finished_data = self.json_finished()?;
+                        if !json_finished_data.is_empty() {
+                            result.extend(json_finished_data);
+                        }
                         result.push(Output::End);
                     }
                 }
@@ -93,9 +98,23 @@ impl Strategy for All {
 
     fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
         if self.level == 0 {
-            Ok(vec![])
+            let output = self.handlers.lock().unwrap().input_finished()?;
+            if let Some(data) = output {
+                Ok(vec![Output::Data(data)])
+            } else {
+                Ok(vec![])
+            }
         } else {
             Err(error::InputTerminated::new(self.input_start).into())
+        }
+    }
+
+    fn json_finished(&mut self) -> Result<Vec<Output>, error::General> {
+        let output = self.handlers.lock().unwrap().json_finished()?;
+        if let Some(data) = output {
+            Ok(vec![Output::Data(data)])
+        } else {
+            Ok(vec![])
         }
     }
 }

@@ -29,6 +29,9 @@ pub use self::replace::Replace;
 pub use self::shorten::Shorten;
 pub use self::unstringify::Unstringify;
 
+/// Shortcut to handler's output
+type HandlerOutput = Result<Option<Vec<u8>>, error::Handler>;
+
 /// Common handler trait
 pub trait Handler: Send {
     /// Is called when a path is matched
@@ -42,12 +45,7 @@ pub trait Handler: Send {
     /// * `Ok(None)` - All went well, no output
     /// * `Ok(Some(data))` - All went, handler has some output
     /// * `Err(_)` - Failed to execute handler
-    fn start(
-        &mut self,
-        _path: &Path,
-        _matcher_idx: usize,
-        _token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn start(&mut self, _path: &Path, _matcher_idx: usize, _token: Token) -> HandlerOutput {
         Ok(None)
     }
 
@@ -61,11 +59,7 @@ pub trait Handler: Send {
     /// * `Ok(None)` - All went well, no output
     /// * `Ok(Some(data))` - All went, handler has some output
     /// * `Err(_)` - Failed to execute handler
-    fn feed(
-        &mut self,
-        _data: &[u8],
-        _matcher_idx: usize,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn feed(&mut self, _data: &[u8], _matcher_idx: usize) -> HandlerOutput {
         Ok(None)
     }
 
@@ -80,12 +74,7 @@ pub trait Handler: Send {
     /// * `Ok(None)` - All went well, no data conversion needed
     /// * `Ok(Some(data))` - All went well, data converted
     /// * `Err(_)` - Failed to execute handler
-    fn end(
-        &mut self,
-        _path: &Path,
-        _matcher_idx: usize,
-        _token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn end(&mut self, _path: &Path, _matcher_idx: usize, _token: Token) -> HandlerOutput {
         Ok(None)
     }
 
@@ -96,4 +85,16 @@ pub trait Handler: Send {
 
     /// Function to allow downcasting
     fn as_any(&self) -> &dyn Any;
+
+    /// Function which is supposed to be called when entire JSON is read
+    ///
+    /// Note that more than one JSON may be present in the input
+    fn json_finished(&mut self) -> HandlerOutput {
+        Ok(None)
+    }
+
+    /// Function which is supposed to be called when there are no data on input
+    fn input_finished(&mut self) -> HandlerOutput {
+        Ok(None)
+    }
 }

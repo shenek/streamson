@@ -32,7 +32,7 @@ use std::{
 
 use crate::{error, path::Path, streamer::Token};
 
-use super::Handler;
+use super::{Handler, HandlerOutput};
 
 /// A structure which groups handlers and determines a way how handlers are triggered
 #[derive(Default, Clone)]
@@ -165,6 +165,52 @@ impl Handler for Group {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn json_finished(&mut self) -> HandlerOutput {
+        let mut input: Option<Vec<u8>> = None;
+        for handler in self.handlers.iter() {
+            // If there are some input data feed the handler
+            if let Some(input_data) = input.take() {
+                let mut guard = handler.lock().unwrap();
+                input = guard.feed(&input_data, 0)?;
+            }
+
+            // Trigger input finished
+            let finished_data = handler.lock().unwrap().json_finished()?;
+            if let Some(new_data) = finished_data {
+                if let Some(mut prev_input) = input.take() {
+                    prev_input.extend(new_data);
+                    input = Some(prev_input);
+                } else {
+                    input = Some(new_data);
+                }
+            }
+        }
+        Ok(input)
+    }
+
+    fn input_finished(&mut self) -> HandlerOutput {
+        let mut input: Option<Vec<u8>> = None;
+        for handler in self.handlers.iter() {
+            // If there are some input data feed the handler
+            if let Some(input_data) = input.take() {
+                let mut guard = handler.lock().unwrap();
+                input = guard.feed(&input_data, 0)?;
+            }
+
+            // Trigger input finished
+            let finished_data = handler.lock().unwrap().input_finished()?;
+            if let Some(new_data) = finished_data {
+                if let Some(mut prev_input) = input.take() {
+                    prev_input.extend(new_data);
+                    input = Some(prev_input);
+                } else {
+                    input = Some(new_data);
+                }
+            }
+        }
+        Ok(input)
     }
 }
 

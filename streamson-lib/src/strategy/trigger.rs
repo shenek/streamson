@@ -97,6 +97,9 @@ impl Strategy for Trigger {
                         let mut guard = self.matchers[item.match_idx].1.lock().unwrap();
                         guard.end(current_path, item.match_idx, Token::End(idx, kind))?;
                     }
+                    if self.level == 0 {
+                        self.json_finished()?;
+                    }
                 }
                 Token::Pending => {
                     self.input_start += input.len();
@@ -110,10 +113,28 @@ impl Strategy for Trigger {
 
     fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
         if self.level == 0 {
-            Ok(vec![])
+            let mut res = vec![];
+            for (_, handler) in &self.matchers {
+                let output = handler.lock().unwrap().input_finished()?;
+                if let Some(data) = output {
+                    res.push(Output::Data(data));
+                }
+            }
+            Ok(res)
         } else {
             Err(error::InputTerminated::new(self.input_start).into())
         }
+    }
+
+    fn json_finished(&mut self) -> Result<Vec<Output>, error::General> {
+        let mut res = vec![];
+        for (_, handler) in &self.matchers {
+            let output = handler.lock().unwrap().json_finished()?;
+            if let Some(data) = output {
+                res.push(Output::Data(data));
+            }
+        }
+        Ok(res)
     }
 }
 

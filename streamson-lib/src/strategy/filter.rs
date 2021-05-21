@@ -129,6 +129,10 @@ impl Strategy for Filter {
                         result.push(Output::Data(self.move_forward(idx).drain(..).collect()));
                     }
                     if self.level == 0 {
+                        let json_finished_data = self.json_finished()?;
+                        if !json_finished_data.is_empty() {
+                            result.extend(json_finished_data);
+                        }
                         result.push(Output::End);
                     }
                 }
@@ -150,10 +154,32 @@ impl Strategy for Filter {
 
     fn terminate(&mut self) -> Result<Vec<Output>, error::General> {
         if self.level == 0 {
-            Ok(vec![])
+            let mut res = vec![];
+            for (_, handler) in &self.matchers {
+                if let Some(handler) = handler {
+                    let output = handler.lock().unwrap().input_finished()?;
+                    if let Some(data) = output {
+                        res.push(Output::Data(data));
+                    }
+                }
+            }
+            Ok(res)
         } else {
             Err(error::InputTerminated::new(self.input_start).into())
         }
+    }
+
+    fn json_finished(&mut self) -> Result<Vec<Output>, error::General> {
+        let mut res = vec![];
+        for (_, handler) in &self.matchers {
+            if let Some(handler) = handler {
+                let output = handler.lock().unwrap().json_finished()?;
+                if let Some(data) = output {
+                    res.push(Output::Data(data));
+                }
+            }
+        }
+        Ok(res)
     }
 }
 

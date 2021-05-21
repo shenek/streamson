@@ -79,12 +79,14 @@ pub trait Strategy {
     /// # Returns
     /// * `Ok(_) processing passed
     /// * `Err(_)` - error occured during processing
-    ///
-    /// # Errors
-    ///
-    /// Should return an error if strategy is in unterminated state
-    /// (still expects data in input)
     fn terminate(&mut self) -> Result<Vec<Output>, error::General>;
+
+    /// Should be called when a json on input is entirely read
+    ///
+    /// # Returns
+    /// * `Ok(_) processing passed
+    /// * `Err(_)` - error occured during processing
+    fn json_finished(&mut self) -> Result<Vec<Output>, error::General>;
 }
 
 #[cfg(test)]

@@ -88,7 +88,18 @@ pub fn make_handler(
             if !options.is_empty() {
                 return Err(wrong_number_of_options_error);
             }
-            Arc::new(Mutex::new(handler::Analyser::from_str(handler_string)?))
+            let mut analyser = handler::Analyser::from_str(handler_string)?;
+            analyser.set_input_finished_callback(Some(Box::new(|analyser| {
+                eprintln!("JSON structure:");
+                for (path, count) in analyser.results() {
+                    eprintln!(
+                        "  {}: {}",
+                        if path.is_empty() { "<root>" } else { &path },
+                        count
+                    );
+                }
+            })));
+            Arc::new(Mutex::new(analyser))
         }
         "file" => {
             if options.len() > 1 {
