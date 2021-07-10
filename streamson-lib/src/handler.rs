@@ -20,6 +20,7 @@ use crate::{error, path::Path, streamer::Token};
 
 pub use self::analyser::Analyser;
 pub use self::buffer::Buffer;
+pub use self::csv::Csv;
 pub use self::group::Group;
 pub use self::indenter::Indenter;
 pub use self::indexer::Indexer;

@@ -1,7 +1,7 @@
 use clap::{Arg, ArgMatches};
 use std::{
     collections::HashMap,
-    fs,
+    fs, io,
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -34,16 +34,18 @@ pub fn parse_handlers(
 
     if let Some(handlers) = matches.values_of("handler") {
         for handler_str in handlers {
-            let (name, group, options, definition) = split_argument(handler_str);
+            let (name, groups, options, definition) = split_argument(handler_str);
 
             let new_handler = make_handler(&name, &definition, &options, strategy_name)?;
 
-            let group_handler = if let Some(hndl) = res.remove(&group) {
-                hndl + new_handler
-            } else {
-                new_handler
-            };
-            res.insert(group, group_handler);
+            for group in groups {
+                let group_handler = if let Some(hndl) = res.remove(&group) {
+                    hndl + new_handler.clone()
+                } else {
+                    new_handler.clone()
+                };
+                res.insert(group, group_handler);
+            }
         }
     }
 
@@ -53,6 +55,7 @@ pub fn parse_handlers(
 fn alias_to_handler_name(name_or_alias: &str) -> &str {
     match name_or_alias {
         "a" | "analyser" => "analyser",
+        "c" | "csv" => "csv",
         "f" | "file" => "file",
         "d" | "indenter" => "indenter",
         "x" | "regex" => "regex",
@@ -100,6 +103,10 @@ pub fn make_handler(
                 }
             })));
             Arc::new(Mutex::new(analyser))
+        }
+        "csv" => {
+            let csv = handler::Csv::<io::Stdout>::from_str(handler_string)?;
+            Arc::new(Mutex::new(csv))
         }
         "file" => {
             if options.len() > 1 {

@@ -8,7 +8,7 @@ pub fn usize_validator(input: &str) -> Result<(), String> {
 }
 
 /// Split arguments to get Name, Group and Definition
-pub fn split_argument<S>(value: S) -> (String, String, Vec<String>, String)
+pub fn split_argument<S>(value: S) -> (String, Vec<String>, Vec<String>, String)
 where
     S: ToString,
 {
@@ -52,5 +52,10 @@ where
         _ => unreachable!(),
     };
 
-    (name, group, options, definition)
+    (
+        name,
+        group.split(',').map(String::from).collect(),
+        options,
+        definition,
+    )
 }

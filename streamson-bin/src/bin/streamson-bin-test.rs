@@ -203,6 +203,36 @@ fn trigger(cmd_str: &str) {
         );
 
     println!("OK");
+
+    print!("TRIGGER CSV");
+    Command::new(cmd_str)
+        .arg("-b")
+        .arg("10")
+        .arg("trigger")
+        .arg("-m")
+        .arg(r#"simple.1:{"users"}[]{"name"}"#)
+        .arg(r#"simple.2:{"users"}[]{"id"}"#)
+        .arg("-h")
+        .arg("csv:1-name,2-id")
+        .write_stdin(INPUT_DATA)
+        .assert()
+        .success()
+        .stdout(
+            r#"{
+    "users": [{"name": "carl", "id": 1}, {"name": "paul", "id": 2}],
+    "groups": [{"name": "admin", "gid": 1}, {"name": "staff", "gid": 2}],
+    "logs": ["null", "{}", "[]"]
+}"#,
+        )
+        .stderr(
+            r#"[{"name": "carl", "id": 1}, {"name": "paul", "id": 2}]
+"null"
+"{}"
+"[]"
+"#,
+        );
+
+    println!("OK");
 }
 
 fn all(cmd_str: &str) {
