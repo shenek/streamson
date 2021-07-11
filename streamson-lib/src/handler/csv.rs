@@ -1,7 +1,7 @@
 //! Handler which aggregates matched data
 //! and exports it in CSV format
 
-use std::{any::Any, collections::HashMap, io, mem, num::ParseIntError, str::FromStr};
+use std::{any::Any, collections::HashMap, mem, num::ParseIntError, str::FromStr};
 
 use super::{Handler, HandlerOutput};
 use crate::{
@@ -11,14 +11,11 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub struct Csv<W>
-where
-    W: io::Write,
-{
-    /// writable output
-    output: W,
+pub struct Csv {
     /// Map matcher idx to header name
     header: Vec<(usize, String)>,
+    /// Write header to output
+    write_header: bool,
     /// Currently processed record
     current: HashMap<usize, String>,
     /// Matcher indexes which should be used
@@ -43,27 +40,21 @@ fn stringify(input: String) -> String {
     output
 }
 
-impl<W> Csv<W>
-where
-    W: io::Write,
-{
-    pub fn new(header: Vec<(usize, Option<String>)>, write_header: bool, output: W) -> Self {
-        // TODO write header
-        let mut header = header
+impl Csv {
+    pub fn new(header: Vec<(usize, Option<String>)>, write_header: bool) -> Self {
+        let header = header
             .into_iter()
-            .map(|(size, name)| (size, name.unwrap_or_else(|| size.to_string())))
+            .map(|(matcher_idx, name)| {
+                (matcher_idx, name.unwrap_or_else(|| matcher_idx.to_string()))
+            })
             .collect::<Vec<(usize, String)>>();
-
-        if write_header {
-            // TODO perhaps it could be written in start?
-        }
 
         let matcher_indexes = header.iter().map(|e| e.0).collect();
         Self {
             current: HashMap::new(),
             header,
+            write_header,
             matcher_indexes,
-            output,
             matched_path: None,
             buffer: vec![],
             has_data: false,
@@ -84,7 +75,7 @@ where
     }
 }
 
-impl FromStr for Csv<io::Stdout> {
+impl FromStr for Csv {
     type Err = error::Handler;
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let splitted_indexes: Vec<_> = input.split(',').collect();
@@ -106,52 +97,59 @@ impl FromStr for Csv<io::Stdout> {
                 error::Handler::new(format!("Failed to parse matcher number: {}", e))
             })?;
 
-        Ok(Self::new(parsed_indexes, io::stdout()))
+        Ok(Self::new(parsed_indexes, true))
     }
 }
 
-impl<W> Handler for Csv<W>
-where
-    W: io::Write + Send + 'static,
-{
-    fn start(
-        &mut self,
-        path: &Path,
-        _matcher_idx: usize,
-        token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+impl Handler for Csv {
+    fn start(&mut self, path: &Path, _matcher_idx: usize, token: Token) -> HandlerOutput {
         if self.matched_path.is_some() {
             return Ok(None); // only one match at a time
         }
+
+        let mut output: Option<Vec<u8>> = None;
+
+        // make sure header is written
+        if self.write_header {
+            self.write_header = false;
+
+            let header = self
+                .header
+                .iter()
+                .map(|e| stringify(e.1.to_string()))
+                .collect::<Vec<String>>();
+
+            output = Some(
+                header
+                    .join(",")
+                    .as_bytes()
+                    .iter()
+                    .copied()
+                    .collect::<Vec<u8>>(),
+            );
+        }
+
         if let Token::Start(_, kind) = token {
             match kind {
                 ParsedKind::Obj | ParsedKind::Arr => return Ok(None), // skip structured
                 _ => (),
             }
             self.matched_path = Some(path.clone());
-            Ok(None)
+            dbg!(&output);
+            Ok(output)
         } else {
             unreachable!();
         }
     }
 
-    fn feed(
-        &mut self,
-        data: &[u8],
-        _matcher_idx: usize,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn feed(&mut self, data: &[u8], _matcher_idx: usize) -> HandlerOutput {
         if self.matched_path.is_some() {
             self.buffer.extend(data);
         }
         Ok(None)
     }
 
-    fn end(
-        &mut self,
-        path: &Path,
-        matcher_idx: usize,
-        token: Token,
-    ) -> Result<Option<Vec<u8>>, error::Handler> {
+    fn end(&mut self, path: &Path, matcher_idx: usize, token: Token) -> HandlerOutput {
         if let Some(matched_path) = self.matched_path.take() {
             if &matched_path == path {
                 if let Token::End(_, kind) = token {
@@ -177,6 +175,7 @@ where
     fn json_finished(&mut self) -> HandlerOutput {
         // Make sure that output is exported only once
         // In case that handler is shared among several matchers
+        let mut output: Option<Vec<u8>> = None;
         if self.has_data {
             let indexes = self.matcher_indexes.clone();
             let record = indexes
@@ -190,15 +189,17 @@ where
                 })
                 .collect::<Vec<_>>();
 
-            self.output
-                .write(record.join(",").as_bytes())
-                .map_err(|e| error::Handler::new(e.to_string()))?;
-
+            output = Some(record.join(",").as_bytes().iter().copied().collect());
             // make sure that hashmap is cleared
             self.current.clear();
             self.has_data = false;
         }
-        Ok(None)
+        dbg!(&output);
+        Ok(output)
+    }
+
+    fn is_converter(&self) -> bool {
+        true
     }
 }
 
@@ -206,6 +207,7 @@ where
 mod tests {
     use super::Csv;
     use crate::{
+        handler::{Group, Output},
         matcher::Simple,
         strategy::{Strategy, Trigger},
     };
@@ -220,6 +222,7 @@ mod tests {
 
     impl io::Write for Buffer {
         fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+            dbg!(buf);
             self.data.lock().unwrap().push(buf.to_vec());
             Ok(buf.len())
         }
@@ -233,15 +236,19 @@ mod tests {
         let data = Arc::new(Mutex::new(vec![]));
         let buffer = Buffer { data: data.clone() };
         let mut trigger = Trigger::new();
-        let handler = Arc::new(Mutex::new(Csv::<Buffer>::new(
+        let handler1 = Arc::new(Mutex::new(Csv::new(
             vec![
                 (0, Some("name".into())),
                 (1, Some("street".into())),
                 (2, None),
                 (3, Some("Opt".into())),
             ],
-            buffer,
+            true,
         )));
+        let handler2 = Arc::new(Mutex::new(Output::new(buffer)));
+        let handler = Arc::new(Mutex::new(
+            Group::new().add_handler(handler1).add_handler(handler2),
+        ));
 
         trigger.add_matcher(
             Box::new(Simple::new(r#"{"name"}"#).unwrap()),
@@ -274,10 +281,16 @@ mod tests {
             .is_ok());
 
         let guard = data.lock().unwrap();
-        assert_eq!(guard.len(), 4);
-        assert_eq!(guard[0], br#""name","street","1",Opt"#,);
-        assert_eq!(guard[1], br#""user1","s1","21","#,);
-        assert_eq!(guard[2], br#""user2","s2","22","#,);
-        assert_eq!(guard[3], br#""user3","s3","23","#,);
+        assert_eq!(
+            String::from_utf8(guard.iter().fold(vec![], |mut acc: Vec<u8>, x| {
+                acc.extend(x);
+                acc
+            }))
+            .unwrap(),
+            r#""name","street","2","Opt"
+"user1","s1","21",
+"user2","s2","22",
+"user3","s3","23","#
+        );
     }
 }

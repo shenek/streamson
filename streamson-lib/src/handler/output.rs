@@ -19,6 +19,9 @@ where
     /// String which will be appended to the end of each record
     /// to separate it with the next record (default '\n')
     separator: String,
+
+    /// Data written indicator
+    data_written: bool,
 }
 
 impl FromStr for Output<fs::File> {
@@ -43,6 +46,7 @@ where
         Self {
             output,
             write_path: false,
+            data_written: false,
             separator: "\n".into(),
         }
     }
@@ -98,6 +102,7 @@ where
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         if self.write_path {
+            self.data_written = true;
             self.output
                 .write(format!("{}: ", path).as_bytes())
                 .map_err(|err| error::Handler::new(err.to_string()))?;
@@ -113,6 +118,7 @@ where
         self.output
             .write(data)
             .map_err(|err| error::Handler::new(err.to_string()))?;
+        self.data_written = true;
         Ok(None)
     }
 
@@ -123,9 +129,12 @@ where
         _token: Token,
     ) -> Result<Option<Vec<u8>>, error::Handler> {
         let separator = self.separator.to_string();
-        self.output
-            .write(separator.as_bytes())
-            .map_err(|err| error::Handler::new(err.to_string()))?;
+        if self.data_written {
+            self.output
+                .write(separator.as_bytes())
+                .map_err(|err| error::Handler::new(err.to_string()))?;
+            self.data_written = false;
+        }
         Ok(None)
     }
 

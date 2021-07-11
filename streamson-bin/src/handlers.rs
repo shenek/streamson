@@ -1,7 +1,7 @@
 use clap::{Arg, ArgMatches};
 use std::{
     collections::HashMap,
-    fs, io,
+    fs,
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -105,7 +105,7 @@ pub fn make_handler(
             Arc::new(Mutex::new(analyser))
         }
         "csv" => {
-            let csv = handler::Csv::<io::Stdout>::from_str(handler_string)?;
+            let csv = handler::Csv::from_str(handler_string)?;
             Arc::new(Mutex::new(csv))
         }
         "file" => {
